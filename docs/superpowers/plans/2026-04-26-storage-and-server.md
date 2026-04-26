@@ -108,7 +108,6 @@ Expected: `v22.x` or higher. If lower, ask the user to install Node 22+ before p
     "resolveJsonModule": true,
     "allowImportingTsExtensions": false,
     "verbatimModuleSyntax": true,
-    "isolatedModules": true,
     "types": ["node"]
   },
   "include": ["src/**/*", "tests/**/*"]
@@ -123,7 +122,7 @@ Expected: `v22.x` or higher. If lower, ask the user to install Node 22+ before p
   "compilerOptions": {
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "outDir": "dist/server",
+    "outDir": "dist",
     "rootDir": "src",
     "declaration": false,
     "noEmit": false,
@@ -140,7 +139,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['tests/**/*.test.js'],
+    include: ['tests/**/*.test.ts'],
     testTimeout: 10000,
     pool: 'forks',
   },
@@ -154,6 +153,9 @@ node_modules/
 dist/
 coverage/
 *.log
+*.tsbuildinfo
+.env
+.env.*.local
 .DS_Store
 .meeseeks/
 ```
