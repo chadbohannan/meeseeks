@@ -28,16 +28,20 @@ export async function createBoard(boardPath: string, name: string): Promise<void
   await mkdir(path.join(boardPath, 'lanes'), { recursive: true });
   await writeFile(path.join(boardPath, 'CLAUDE.md'), DEFAULT_CLAUDE_MD(name), 'utf8');
   await writeFile(path.join(boardPath, 'board.yaml'), DEFAULT_BOARD_YAML(name), 'utf8');
+  await writeFile(path.join(boardPath, '.gitignore'), '.meeseeks/\n', 'utf8');
 }
 
-export async function readBoardDetail(boardPath: string): Promise<BoardDetail> {
+export async function readBoardDetail(
+  boardPath: string,
+  identity: { boardId: string; name: string },
+): Promise<BoardDetail> {
   if (!(await exists(boardPath))) {
     throw new NotFoundError(`board not found: ${boardPath}`);
   }
   const lanes = await listLanes(boardPath);
   return {
-    boardId: path.basename(boardPath),
-    name: path.basename(boardPath),
+    boardId: identity.boardId,
+    name: identity.name,
     path: boardPath,
     available: true,
     lanes,

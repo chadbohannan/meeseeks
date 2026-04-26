@@ -41,7 +41,7 @@ describe('readBoardDetail', () => {
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/b');
     await createBoard(boardPath, 'B');
-    const detail = await readBoardDetail(boardPath);
+    const detail = await readBoardDetail(boardPath, { boardId: 'b', name: 'B' });
     expect(detail.lanes).toEqual([]);
   });
 });

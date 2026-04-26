@@ -34,20 +34,24 @@ export async function registerBoardRoutes(
   app.get<{ Params: { boardId: string } }>('/api/boards/:boardId', async (req) => {
     const open = state.require();
     const board = await getBoard(open.meta.path, req.params.boardId);
-    const detail = await readBoardDetail(board.path);
-    detail.boardId = board.boardId;
-    detail.name = board.name;
-    return { board: detail };
+    return { board: await readBoardDetail(board.path, { boardId: board.boardId, name: board.name }) };
   });
 
   app.patch<{ Params: { boardId: string }; Body: { name?: string } }>('/api/boards/:boardId', async (req) => {
     const open = state.require();
     const board = await getBoard(open.meta.path, req.params.boardId);
     if (req.body?.name) {
-      const newEntry = `boards/${slugifyBoardPath(req.body.name)}`;
       const meta = await readProject(open.meta.path);
       const oldEntry = meta.config.boards.find(b => slugifyBoardPath(b) === board.boardId);
-      if (oldEntry) await renameBoard(open.meta.path, oldEntry, newEntry);
+      if (oldEntry) {
+        // Preserve the parent directory of the original entry so non-default
+        // board locations (e.g. `custom/path/foo`) keep their parent.
+        const parentDir = path.dirname(oldEntry);
+        const newEntry = parentDir === '.' ? slugifyBoardPath(req.body.name) : `${parentDir}/${slugifyBoardPath(req.body.name)}`;
+        if (newEntry !== oldEntry) {
+          await renameBoard(open.meta.path, oldEntry, newEntry);
+        }
+      }
     }
     hub.broadcast({ type: 'board-changed', payload: { boardId: board.boardId, kind: 'updated' } });
     return { ok: true };

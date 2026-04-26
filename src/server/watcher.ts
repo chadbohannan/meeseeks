@@ -44,9 +44,12 @@ export function startWatcher(meta: ProjectMeta, hub: WsHub): WatcherHandle {
     const parts = rel.split(path.sep);
     const lanesIdx = parts.indexOf('lanes');
     if (lanesIdx === -1) {
-      // board-level change (e.g. board.yaml)
+      // Skip top-level project files (e.g. project.meeseeks itself).
+      // Board-level changes need at least <boardEntry>/<file>.
+      if (parts.length < 2) return;
       const boardEntry = parts.slice(0, parts.length - 1).join('/');
       const boardId = slugifyBoardPath(boardEntry);
+      if (!boardId) return;
       emit(`board:${boardId}`, { type: 'board-changed', payload: { boardId, kind: 'updated' } });
       return;
     }
