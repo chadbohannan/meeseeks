@@ -1,0 +1,76 @@
+import { describe, it, expect, afterEach } from 'vitest';
+import { bootTestServer } from '../helpers/server.js';
+import { makeBareProject } from '../helpers/tmp-project.js';
+
+let cleanups: Array<() => Promise<void>> = [];
+afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
+
+async function setup() {
+  const srv = await bootTestServer();
+  cleanups.push(srv.cleanup);
+  const tp = await makeBareProject();
+  cleanups.push(tp.cleanup);
+  await fetch(`${srv.url}/api/projects/open`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ path: tp.root }),
+  });
+  return { srv, tp };
+}
+
+describe('board routes', () => {
+  it('creates and lists boards', async () => {
+    const { srv } = await setup();
+    const create = await fetch(`${srv.url}/api/boards`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'B' }),
+    });
+    expect(create.status).toBe(200);
+    const list = await fetch(`${srv.url}/api/boards`).then(r => r.json()) as { boards: Array<{ name: string }> };
+    expect(list.boards).toHaveLength(1);
+  });
+
+  it('reads board detail with empty lanes', async () => {
+    const { srv } = await setup();
+    const created = await (await fetch(`${srv.url}/api/boards`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'B' }),
+    })).json() as { board: { boardId: string } };
+    const detail = await fetch(`${srv.url}/api/boards/${created.board.boardId}`).then(r => r.json()) as { board: { lanes: unknown[] } };
+    expect(detail.board.lanes).toEqual([]);
+  });
+
+  it('renames a board', async () => {
+    const { srv } = await setup();
+    const created = await (await fetch(`${srv.url}/api/boards`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Old' }),
+    })).json() as { board: { boardId: string } };
+    const r = await fetch(`${srv.url}/api/boards/${created.board.boardId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'new-name' }),
+    });
+    expect(r.status).toBe(200);
+  });
+
+  it('deletes a board (config-only)', async () => {
+    const { srv } = await setup();
+    const created = await (await fetch(`${srv.url}/api/boards`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'B' }),
+    })).json() as { board: { boardId: string } };
+    const r = await fetch(`${srv.url}/api/boards/${created.board.boardId}`, {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ deleteFiles: false }),
+    });
+    expect(r.status).toBe(200);
+    const list = await fetch(`${srv.url}/api/boards`).then(r => r.json()) as { boards: unknown[] };
+    expect(list.boards).toEqual([]);
+  });
+});

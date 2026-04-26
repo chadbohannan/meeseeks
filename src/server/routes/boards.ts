@@ -1,4 +1,66 @@
 import type { FastifyInstance } from 'fastify';
+import path from 'node:path';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
-export async function registerBoardRoutes(_app: FastifyInstance, _d: { state: ServerState; hub: WsHub }) {}
+import { listBoards, addBoardToProject, removeBoardFromProject, getBoard, readProject } from '../../storage/project.js';
+import { createBoard, readBoardDetail, renameBoard, deleteBoardFolder } from '../../storage/board.js';
+import { InvalidInputError } from '../../storage/errors.js';
+import { slugifyBoardPath } from '../../storage/paths.js';
+
+export async function registerBoardRoutes(
+  app: FastifyInstance,
+  deps: { state: ServerState; hub: WsHub },
+): Promise<void> {
+  const { state, hub } = deps;
+
+  app.get('/api/boards', async () => {
+    const open = state.require();
+    return { boards: await listBoards(open.meta.path) };
+  });
+
+  app.post<{ Body: { name: string; path?: string } }>('/api/boards', async (req) => {
+    const open = state.require();
+    const body = req.body ?? {} as { name?: string; path?: string };
+    if (!body.name) throw new InvalidInputError('name required');
+    const entry = body.path ?? `boards/${slugifyBoardPath(body.name)}`;
+    const abs = path.isAbsolute(entry) ? entry : path.resolve(open.meta.path, entry);
+    await createBoard(abs, body.name);
+    await addBoardToProject(open.meta.path, entry);
+    const board = await getBoard(open.meta.path, slugifyBoardPath(entry));
+    hub.broadcast({ type: 'board-changed', payload: { boardId: board.boardId, kind: 'created' } });
+    return { board };
+  });
+
+  app.get<{ Params: { boardId: string } }>('/api/boards/:boardId', async (req) => {
+    const open = state.require();
+    const board = await getBoard(open.meta.path, req.params.boardId);
+    const detail = await readBoardDetail(board.path);
+    detail.boardId = board.boardId;
+    detail.name = board.name;
+    return { board: detail };
+  });
+
+  app.patch<{ Params: { boardId: string }; Body: { name?: string } }>('/api/boards/:boardId', async (req) => {
+    const open = state.require();
+    const board = await getBoard(open.meta.path, req.params.boardId);
+    if (req.body?.name) {
+      const newEntry = `boards/${slugifyBoardPath(req.body.name)}`;
+      const meta = await readProject(open.meta.path);
+      const oldEntry = meta.config.boards.find(b => slugifyBoardPath(b) === board.boardId);
+      if (oldEntry) await renameBoard(open.meta.path, oldEntry, newEntry);
+    }
+    hub.broadcast({ type: 'board-changed', payload: { boardId: board.boardId, kind: 'updated' } });
+    return { ok: true };
+  });
+
+  app.delete<{ Params: { boardId: string }; Body: { deleteFiles?: boolean } }>('/api/boards/:boardId', async (req) => {
+    const open = state.require();
+    const board = await getBoard(open.meta.path, req.params.boardId);
+    const meta = await readProject(open.meta.path);
+    const entry = meta.config.boards.find(b => slugifyBoardPath(b) === board.boardId);
+    if (entry) await removeBoardFromProject(open.meta.path, entry);
+    if (req.body?.deleteFiles) await deleteBoardFolder(board.path);
+    hub.broadcast({ type: 'board-changed', payload: { boardId: board.boardId, kind: 'deleted' } });
+    return { ok: true };
+  });
+}
