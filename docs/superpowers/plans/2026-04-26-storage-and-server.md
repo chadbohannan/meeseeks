@@ -140,7 +140,7 @@ import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   test: {
-    include: ['tests/**/*.test.ts'],
+    include: ['tests/**/*.test.js'],
     testTimeout: 10000,
     pool: 'forks',
   },
@@ -280,7 +280,7 @@ import {
   InvalidInputError,
   PathSafetyError,
   InvalidLaneError,
-} from '../../src/storage/errors.ts';
+} from '../../src/storage/errors.js';
 
 describe('storage errors', () => {
   it('NotFoundError has code NOT_FOUND', () => {
@@ -390,8 +390,8 @@ git commit -m "Add typed storage errors"
 // tests/storage/paths.test.ts
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
-import { resolveWithin, slugifyBoardPath } from '../../src/storage/paths.ts';
-import { PathSafetyError } from '../../src/storage/errors.ts';
+import { resolveWithin, slugifyBoardPath } from '../../src/storage/paths.js';
+import { PathSafetyError } from '../../src/storage/errors.js';
 
 describe('resolveWithin', () => {
   const root = path.resolve('/tmp/meeseeks-test');
@@ -438,7 +438,7 @@ Expected: FAIL — module not found.
 
 ```ts
 import path from 'node:path';
-import { PathSafetyError } from './errors.ts';
+import { PathSafetyError } from './errors.js';
 
 /** Resolve `child` against `root` and guarantee the result stays inside `root`. */
 export function resolveWithin(root: string, child: string): string {
@@ -575,9 +575,9 @@ git commit -m "Add tmp-project test helper"
 import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
-import { readProject, createProject, listBoards, addBoardToProject } from '../../src/storage/project.ts';
-import { NotFoundError, ConflictError } from '../../src/storage/errors.ts';
-import { makeTmpProject, makeBareProject } from '../helpers/tmp-project.ts';
+import { readProject, createProject, listBoards, addBoardToProject } from '../../src/storage/project.js';
+import { NotFoundError, ConflictError } from '../../src/storage/errors.js';
+import { makeTmpProject, makeBareProject } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -658,9 +658,9 @@ Expected: FAIL — module not found.
 import { readFile, writeFile, access, stat } from 'node:fs/promises';
 import path from 'node:path';
 import yaml from 'js-yaml';
-import { NotFoundError, ConflictError, InvalidInputError } from './errors.ts';
-import { resolveWithin, slugifyBoardPath } from './paths.ts';
-import type { ProjectConfig, ProjectMeta, BoardSummary } from '../shared/types.ts';
+import { NotFoundError, ConflictError, InvalidInputError } from './errors.js';
+import { resolveWithin, slugifyBoardPath } from './paths.js';
+import type { ProjectConfig, ProjectMeta, BoardSummary } from '../shared/types.js';
 
 const PROJECT_FILE = 'project.meeseeks';
 
@@ -783,10 +783,10 @@ A "Board" on disk is a folder containing optional `CLAUDE.md`, `board.yaml`, and
 import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
 import { readFile, access } from 'node:fs/promises';
-import { createBoard, renameBoard, deleteBoardFolder, readBoardDetail } from '../../src/storage/board.ts';
-import { addBoardToProject, listBoards } from '../../src/storage/project.ts';
-import { ConflictError, NotFoundError } from '../../src/storage/errors.ts';
-import { makeBareProject } from '../helpers/tmp-project.ts';
+import { createBoard, renameBoard, deleteBoardFolder, readBoardDetail } from '../../src/storage/board.js';
+import { addBoardToProject, listBoards } from '../../src/storage/project.js';
+import { ConflictError, NotFoundError } from '../../src/storage/errors.js';
+import { makeBareProject } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -876,10 +876,10 @@ Expected: FAIL — module not found.
 import { mkdir, rename, rm, writeFile, readdir, stat, access } from 'node:fs/promises';
 import path from 'node:path';
 import yaml from 'js-yaml';
-import { ConflictError, NotFoundError, InvalidInputError } from './errors.ts';
-import { listBoards, readProject, writeProject } from './project.ts';
-import { listLanes } from './lane.ts';
-import type { BoardDetail } from '../shared/types.ts';
+import { ConflictError, NotFoundError, InvalidInputError } from './errors.js';
+import { listBoards, readProject, writeProject } from './project.js';
+import { listLanes } from './lane.js';
+import type { BoardDetail } from '../shared/types.js';
 
 const DEFAULT_BOARD_YAML = (name: string) => yaml.dump({
   runtime: {
@@ -948,7 +948,7 @@ Create a minimal stub now; full implementation in Task 8.
 
 ```ts
 // src/storage/lane.ts (stub)
-import type { LaneSummary } from '../shared/types.ts';
+import type { LaneSummary } from '../shared/types.js';
 export async function listLanes(_boardPath: string): Promise<LaneSummary[]> {
   return [];
 }
@@ -983,10 +983,10 @@ import path from 'node:path';
 import { readFile, access } from 'node:fs/promises';
 import {
   createLane, listLanes, readLaneDetail, renameLane, updateLaneStates, deleteLaneFolder,
-} from '../../src/storage/lane.ts';
-import { createBoard } from '../../src/storage/board.ts';
-import { ConflictError, NotFoundError, InvalidLaneError } from '../../src/storage/errors.ts';
-import { makeBareProject, writeYaml } from '../helpers/tmp-project.ts';
+} from '../../src/storage/lane.js';
+import { createBoard } from '../../src/storage/board.js';
+import { ConflictError, NotFoundError, InvalidLaneError } from '../../src/storage/errors.js';
+import { makeBareProject, writeYaml } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -1110,9 +1110,9 @@ Expected: FAIL — most exports missing.
 import { mkdir, readFile, writeFile, readdir, rename, rm, access } from 'node:fs/promises';
 import path from 'node:path';
 import yaml from 'js-yaml';
-import { ConflictError, NotFoundError, InvalidInputError, InvalidLaneError } from './errors.ts';
-import { resolveWithin } from './paths.ts';
-import type { LaneSummary, LaneDetail, LaneState } from '../shared/types.ts';
+import { ConflictError, NotFoundError, InvalidInputError, InvalidLaneError } from './errors.js';
+import { resolveWithin } from './paths.js';
+import type { LaneSummary, LaneDetail, LaneState } from '../shared/types.js';
 
 const LANE_YAML = 'lane.yaml';
 const PROCESS_MD = 'PROCESS.md';
@@ -1317,11 +1317,11 @@ import path from 'node:path';
 import { readFile, access } from 'node:fs/promises';
 import {
   createTicket, listTickets, readTicket, updateTicket, deleteTicket,
-} from '../../src/storage/ticket.ts';
-import { createBoard } from '../../src/storage/board.ts';
-import { createLane } from '../../src/storage/lane.ts';
-import { NotFoundError, InvalidInputError } from '../../src/storage/errors.ts';
-import { makeBareProject } from '../helpers/tmp-project.ts';
+} from '../../src/storage/ticket.js';
+import { createBoard } from '../../src/storage/board.js';
+import { createLane } from '../../src/storage/lane.js';
+import { NotFoundError, InvalidInputError } from '../../src/storage/errors.js';
+import { makeBareProject } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -1429,9 +1429,9 @@ import { readFile, writeFile, rename, unlink, readdir, access, mkdir } from 'nod
 import path from 'node:path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
-import { NotFoundError, InvalidInputError, ConflictError } from './errors.ts';
-import { buildTicketFilename, appendCollisionSuffix, randomSuffix, resolveWithin } from './paths.ts';
-import type { TicketSummary, TicketDetail, LaneState } from '../shared/types.ts';
+import { NotFoundError, InvalidInputError, ConflictError } from './errors.js';
+import { buildTicketFilename, appendCollisionSuffix, randomSuffix, resolveWithin } from './paths.js';
+import type { TicketSummary, TicketDetail, LaneState } from '../shared/types.js';
 
 async function exists(p: string): Promise<boolean> {
   try { await access(p); return true; } catch { return false; }
@@ -1645,7 +1645,7 @@ git commit -m "Implement ticket CRUD with frontmatter and state-folder moves"
 - [ ] **Step 1: Create `src/shared/api.ts`**
 
 ```ts
-import type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, TicketSummary, TicketDetail, RecentEntry } from './types.ts';
+import type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, TicketSummary, TicketDetail, RecentEntry } from './types.js';
 
 // Projects
 export interface OpenProjectRequest { path: string }
@@ -1679,7 +1679,7 @@ export type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, TicketSummary,
 - [ ] **Step 2: Create `src/shared/events.ts`**
 
 ```ts
-import type { ProjectMeta, BoardSummary } from './types.ts';
+import type { ProjectMeta, BoardSummary } from './types.js';
 
 export type ChangeKind = 'created' | 'updated' | 'deleted';
 
@@ -1719,7 +1719,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { AppConfig } from '../../src/server/app-config.ts';
+import { AppConfig } from '../../src/server/app-config.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -1782,7 +1782,7 @@ Expected: FAIL — module not found.
 import { readFile, writeFile, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
 import os from 'node:os';
-import type { RecentEntry } from '../shared/types.ts';
+import type { RecentEntry } from '../shared/types.js';
 
 export function defaultRecentsPath(): string {
   const xdg = process.env.XDG_CONFIG_HOME;
@@ -1865,8 +1865,8 @@ These are small, used by routes. No dedicated tests; covered by route tests.
 - [ ] **Step 1: Implement `src/server/state.ts`**
 
 ```ts
-import type { ProjectMeta } from '../shared/types.ts';
-import { ProjectNotOpenError } from '../storage/errors.ts';
+import type { ProjectMeta } from '../shared/types.js';
+import { ProjectNotOpenError } from '../storage/errors.js';
 
 export interface OpenProjectState {
   meta: ProjectMeta;
@@ -1901,7 +1901,7 @@ export class ServerState {
 - [ ] **Step 2: Implement `src/server/error-mapper.ts`**
 
 ```ts
-import { StorageError } from '../storage/errors.ts';
+import { StorageError } from '../storage/errors.js';
 import type { FastifyError, FastifyReply, FastifyRequest } from 'fastify';
 
 const STATUS: Record<string, number> = {
@@ -1952,9 +1952,9 @@ git commit -m "Add server state container and error mapper"
 ```ts
 import type { FastifyInstance } from 'fastify';
 import type { WebSocket } from 'ws';
-import type { WsEvent } from '../shared/events.ts';
-import type { ServerState } from './state.ts';
-import { listBoards } from '../storage/project.ts';
+import type { WsEvent } from '../shared/events.js';
+import type { ServerState } from './state.js';
+import { listBoards } from '../storage/project.js';
 
 export class WsHub {
   private clients = new Set<WebSocket>();
@@ -2023,10 +2023,10 @@ The watcher translates raw chokidar events into semantic events with a 50ms debo
 ```ts
 import chokidar from 'chokidar';
 import path from 'node:path';
-import type { ProjectMeta } from '../shared/types.ts';
-import type { ChangeKind, WsEvent } from '../shared/events.ts';
-import type { WsHub } from './ws.ts';
-import { slugifyBoardPath } from '../storage/paths.ts';
+import type { ProjectMeta } from '../shared/types.js';
+import type { ChangeKind, WsEvent } from '../shared/events.js';
+import type { WsHub } from './ws.js';
+import { slugifyBoardPath } from '../storage/paths.js';
 
 export interface WatcherHandle {
   cleanup(): Promise<void>;
@@ -2154,14 +2154,14 @@ git commit -m "Add filesystem watcher with debounced semantic events"
 // tests/helpers/server.ts
 import Fastify, { type FastifyInstance } from 'fastify';
 import websocket from '@fastify/websocket';
-import { ServerState } from '../../src/server/state.ts';
-import { WsHub, registerWs } from '../../src/server/ws.ts';
-import { mapErrorToResponse } from '../../src/server/error-mapper.ts';
-import { registerProjectRoutes } from '../../src/server/routes/projects.ts';
-import { registerBoardRoutes } from '../../src/server/routes/boards.ts';
-import { registerLaneRoutes } from '../../src/server/routes/lanes.ts';
-import { registerTicketRoutes } from '../../src/server/routes/tickets.ts';
-import { AppConfig } from '../../src/server/app-config.ts';
+import { ServerState } from '../../src/server/state.js';
+import { WsHub, registerWs } from '../../src/server/ws.js';
+import { mapErrorToResponse } from '../../src/server/error-mapper.js';
+import { registerProjectRoutes } from '../../src/server/routes/projects.js';
+import { registerBoardRoutes } from '../../src/server/routes/boards.js';
+import { registerLaneRoutes } from '../../src/server/routes/lanes.js';
+import { registerTicketRoutes } from '../../src/server/routes/tickets.js';
+import { AppConfig } from '../../src/server/app-config.js';
 import path from 'node:path';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -2209,8 +2209,8 @@ export async function bootTestServer(): Promise<TestServer> {
 ```ts
 // tests/server/projects.test.ts
 import { describe, it, expect, afterEach } from 'vitest';
-import { bootTestServer } from '../helpers/server.ts';
-import { makeBareProject } from '../helpers/tmp-project.ts';
+import { bootTestServer } from '../helpers/server.js';
+import { makeBareProject } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -2270,7 +2270,7 @@ describe('project routes', () => {
   it('creates a new project', async () => {
     const srv = await bootTestServer();
     cleanups.push(srv.cleanup);
-    const tp = await (await import('../helpers/tmp-project.ts')).makeTmpProject();
+    const tp = await (await import('../helpers/tmp-project.js')).makeTmpProject();
     cleanups.push(tp.cleanup);
     const r = await fetch(`${srv.url}/api/projects/create`, {
       method: 'POST',
@@ -2291,12 +2291,12 @@ Expected: FAIL — modules not found.
 
 ```ts
 import type { FastifyInstance } from 'fastify';
-import type { ServerState } from '../state.ts';
-import type { WsHub } from '../ws.ts';
-import type { AppConfig } from '../app-config.ts';
-import { readProject, createProject, listBoards } from '../../storage/project.ts';
-import { ProjectNotOpenError } from '../../storage/errors.ts';
-import { startWatcher } from '../watcher.ts';
+import type { ServerState } from '../state.js';
+import type { WsHub } from '../ws.js';
+import type { AppConfig } from '../app-config.js';
+import { readProject, createProject, listBoards } from '../../storage/project.js';
+import { ProjectNotOpenError } from '../../storage/errors.js';
+import { startWatcher } from '../watcher.js';
 
 interface Deps { state: ServerState; hub: WsHub; appConfig: AppConfig }
 
@@ -2353,24 +2353,24 @@ Create temporary stubs for `boards.ts`, `lanes.ts`, `tickets.ts` — full implem
 ```ts
 // src/server/routes/boards.ts
 import type { FastifyInstance } from 'fastify';
-import type { ServerState } from '../state.ts';
-import type { WsHub } from '../ws.ts';
+import type { ServerState } from '../state.js';
+import type { WsHub } from '../ws.js';
 export async function registerBoardRoutes(_app: FastifyInstance, _d: { state: ServerState; hub: WsHub }) {}
 ```
 
 ```ts
 // src/server/routes/lanes.ts
 import type { FastifyInstance } from 'fastify';
-import type { ServerState } from '../state.ts';
-import type { WsHub } from '../ws.ts';
+import type { ServerState } from '../state.js';
+import type { WsHub } from '../ws.js';
 export async function registerLaneRoutes(_app: FastifyInstance, _d: { state: ServerState; hub: WsHub }) {}
 ```
 
 ```ts
 // src/server/routes/tickets.ts
 import type { FastifyInstance } from 'fastify';
-import type { ServerState } from '../state.ts';
-import type { WsHub } from '../ws.ts';
+import type { ServerState } from '../state.js';
+import type { WsHub } from '../ws.js';
 export async function registerTicketRoutes(_app: FastifyInstance, _d: { state: ServerState; hub: WsHub }) {}
 ```
 
@@ -2400,8 +2400,8 @@ git commit -m "Add project routes and server test harness"
 // tests/server/boards.test.ts
 import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
-import { bootTestServer } from '../helpers/server.ts';
-import { makeBareProject } from '../helpers/tmp-project.ts';
+import { bootTestServer } from '../helpers/server.js';
+import { makeBareProject } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -2487,12 +2487,12 @@ Expected: FAIL — routes return 404 (stub).
 ```ts
 import type { FastifyInstance } from 'fastify';
 import path from 'node:path';
-import type { ServerState } from '../state.ts';
-import type { WsHub } from '../ws.ts';
-import { listBoards, addBoardToProject, removeBoardFromProject, getBoard } from '../../storage/project.ts';
-import { createBoard, readBoardDetail, renameBoard, deleteBoardFolder } from '../../storage/board.ts';
-import { InvalidInputError } from '../../storage/errors.ts';
-import { slugifyBoardPath } from '../../storage/paths.ts';
+import type { ServerState } from '../state.js';
+import type { WsHub } from '../ws.js';
+import { listBoards, addBoardToProject, removeBoardFromProject, getBoard } from '../../storage/project.js';
+import { createBoard, readBoardDetail, renameBoard, deleteBoardFolder } from '../../storage/board.js';
+import { InvalidInputError } from '../../storage/errors.js';
+import { slugifyBoardPath } from '../../storage/paths.js';
 
 export async function registerBoardRoutes(
   app: FastifyInstance,
@@ -2533,7 +2533,7 @@ export async function registerBoardRoutes(
     if (req.body?.name) {
       const open2 = state.require();
       const newEntry = `boards/${slugifyBoardPath(req.body.name)}`;
-      const meta = await (await import('../../storage/project.ts')).readProject(open2.meta.path);
+      const meta = await (await import('../../storage/project.js')).readProject(open2.meta.path);
       const oldEntry = meta.config.boards.find(b => slugifyBoardPath(b) === board.boardId);
       if (oldEntry) await renameBoard(open2.meta.path, oldEntry, newEntry);
     }
@@ -2544,7 +2544,7 @@ export async function registerBoardRoutes(
   app.delete<{ Params: { boardId: string }; Body: { deleteFiles?: boolean } }>('/api/boards/:boardId', async (req) => {
     const open = state.require();
     const board = await getBoard(open.meta.path, req.params.boardId);
-    const meta = await (await import('../../storage/project.ts')).readProject(open.meta.path);
+    const meta = await (await import('../../storage/project.js')).readProject(open.meta.path);
     const entry = meta.config.boards.find(b => slugifyBoardPath(b) === board.boardId);
     if (entry) await removeBoardFromProject(open.meta.path, entry);
     if (req.body?.deleteFiles) await deleteBoardFolder(board.path);
@@ -2579,8 +2579,8 @@ git commit -m "Implement board routes"
 ```ts
 // tests/server/lanes.test.ts
 import { describe, it, expect, afterEach } from 'vitest';
-import { bootTestServer } from '../helpers/server.ts';
-import { makeBareProject } from '../helpers/tmp-project.ts';
+import { bootTestServer } from '../helpers/server.js';
+import { makeBareProject } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -2665,11 +2665,11 @@ Expected: FAIL.
 
 ```ts
 import type { FastifyInstance } from 'fastify';
-import type { ServerState } from '../state.ts';
-import type { WsHub } from '../ws.ts';
-import { getBoard } from '../../storage/project.ts';
-import { createLane, readLaneDetail, renameLane, updateLaneStates, deleteLaneFolder } from '../../storage/lane.ts';
-import { InvalidInputError } from '../../storage/errors.ts';
+import type { ServerState } from '../state.js';
+import type { WsHub } from '../ws.js';
+import { getBoard } from '../../storage/project.js';
+import { createLane, readLaneDetail, renameLane, updateLaneStates, deleteLaneFolder } from '../../storage/lane.js';
+import { InvalidInputError } from '../../storage/errors.js';
 
 export async function registerLaneRoutes(
   app: FastifyInstance,
@@ -2757,8 +2757,8 @@ git commit -m "Implement lane routes"
 ```ts
 // tests/server/tickets.test.ts
 import { describe, it, expect, afterEach } from 'vitest';
-import { bootTestServer } from '../helpers/server.ts';
-import { makeBareProject } from '../helpers/tmp-project.ts';
+import { bootTestServer } from '../helpers/server.js';
+import { makeBareProject } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -2841,11 +2841,11 @@ Expected: FAIL.
 
 ```ts
 import type { FastifyInstance } from 'fastify';
-import type { ServerState } from '../state.ts';
-import type { WsHub } from '../ws.ts';
-import { getBoard } from '../../storage/project.ts';
-import { createTicket, listTickets, readTicket, updateTicket, deleteTicket } from '../../storage/ticket.ts';
-import { InvalidInputError } from '../../storage/errors.ts';
+import type { ServerState } from '../state.js';
+import type { WsHub } from '../ws.js';
+import { getBoard } from '../../storage/project.js';
+import { createTicket, listTickets, readTicket, updateTicket, deleteTicket } from '../../storage/ticket.js';
+import { InvalidInputError } from '../../storage/errors.js';
 
 const BASE = '/api/boards/:boardId/lanes/:laneName/tickets';
 
@@ -2945,8 +2945,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 import WebSocket from 'ws';
 import path from 'node:path';
 import { writeFile, mkdir } from 'node:fs/promises';
-import { bootTestServer } from '../helpers/server.ts';
-import { makeBareProject } from '../helpers/tmp-project.ts';
+import { bootTestServer } from '../helpers/server.js';
+import { makeBareProject } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -3039,16 +3039,16 @@ git commit -m "Add WebSocket integration tests for project and ticket events"
 ```ts
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
-import { ServerState } from './state.ts';
-import { WsHub, registerWs } from './ws.ts';
-import { mapErrorToResponse } from './error-mapper.ts';
-import { AppConfig } from './app-config.ts';
-import { registerProjectRoutes } from './routes/projects.ts';
-import { registerBoardRoutes } from './routes/boards.ts';
-import { registerLaneRoutes } from './routes/lanes.ts';
-import { registerTicketRoutes } from './routes/tickets.ts';
-import { readProject, listBoards } from '../storage/project.ts';
-import { startWatcher } from './watcher.ts';
+import { ServerState } from './state.js';
+import { WsHub, registerWs } from './ws.js';
+import { mapErrorToResponse } from './error-mapper.js';
+import { AppConfig } from './app-config.js';
+import { registerProjectRoutes } from './routes/projects.js';
+import { registerBoardRoutes } from './routes/boards.js';
+import { registerLaneRoutes } from './routes/lanes.js';
+import { registerTicketRoutes } from './routes/tickets.js';
+import { readProject, listBoards } from '../storage/project.js';
+import { startWatcher } from './watcher.js';
 import path from 'node:path';
 
 const PORT = Number(process.env.MEESEEKS_PORT ?? 5174);
