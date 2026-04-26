@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__code-rag__index_status",
+      "mcp__code-rag__list_repos",
+      "mcp__code-rag__search",
+      "Bash(mv aln-arduino.md arduino.md)",
+      "Bash(mv aln-go.md go.md)",
+      "Bash(mv aln-java.md java.md)",
+      "Bash(mv aln-java-android.md java-android.md)",
+      "Bash(mv aln-python.md python.md)"
+    ]
+  }
+}
