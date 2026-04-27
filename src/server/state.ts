@@ -1,5 +1,4 @@
 import type { ProjectMeta } from '../shared/types.js';
-import { ProjectNotOpenError } from '../storage/errors.js';
 import { RuntimeSupervisor } from '../runtime/supervisor.js';
 
 export interface OpenProjectState {
@@ -8,27 +7,20 @@ export interface OpenProjectState {
 }
 
 export class ServerState {
-  private current: OpenProjectState | null = null;
+  private readonly _state: OpenProjectState;
   readonly supervisor = new RuntimeSupervisor();
 
-  open(meta: ProjectMeta, watcherCleanup?: () => Promise<void>): void {
-    this.current = { meta, watcherCleanup };
+  constructor(meta: ProjectMeta, watcherCleanup?: () => Promise<void>) {
+    this._state = { meta, watcherCleanup };
   }
 
-  async close(): Promise<void> {
+  async shutdown(): Promise<void> {
     await this.supervisor.terminateAll();
-    if (this.current?.watcherCleanup) {
-      await this.current.watcherCleanup();
+    if (this._state.watcherCleanup) {
+      await this._state.watcherCleanup();
     }
-    this.current = null;
   }
 
-  isOpen(): boolean { return this.current !== null; }
-
-  require(): OpenProjectState {
-    if (!this.current) throw new ProjectNotOpenError();
-    return this.current;
-  }
-
-  peek(): OpenProjectState | null { return this.current; }
+  require(): OpenProjectState { return this._state; }
+  peek(): OpenProjectState { return this._state; }
 }
