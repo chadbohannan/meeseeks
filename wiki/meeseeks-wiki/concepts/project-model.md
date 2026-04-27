@@ -4,7 +4,7 @@ Meeseeks organizes work in a four-level hierarchy: Project → Board → Lane �
 
 ## Project
 
-A project is the top-level container, defined by a `project.meeseeks` YAML file at its root. It contains global configuration like allowed paths and runtime defaults. Only one project can be open at a time.
+A project is the top-level container, defined by a `project.yaml` file at its root. It contains global configuration like the project name and board list. Only one project can be open at a time. Older projects may use a `project.meeseeks` file instead — the server reads this as a backwards-compatible fallback but never creates it; `project.yaml` is always the canonical name for new projects. If neither file exists in the resolved directory, the server auto-creates `project.yaml` with the directory basename as the project name.
 
 ## Board
 

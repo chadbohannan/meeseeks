@@ -35,23 +35,25 @@ The project uses the following npm scripts defined in `package.json`:
 
 ## Initialize a Project
 
-### Method 1: Start server with project path argument
+The server always opens a project at startup. If no `project.yaml` (or legacy `project.meeseeks`) exists in the resolved directory, `project.yaml` is auto-created with the directory basename as the project name.
+
+### Start with current directory (default)
 
 ```bash
-# Start only the server with a project path
-npm run dev:server -- ./my-project
-```
-
-The server will attempt to open the project immediately on startup. If the directory does not contain a `project.meeseeks` file, the server starts without an open project and you can create one via the UI or API.
-
-### Method 2: Start full dev stack, open project via UI
-
-```bash
-# Start both server and web UI
+# Start both server and web UI — uses process.cwd() as the project
 npm run dev
 ```
 
-Then open http://localhost:5173 and use the project picker to create or open a project.
+Open http://localhost:5173 — the app lands on the boards list for the current directory.
+
+### Start with an explicit project path
+
+```bash
+# Start only the server with a specific project path
+npm run dev:server -- ./my-project
+```
+
+If `./my-project` does not exist, the server exits with an error. If it exists but has no `project.yaml`, one is created automatically.
 
 ## Environment Variables
 
@@ -67,18 +69,18 @@ MEESEEKS_PORT=8080 npm run dev:server
 
 ## Directory Structure
 
-When you create a project, the server creates the following structure:
+When you point the server at a new directory, it creates the following structure:
 
 ```
 my-project/
-└── project.meeseeks    # created by server on first run
+└── project.yaml    # auto-created by server if absent
 ```
 
 Boards and lanes are added by interacting with the REST API or UI.
 
 ## Configuration
 
-### project.meeseeks
+### project.yaml
 
 ```yaml
 name: My Project
