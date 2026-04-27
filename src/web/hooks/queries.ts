@@ -4,10 +4,8 @@ import type {
   CreateBoardRequest, PatchBoardRequest, DeleteBoardRequest,
   CreateLaneRequest, PatchLaneRequest, DeleteLaneRequest,
   CreateTicketRequest, PatchTicketRequest,
-  CreateProjectRequest, OpenProjectRequest,
 } from '@shared/api.js';
 
-export const useRecents = () => useQuery({ queryKey: ['recents'], queryFn: () => api.recents() });
 export const useCurrentProject = () => useQuery({ queryKey: ['current'], queryFn: () => api.current() });
 export const useBoards = () => useQuery({ queryKey: ['boards'], queryFn: () => api.listBoards() });
 export const useBoard = (boardId: string | undefined) => useQuery({
@@ -31,24 +29,6 @@ export const useTicket = (boardId: string | undefined, laneName: string | undefi
   enabled: !!boardId && !!laneName && !!filename,
 });
 
-export function useOpenProject() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (req: OpenProjectRequest) => api.open(req),
-    onSuccess: () => { qc.invalidateQueries(); },
-  });
-}
-export function useCloseProject() {
-  const qc = useQueryClient();
-  return useMutation({ mutationFn: () => api.close(), onSuccess: () => { qc.invalidateQueries(); } });
-}
-export function useCreateProject() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (req: CreateProjectRequest) => api.createProject(req),
-    onSuccess: () => { qc.invalidateQueries(); },
-  });
-}
 export function useCreateBoard() {
   const qc = useQueryClient();
   return useMutation({

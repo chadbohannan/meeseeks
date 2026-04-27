@@ -19,10 +19,6 @@ export function useWsInvalidation(): void {
     const client = getWsClient();
     const unsubscribe = client.subscribe((event: WsEvent) => {
       switch (event.type) {
-        case 'project-opened':
-        case 'project-closed':
-          qc.invalidateQueries();
-          return;
         case 'board-changed':
           qc.invalidateQueries({ queryKey: ['boards'] });
           qc.invalidateQueries({ queryKey: ['board', event.payload.boardId] });
