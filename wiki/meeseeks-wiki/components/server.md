@@ -13,11 +13,11 @@ All endpoints are under `/api`, accepting and returning JSON. Errors follow `{ e
 - `src/server/routes/lanes.ts` — `POST /boards/:boardId/lanes`, `GET /boards/:boardId/lanes/:laneId`, `PATCH /boards/:boardId/lanes/:laneId`, `DELETE /boards/:boardId/lanes/:laneId`
 - `src/server/routes/tickets.ts` — `GET /boards/:boardId/lanes/:laneId/tickets`, `POST /boards/:boardId/lanes/:laneId/tickets`, `GET /boards/:boardId/lanes/:laneId/tickets/:ticketId`, `PATCH /boards/:boardId/lanes/:laneId/tickets/:ticketId`, `DELETE /boards/:boardId/lanes/:laneId/tickets/:ticketId`
 
-Routes broadcast WebSocket events on mutations (create, update, delete) via the [WsHub](runtime.md).
+Routes broadcast WebSocket events on mutations (create, update, delete) via the WsHub.
 
 ### WebSocket Hub
 
-`src/server/ws.ts` implements `WsHub`, a class that manages connected clients and broadcasts state changes. The endpoint is at `/ws`, sending `project-opened` or `project-closed` events on connect based on current state.
+`src/server/ws.ts` implements `WsHub`, a class that manages connected clients and broadcasts state changes. The endpoint is at `/ws`, sending `project-opened` or `project-closed` events on connect based on current state. `WsHub` maintains a `Set<WebSocket>` and broadcasts JSON-serialized events to every socket whose `readyState === OPEN`. On connect, `registerWs` also replays all active runtimes via `runtime-spawned` so a freshly connected client sees the full current state.
 
 ### Server State
 
@@ -29,7 +29,7 @@ Routes broadcast WebSocket events on mutations (create, update, delete) via the 
 
 ## Startup
 
-The server runs via `npm run dev` and accepts a project path as a CLI argument to immediately open on startup.
+The server runs via `npm run dev:server` (or `npm run dev` to run both server and web UI concurrently). It accepts a project path as a CLI argument to immediately open on startup: `npm run dev:server -- ./my-project`. See the [Project Setup](../runbooks/project-setup.md) runbook for full command details.
 
 | Ingest Date | Source |
 | ----------- | ------ |

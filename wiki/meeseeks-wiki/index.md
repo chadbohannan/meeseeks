@@ -11,11 +11,11 @@
 - [Console (MDI panels)](components/console.md) — xterm.js panels with dismiss-without-kill gesture
 
 ## Concepts
-- [Project Model](project-model.md) — Projects, boards, lanes, and tickets
-- [Runtime Supervisor](runtime.md) — Claude Code runtime lifecycle management
+- [Project Model](concepts/project-model.md) — Projects, boards, lanes, and tickets
+- [Runtime Supervisor](concepts/runtime.md) — Claude Code runtime lifecycle management
 
 ## Runbooks
-- [Project Setup](runbooks/project-setup.md) — initializing a new Meeseeks project
+- [Project Setup](runbooks/project-setup.md) — installation, development commands, environment variables, and production deployment
 
 ## Syntheses
 - [Architecture Overview](syntheses/architecture-overview.md) — system decomposition and data flow

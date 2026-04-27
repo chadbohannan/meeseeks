@@ -8,7 +8,7 @@ A project is the top-level container, defined by a `project.meeseeks` YAML file 
 
 ## Board
 
-A board represents a workflow context (e.g., a feature or sprint). Each board has a `board.yaml` containing runtime settings and board-specific permissions. Boards live as directories under the project root.
+A board represents a workflow context (e.g., a feature or sprint). Each board has a `board.yaml` containing runtime settings. Boards live as directories under the project root.
 
 ## Lane
 
@@ -20,7 +20,7 @@ A ticket is a unit of work, stored as a Markdown file in a lane state directory.
 
 ## Permissions
 
-`permissions.yaml` in board directories controls what an agent can do. Allowed paths generate `--add-dir` flags, and allowed/denied tools generate a JSON settings file.
+`permissions.yaml` in lane directories controls what an agent can do. Allowed paths generate `--add-dir` flags, and allowed/denied tools generate a JSON settings file.
 
 | Ingest Date | Source |
 | ----------- | ------ |

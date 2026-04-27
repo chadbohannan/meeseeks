@@ -26,7 +26,7 @@ The Kanban view groups tickets into columns by `state.dir` in the order given by
 
 ## Scope and deferrals
 
-This slice deliberately omits drag-and-drop (state changes are made via the dropdown on the ticket detail page), rich markdown editing (the body editor is a plain textarea), and any UI tests. The [storage and server design spec](../../../docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md) records these as future work alongside the runtime supervisor and console UI from subsystem 5.
+This slice deliberately omits drag-and-drop (state changes are made via the dropdown on the ticket detail page), rich markdown editing (the body editor is a plain textarea), and any UI tests. The storage and server design spec records these as future work alongside the runtime supervisor and [console UI](console.md) from subsystem 5.
 
 | Ingest Date | Source |
 | ----------- | ------ |

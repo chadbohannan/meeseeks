@@ -30,7 +30,7 @@ Custom typed errors in `src/storage/errors.ts` provide predictable failure modes
 - `PathSafetyError` — path escapes project boundary (code: `PATH_UNSAFE`)
 - `ProjectNotOpenError` — operation requires open project
 
-The `StorageErrorCode` discriminated union types all error codes as string literals for exhaustive handling.
+The `StorageErrorCode` discriminated union (`'NOT_FOUND' | 'CONFLICT' | 'INVALID_INPUT' | 'PATH_UNSAFE' | 'INVALID_LANE' | 'PROJECT_NOT_OPEN'`) types all error codes as string literals for exhaustive handling. Each error class extends `StorageError` and fixes its code: `NotFoundError` always carries `'NOT_FOUND'`, `ConflictError` carries `'CONFLICT'`, and so on. `InvalidLaneError` additionally exposes a `reason` field for validation detail.
 
 ## Ticket Filenames
 

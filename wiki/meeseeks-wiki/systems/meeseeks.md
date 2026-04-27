@@ -1,20 +1,20 @@
 # Meeseeks
 
-Meeseeks is a web application designed for supervising agentic models within development pipelines, providing oversight capabilities for ensuring proper model behavior during development workflows.
+Meeseeks is a local web-app for supervising agentic instances within development pipelines, providing oversight capabilities for ensuring proper model behavior during development workflows.
 
-The system implements a local, single-process architecture that displays a Kanban view of project data, where each ticket can run an isolated [Claude Code](runtime.md) instance in a floating console. State is persisted via disk files, permissions are enforced from a YAML config, and runtime status is displayed for each ticket.
+The system implements a local, single-process architecture that displays a Kanban view of project data, where each ticket can run an isolated [Claude Code](../components/runtime.md) instance in a floating console. State is persisted via disk files, permissions are enforced from a YAML config, and runtime status is displayed for each ticket. See the [Architecture Overview](../syntheses/architecture-overview.md) for the decomposition and data flow.
 
 ## Core Architecture
 
 The system is structured around three primary layers:
 
-- **[Storage](components/storage.md)**: Pure filesystem operations managing a hierarchical data model of projects, boards, lanes, and tickets stored as YAML and Markdown files.
-- **[Server](components/server.md)**: A Fastify-based API serving REST endpoints and WebSocket connections for real-time state synchronization.
-- **Runtime Supervisor**: Manages isolated Claude Code instances per ticket, handling lifecycle events, stdio transport, and permissions translation.
+- **[Storage](../components/storage.md)**: Pure filesystem operations managing a hierarchical data model of projects, boards, lanes, and tickets stored as YAML and Markdown files.
+- **[Server](../components/server.md)**: A Fastify-based API serving REST endpoints and WebSocket connections for real-time state synchronization.
+- **[Runtime Supervisor](../components/runtime.md)**: Manages isolated Claude Code instances per ticket, handling lifecycle events, stdio transport, and permissions translation. The [runtime concept](../concepts/runtime.md) describes the full lifecycle state machine.
 
 ## Data Model
 
-Projects are organized hierarchically: a [Project](project-model.md) contains multiple Boards, each Board contains multiple Lanes, and each Lane contains multiple Tickets. The filesystem layout reflects this structure with `project.meeseeks` at the root, `board.yaml` files in board directories, and `lane.yaml` files defining lane states and their ordering.
+Projects are organized hierarchically: a [Project](../concepts/project-model.md) contains multiple Boards, each Board contains multiple Lanes, and each Lane contains multiple Tickets. The filesystem layout reflects this structure with `project.meeseeks` at the root, `board.yaml` files in board directories, and `lane.yaml` files defining lane states and their ordering.
 
 ## Concurrency Model
 

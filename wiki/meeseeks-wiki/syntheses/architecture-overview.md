@@ -1,10 +1,12 @@
 # Architecture Overview
 
-Meeseeks follows a three-layer architecture in a single Node.js process:
+The [Meeseeks](../systems/meeseeks.md) system follows a three-layer architecture in a single Node.js process:
 
 ```
 ┌─────────────────────────────────────┐
-│            Web UI (planned)         │
+│            Web UI                   │
+│  - Vite + React SPA                 │
+│  - xterm.js console panels          │
 └──────────────┬──────────────────────┘
                │ HTTP/WebSocket
 ┌──────────────▼──────────────────────┐
@@ -25,7 +27,7 @@ Meeseeks follows a three-layer architecture in a single Node.js process:
 
 **Single-project model**: Only one project can be open at a time, simplifying state management and tying runtimes to a clear project context.
 
-**Single-process**: All components run in one Node.js process, started via `npm run dev`. This simplifies deployment and ensures runtimes are co-located with their manager.
+**Single-process**: All components run in one Node.js process. In development, `npm run dev` starts both the Fastify server and the [Vite web dev server](../components/web.md) concurrently. In production, `npm run build && npm start` builds and serves the application from a single process. See the [Project Setup](../runbooks/project-setup.md) runbook for all available commands.
 
 **Filesystem as database**: State lives in YAML and Markdown files, providing human-readable persistence and easy version control integration.
 
@@ -36,8 +38,9 @@ Meeseeks follows a three-layer architecture in a single Node.js process:
 The current scope excludes:
 - Autonomous triggers and synchronization
 - Multi-user access
-- Web UI (planned for future)
 - Runtime persistence across server restarts
+
+The [Web UI](../components/web.md) and [Console panels](../components/console.md) are implemented; see their component pages for scope and known limitations.
 
 | Ingest Date | Source |
 | ----------- | ------ |

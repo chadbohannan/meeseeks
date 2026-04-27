@@ -4,7 +4,7 @@ The runtime supervisor manages isolated Claude Code instances that execute withi
 
 ## Lifecycle States
 
-Runtimes transition through defined states: `idle` (ready), `running` (token generation), and `exited` (process termination). Additional states include `terminating` during shutdown.
+Runtimes transition through defined states: `starting` (spawned but not yet initialized), `idle` (ready), `running` (token generation), `terminating` (shutdown in progress), `exited` (clean termination), and `errored` (unexpected failure). The full lifecycle is `starting → idle → running ↔ idle → (terminating →) exited | errored`.
 
 ## Spawning
 
@@ -17,7 +17,7 @@ When a runtime is started for a ticket, the supervisor:
 
 ## Stdio Transport
 
-The WebSocket connection multiplexes all runtime I/O using `runtimeId` in `runtime-stdio` events with base64-encoded raw bytes. The server enforces backpressure — if a runtime's buffer exceeds 1MB, older frames are dropped and the client is notified on re-attach.
+The WebSocket connection multiplexes all runtime I/O using `runtimeId` in `runtime-stdio` events with base64-encoded raw bytes. The server enforces backpressure — each runtime owns a ring buffer (default 2 MB) that stores raw stdio bytes; when capacity is exceeded, old bytes are overwritten and the client is notified on re-attach via `droppedBytes`.
 
 ## History Buffer
 
