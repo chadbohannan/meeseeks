@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useLane, useTicket, usePatchTicket, useDeleteTicket } from '../hooks/queries.js';
+import { useLane, useTicket, usePatchTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime } from '../hooks/queries.js';
+import { useRuntimesStore } from '../store/runtimes.js';
+import { useMdiStore } from '../store/mdi.js';
+import { RuntimeStatusDot } from '../components/RuntimeStatusDot.js';
 import { toast } from 'sonner';
 
 export function TicketRoute() {
@@ -10,6 +13,12 @@ export function TicketRoute() {
   const patch = usePatchTicket(boardId!, laneName!, filename!);
   const del = useDeleteTicket(boardId!, laneName!, filename!);
   const navigate = useNavigate();
+  const spawn = useSpawnRuntime();
+  const term = useTerminateRuntime();
+  const openPanel = useMdiStore((s) => s.open);
+  const runtime = useRuntimesStore((s) =>
+    Object.values(s.byId).find(r =>
+      r.ticketRef.boardId === boardId && r.ticketRef.laneName === laneName && r.ticketRef.filename === filename));
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -48,6 +57,38 @@ export function TicketRoute() {
           {states.map((s) => <option key={s.dir} value={s.dir}>{s.name}</option>)}
         </select>
         <span className="text-xs text-slate-500 font-mono ml-auto">{filename}</span>
+      </div>
+      <div className="flex items-center gap-2 mb-3">
+        {runtime ? (
+          <>
+            <RuntimeStatusDot status={runtime.status} />
+            <span className="text-sm">{runtime.status}</span>
+            <button
+              className="rounded bg-slate-700 px-3 py-1 text-sm"
+              onClick={() => openPanel(runtime.runtimeId)}
+            >Open console</button>
+            {(runtime.status === 'running' || runtime.status === 'idle' || runtime.status === 'starting') && (
+              <button
+                className="rounded bg-red-700 px-3 py-1 text-sm"
+                onClick={async () => {
+                  if (!confirm('Terminate runtime?')) return;
+                  try { await term.mutateAsync(runtime.runtimeId); }
+                  catch (err) { toast.error((err as Error).message); }
+                }}
+              >Terminate</button>
+            )}
+          </>
+        ) : (
+          <button
+            className="rounded bg-emerald-700 px-3 py-1 text-sm"
+            onClick={async () => {
+              try {
+                const r = await spawn.mutateAsync({ boardId, laneName, filename });
+                openPanel(r.runtime.runtimeId);
+              } catch (err) { toast.error((err as Error).message); }
+            }}
+          >Spawn runtime</button>
+        )}
       </div>
       <textarea
         className="w-full h-96 bg-slate-800 rounded px-3 py-2 font-mono text-sm"
