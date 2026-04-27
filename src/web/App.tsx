@@ -1,11 +1,17 @@
 import { Routes, Route } from 'react-router-dom';
 import { useWsInvalidation } from './hooks/use-ws.js';
+import { AppShell } from './components/AppShell.js';
+import { ErrorBoundary } from './components/ErrorBoundary.js';
 
 export default function App() {
   useWsInvalidation();
   return (
-    <Routes>
-      <Route path="/" element={<div className="p-8">Meeseeks — picker placeholder</div>} />
-    </Routes>
+    <ErrorBoundary>
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route path="/" element={<div className="p-8">Picker (next task)</div>} />
+        </Route>
+      </Routes>
+    </ErrorBoundary>
   );
 }
