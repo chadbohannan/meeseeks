@@ -1,16 +1,22 @@
 import { useState } from 'react';
 import { useParams, useSearchParams, Navigate } from 'react-router-dom';
 import { useBoard, useLane, useCreateLane, usePatchLane, useDeleteLane, usePatchBoard } from '../hooks/queries.js';
-import { NewLaneModal } from '../components/NewLaneModal.js';
 import type { LaneSummary, LaneState } from '@shared/types.js';
 import { toast } from 'sonner';
+
+const NEW_LANE_KEY = '__new__';
+
+const DEFAULT_STATES: LaneState[] = [
+  { dir: 'todo', name: 'Todo' },
+  { dir: 'in-progress', name: 'In progress' },
+  { dir: 'done', name: 'Done' },
+];
 
 export function BoardEditorRoute() {
   const { boardId } = useParams<{ boardId: string }>();
   const board = useBoard(boardId);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedLane = searchParams.get('lane');
-  const [showNewLane, setShowNewLane] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [boardName, setBoardName] = useState('');
   const patchBoard = usePatchBoard(boardId!);
@@ -53,15 +59,10 @@ export function BoardEditorRoute() {
             {board.data.board.name}
           </h1>
         )}
-        <button
-          className="ml-auto px-3 py-1 rounded bg-slate-700 text-sm hover:bg-slate-600"
-          onClick={() => setShowNewLane(true)}
-        >+ Lane</button>
       </div>
 
       <div className="flex flex-1 min-h-0">
         <div className="w-72 shrink-0 border-r border-slate-800 overflow-y-auto">
-          {lanes.length === 0 && <p className="p-4 text-slate-500">No lanes yet.</p>}
           {lanes.map((lane) => (
             <LaneListItem
               key={lane.laneName}
@@ -70,18 +71,26 @@ export function BoardEditorRoute() {
               onClick={() => setSearchParams({ lane: lane.laneName })}
             />
           ))}
+          <div
+            className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
+              selectedLane === NEW_LANE_KEY ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-400'
+            }`}
+            onClick={() => setSearchParams({ lane: NEW_LANE_KEY })}
+          >
+            <span className="text-sm">+ New Lane</span>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {selectedLane ? (
+          {selectedLane === NEW_LANE_KEY ? (
+            <NewLaneEditor boardId={boardId} onCreated={(name) => setSearchParams({ lane: name })} />
+          ) : selectedLane ? (
             <LaneEditor boardId={boardId} laneName={selectedLane} />
           ) : (
             <div className="p-8 text-slate-500">Select a lane to edit its configuration.</div>
           )}
         </div>
       </div>
-
-      <NewLaneModal boardId={boardId} open={showNewLane} onClose={() => setShowNewLane(false)} />
     </div>
   );
 }
@@ -103,6 +112,70 @@ function LaneListItem({ lane, selected, onClick }: { lane: LaneSummary; selected
       </div>
       <span className="text-xs text-slate-500 tabular-nums">{total} tickets</span>
       {lane.orphanedCount > 0 && <span className="text-amber-400 text-xs">⚠ {lane.orphanedCount}</span>}
+    </div>
+  );
+}
+
+function NewLaneEditor({ boardId, onCreated }: { boardId: string; onCreated: (name: string) => void }) {
+  const create = useCreateLane(boardId);
+  const [name, setName] = useState('');
+  const [states, setStates] = useState<LaneState[]>(DEFAULT_STATES);
+
+  const updateState = (idx: number, field: keyof LaneState, value: string) => {
+    const next = [...states];
+    next[idx] = { ...next[idx], [field]: value };
+    setStates(next);
+  };
+
+  const addState = () => setStates([...states, { dir: '', name: '' }]);
+
+  const removeState = (idx: number) => setStates(states.filter((_, i) => i !== idx));
+
+  const moveState = (idx: number, dir: -1 | 1) => {
+    const next = [...states];
+    const target = idx + dir;
+    if (target < 0 || target >= next.length) return;
+    [next[idx], next[target]] = [next[target], next[idx]];
+    setStates(next);
+  };
+
+  const handleCreate = async () => {
+    if (!name.trim()) { toast.error('Lane name is required'); return; }
+    if (states.length === 0) { toast.error('At least one state is required'); return; }
+    try {
+      await create.mutateAsync({ name: name.trim(), states });
+      toast.success('Lane created');
+      onCreated(name.trim());
+      setName('');
+      setStates(DEFAULT_STATES);
+    } catch (err) { toast.error((err as Error).message); }
+  };
+
+  return (
+    <div className="p-6 max-w-2xl">
+      <h2 className="text-lg font-semibold mb-6">New Lane</h2>
+
+      <section className="mb-6">
+        <h3 className="text-sm font-semibold text-slate-400 mb-2">Name</h3>
+        <input
+          className="w-full bg-slate-800 rounded px-2 py-1 text-sm"
+          placeholder="Lane name (e.g. feature-work)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          autoFocus
+        />
+      </section>
+
+      <section className="mb-6">
+        <h3 className="text-sm font-semibold text-slate-400 mb-3">States</h3>
+        <StatesEditor states={states} onUpdate={updateState} onAdd={addState} onRemove={removeState} onMove={moveState} />
+      </section>
+
+      <button
+        className="px-4 py-1.5 rounded bg-blue-600 text-sm hover:bg-blue-500"
+        onClick={handleCreate}
+        disabled={create.isPending}
+      >Create Lane</button>
     </div>
   );
 }
@@ -171,44 +244,14 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
 
       <section className="mb-6">
         <h3 className="text-sm font-semibold text-slate-400 mb-3">States</h3>
-        <div className="space-y-2">
-          {currentStates.map((s, i) => (
-            <div key={i} className="flex items-center gap-2">
-              <div className="flex flex-col gap-0.5">
-                <button
-                  className="text-xs text-slate-500 hover:text-slate-300 leading-none"
-                  onClick={() => moveState(i, -1)}
-                  disabled={i === 0}
-                >▲</button>
-                <button
-                  className="text-xs text-slate-500 hover:text-slate-300 leading-none"
-                  onClick={() => moveState(i, 1)}
-                  disabled={i === currentStates.length - 1}
-                >▼</button>
-              </div>
-              <input
-                className="bg-slate-800 rounded px-2 py-1 text-sm w-32"
-                placeholder="dir"
-                value={s.dir}
-                onChange={(e) => updateState(i, 'dir', e.target.value)}
-              />
-              <input
-                className="bg-slate-800 rounded px-2 py-1 text-sm flex-1"
-                placeholder="Display name"
-                value={s.name}
-                onChange={(e) => updateState(i, 'name', e.target.value)}
-              />
-              <span className="text-xs text-slate-500 tabular-nums w-8 text-right">
-                {lane.data!.lane.ticketCounts[s.dir] ?? 0}
-              </span>
-              <button
-                className="text-red-400 hover:text-red-300 text-sm px-1"
-                onClick={() => removeState(i)}
-              >×</button>
-            </div>
-          ))}
-        </div>
-        <button className="mt-2 text-sm text-blue-400 hover:text-blue-300" onClick={addState}>+ Add state</button>
+        <StatesEditor
+          states={currentStates}
+          ticketCounts={lane.data!.lane.ticketCounts}
+          onUpdate={updateState}
+          onAdd={addState}
+          onRemove={removeState}
+          onMove={moveState}
+        />
       </section>
 
       {dirty && (
@@ -232,5 +275,61 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
         </section>
       )}
     </div>
+  );
+}
+
+interface StatesEditorProps {
+  states: LaneState[];
+  ticketCounts?: Record<string, number>;
+  onUpdate: (idx: number, field: keyof LaneState, value: string) => void;
+  onAdd: () => void;
+  onRemove: (idx: number) => void;
+  onMove: (idx: number, dir: -1 | 1) => void;
+}
+
+function StatesEditor({ states, ticketCounts, onUpdate, onAdd, onRemove, onMove }: StatesEditorProps) {
+  return (
+    <>
+      <div className="space-y-2">
+        {states.map((s, i) => (
+          <div key={i} className="flex items-center gap-2">
+            <div className="flex flex-col gap-0.5">
+              <button
+                className="text-xs text-slate-500 hover:text-slate-300 leading-none"
+                onClick={() => onMove(i, -1)}
+                disabled={i === 0}
+              >▲</button>
+              <button
+                className="text-xs text-slate-500 hover:text-slate-300 leading-none"
+                onClick={() => onMove(i, 1)}
+                disabled={i === states.length - 1}
+              >▼</button>
+            </div>
+            <input
+              className="bg-slate-800 rounded px-2 py-1 text-sm w-32"
+              placeholder="dir"
+              value={s.dir}
+              onChange={(e) => onUpdate(i, 'dir', e.target.value)}
+            />
+            <input
+              className="bg-slate-800 rounded px-2 py-1 text-sm flex-1"
+              placeholder="Display name"
+              value={s.name}
+              onChange={(e) => onUpdate(i, 'name', e.target.value)}
+            />
+            {ticketCounts && (
+              <span className="text-xs text-slate-500 tabular-nums w-8 text-right">
+                {ticketCounts[s.dir] ?? 0}
+              </span>
+            )}
+            <button
+              className="text-red-400 hover:text-red-300 text-sm px-1"
+              onClick={() => onRemove(i)}
+            >×</button>
+          </div>
+        ))}
+      </div>
+      <button className="mt-2 text-sm text-blue-400 hover:text-blue-300" onClick={onAdd}>+ Add state</button>
+    </>
   );
 }
