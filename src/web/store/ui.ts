@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 
 interface UiState {
-  selectedLane: string | null;
-  setSelectedLane(name: string | null): void;
+  sidebarCollapsed: boolean;
+  setSidebarCollapsed(v: boolean): void;
 }
 
 export const useUi = create<UiState>((set) => ({
-  selectedLane: null,
-  setSelectedLane: (name) => set({ selectedLane: name }),
+  sidebarCollapsed: false,
+  setSidebarCollapsed: (v) => set({ sidebarCollapsed: v }),
 }));
