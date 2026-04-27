@@ -4,3 +4,4 @@
 [2026-04-26] lint | — link integrity, orphan check, cross-reference verification
 [2026-04-26] enrich | [code-rag:meeseeks](code-rag:meeseeks) — route endpoints, error codes, storage functions
 [2026-04-26] update | Web UI — added components/web.md after implementing Vite+React SPA per plan 2
+[2026-04-26] update | Runtime + Console — added components/runtime.md and components/console.md after implementing supervisor + xterm panels per plan 3

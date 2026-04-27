@@ -7,6 +7,8 @@
 - [Storage](components/storage.md) — filesystem storage layer with YAML persistence
 - [Server](components/server.md) — Fastify server with REST API and WebSocket hub
 - [Web UI](components/web.md) — Vite + React SPA: project picker, Kanban board, ticket editor, WebSocket-driven live updates
+- [Runtime Supervisor](components/runtime.md) — per-ticket Claude Code process supervisor with ring buffer + stream-json parser
+- [Console (MDI panels)](components/console.md) — xterm.js panels with dismiss-without-kill gesture
 
 ## Concepts
 - [Project Model](project-model.md) — Projects, boards, lanes, and tickets
