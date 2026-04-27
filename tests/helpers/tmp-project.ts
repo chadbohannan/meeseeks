@@ -27,6 +27,6 @@ export async function writeText(filePath: string, contents: string): Promise<voi
 
 export async function makeBareProject(name = 'Test Project'): Promise<TmpProject> {
   const tp = await makeTmpProject();
-  await writeYaml(path.join(tp.root, 'project.meeseeks'), `name: ${name}\nboards: []\n`);
+  await writeYaml(path.join(tp.root, 'project.yaml'), `name: ${name}\nboards: []\n`);
   return tp;
 }

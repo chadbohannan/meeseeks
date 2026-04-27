@@ -13,9 +13,9 @@ The `src/web/` tree is organized by responsibility rather than by route:
 - `lib/api.ts` — typed `fetch` wrapper. One method per endpoint, sharing request/response types from `src/shared/api.ts`. All thrown errors carry the server's `code` and `message` so callers can show toasts directly.
 - `lib/ws.ts` — `WsClient` class with auto-reconnect (exponential backoff to 8s) and a fan-out subscription model. A module-level singleton in `hooks/use-ws.ts` ensures one connection per browser tab.
 - `hooks/queries.ts` — React Query hooks. Each query keys on its scope (`['board', boardId]`, `['tickets', boardId, laneName]`, etc.) so the WebSocket invalidator can be precise.
-- `hooks/use-ws.ts` — installs a subscription on mount and translates each `WsEvent` into targeted `queryClient.invalidateQueries` calls. `project-opened` and `project-closed` invalidate everything; the others invalidate just their scope.
-- `routes/` — one file per route. Picker (`/`), boards list (`/boards`), board Kanban (`/boards/:boardId`), ticket detail (`/boards/:boardId/lanes/:laneName/tickets/:filename`).
-- `components/` — `AppShell` (top bar with project name + close button), modals (`NewProjectModal`, `NewBoardModal`, `NewLaneModal`), `Kanban`, `TicketCard`, `Modal`, `ErrorBoundary`.
+- `hooks/use-ws.ts` — installs a subscription on mount and translates each `WsEvent` into targeted `queryClient.invalidateQueries` calls. Board, lane, and ticket change events invalidate just their scope.
+- `routes/` — one file per route. Root (`/`) redirects to `/boards`; boards list (`/boards`), board Kanban (`/boards/:boardId`), ticket detail (`/boards/:boardId/lanes/:laneName/tickets/:filename`).
+- `components/` — `AppShell` (top bar with project name), modals (`NewBoardModal`, `NewLaneModal`), `Kanban`, `TicketCard`, `Modal`, `ErrorBoundary`.
 - `store/ui.ts` — a tiny Zustand store for transient UI state (currently just the selected lane on the board route).
 
 ## State boundaries

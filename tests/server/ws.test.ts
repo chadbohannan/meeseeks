@@ -25,30 +25,11 @@ function waitForEvent(ws: WebSocket, predicate: (e: any) => boolean, timeoutMs =
 }
 
 describe('websocket events', () => {
-  it('sends project-opened on connect when a project is open', async () => {
-    const srv = await bootTestServer();
-    cleanups.push(srv.cleanup);
-    const tp = await makeBareProject('Hi');
-    cleanups.push(tp.cleanup);
-    await fetch(`${srv.url}/api/projects/open`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ path: tp.root }),
-    });
-    const ws = new WebSocket(`ws://127.0.0.1:${srv.port}/ws`);
-    cleanups.push(async () => ws.close());
-    const event = await waitForEvent(ws, e => e.type === 'project-opened');
-    expect(event.payload.project.config.name).toBe('Hi');
-  });
-
   it('emits ticket-changed when a file is added on disk', async () => {
-    const srv = await bootTestServer();
-    cleanups.push(srv.cleanup);
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
-    await fetch(`${srv.url}/api/projects/open`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ path: tp.root }),
-    });
+    const srv = await bootTestServer(tp.root);
+    cleanups.push(srv.cleanup);
     const board = await (await fetch(`${srv.url}/api/boards`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'B' }),
@@ -60,7 +41,10 @@ describe('websocket events', () => {
 
     const ws = new WebSocket(`ws://127.0.0.1:${srv.port}/ws`);
     cleanups.push(async () => ws.close());
-    await waitForEvent(ws, e => e.type === 'project-opened');
+    await new Promise<void>((resolve, reject) => {
+      ws.once('open', resolve);
+      ws.once('error', reject);
+    });
 
     const todoDir = path.join(tp.root, 'boards', 'b', 'lanes', 'work', 'todo');
     await mkdir(todoDir, { recursive: true });

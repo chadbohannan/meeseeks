@@ -8,30 +8,27 @@ import { registerBoardRoutes } from '../../src/server/routes/boards.js';
 import { registerLaneRoutes } from '../../src/server/routes/lanes.js';
 import { registerTicketRoutes } from '../../src/server/routes/tickets.js';
 import { registerRuntimeRoutes } from '../../src/server/routes/runtimes.js';
-import { AppConfig } from '../../src/server/app-config.js';
-import path from 'node:path';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { readProject } from '../../src/storage/project.js';
+import { startWatcher } from '../../src/server/watcher.js';
 
 export interface TestServer {
   app: FastifyInstance;
   state: ServerState;
   hub: WsHub;
-  appConfig: AppConfig;
   port: number;
   url: string;
   cleanup(): Promise<void>;
 }
 
-export async function bootTestServer(): Promise<TestServer> {
-  const cfgDir = await mkdtemp(path.join(tmpdir(), 'meeseeks-srv-'));
-  const appConfig = new AppConfig(path.join(cfgDir, 'recents.json'));
-  const state = new ServerState();
+export async function bootTestServer(projectRoot: string): Promise<TestServer> {
+  const meta = await readProject(projectRoot);
   const hub = new WsHub();
+  const handle = startWatcher(meta, hub);
+  const state = new ServerState(meta, handle.cleanup);
   const app = Fastify({ logger: false });
   await app.register(websocket);
   app.setErrorHandler(mapErrorToResponse);
-  await registerProjectRoutes(app, { state, hub, appConfig });
+  await registerProjectRoutes(app, { state, hub });
   await registerBoardRoutes(app, { state, hub });
   await registerLaneRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });
@@ -45,11 +42,10 @@ export async function bootTestServer(): Promise<TestServer> {
   if (!address || typeof address === 'string') throw new Error('no address');
   const port = address.port;
   return {
-    app, state, hub, appConfig, port, url: `http://127.0.0.1:${port}`,
+    app, state, hub, port, url: `http://127.0.0.1:${port}`,
     async cleanup() {
-      await state.close();
+      await state.shutdown();
       await app.close();
-      await rm(cfgDir, { recursive: true, force: true });
     },
   };
 }

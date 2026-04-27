@@ -1,5 +1,4 @@
 import type {
-  OpenProjectRequest, OpenProjectResponse, CreateProjectRequest, ListRecentsResponse,
   CreateBoardRequest, PatchBoardRequest, DeleteBoardRequest,
   CreateLaneRequest, PatchLaneRequest, DeleteLaneRequest,
   CreateTicketRequest, PatchTicketRequest, ListTicketsResponse,
@@ -37,11 +36,7 @@ const enc = encodeURIComponent;
 
 export const api = {
   // Projects
-  recents: () => request<ListRecentsResponse>('GET', '/api/projects/recent'),
   current: () => request<{ project: ProjectMeta | null }>('GET', '/api/projects/current'),
-  open: (req: OpenProjectRequest) => request<OpenProjectResponse>('POST', '/api/projects/open', req),
-  close: () => request<{ ok: true }>('POST', '/api/projects/close'),
-  createProject: (req: CreateProjectRequest) => request<OpenProjectResponse>('POST', '/api/projects/create', req),
 
   // Boards
   listBoards: () => request<{ boards: BoardSummary[] }>('GET', '/api/boards'),
