@@ -25,7 +25,8 @@ export interface LaneState {
 }
 
 export interface LaneSummary {
-  laneName: string;      // folder name = id
+  laneName: string;      // folder name = id (slug)
+  displayName: string;   // user-facing name preserving original casing
   states: LaneState[];
   ticketCounts: Record<string, number>;  // by state.dir
   orphanedCount: number;

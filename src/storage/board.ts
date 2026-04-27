@@ -1,4 +1,4 @@
-import { mkdir, rename, rm, writeFile, access } from 'node:fs/promises';
+import { mkdir, rename, rm, writeFile, readFile, access } from 'node:fs/promises';
 import path from 'node:path';
 import yaml from 'js-yaml';
 import { ConflictError, NotFoundError, InvalidInputError } from './errors.js';
@@ -6,7 +6,8 @@ import { readProject, writeProject } from './project.js';
 import { listLanes } from './lane.js';
 import type { BoardDetail } from '../shared/types.js';
 
-const DEFAULT_BOARD_YAML = (_name: string) => yaml.dump({
+const DEFAULT_BOARD_YAML = (name: string) => yaml.dump({
+  name,
   runtime: {
     harness: 'claude-code',
     provider: 'anthropic',
@@ -20,6 +21,27 @@ const DEFAULT_CLAUDE_MD = (name: string) => `# ${name}\n\nBoard-level instructio
 
 async function exists(p: string): Promise<boolean> {
   try { await access(p); return true; } catch { return false; }
+}
+
+export async function readBoardName(boardPath: string): Promise<string | null> {
+  try {
+    const raw = await readFile(path.join(boardPath, 'board.yaml'), 'utf8');
+    const parsed = yaml.load(raw) as { name?: string } | null;
+    return parsed?.name ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export async function updateBoardName(boardPath: string, name: string): Promise<void> {
+  const yamlPath = path.join(boardPath, 'board.yaml');
+  let parsed: Record<string, unknown> = {};
+  try {
+    const raw = await readFile(yamlPath, 'utf8');
+    parsed = (yaml.load(raw) as Record<string, unknown>) ?? {};
+  } catch { /* fresh file */ }
+  parsed.name = name;
+  await writeFile(yamlPath, yaml.dump(parsed), 'utf8');
 }
 
 export async function createBoard(boardPath: string, name: string): Promise<void> {

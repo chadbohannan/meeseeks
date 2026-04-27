@@ -39,12 +39,17 @@ function BoardNode({ board }: { board: BoardSummary }) {
   const isActive = activeBoardId === board.boardId;
   const isBoardOnly = isActive && !laneActive;
   const [expanded, setExpanded] = useState(isActive);
+  const [expandedLanes, setExpandedLanes] = useState<Record<string, boolean>>({});
 
   const boardDetail = useBoard(expanded || isActive ? board.boardId : undefined);
 
   const handleClick = () => {
     navigate(`/boards/${encodeURIComponent(board.boardId)}`);
     if (!expanded) setExpanded(true);
+  };
+
+  const toggleLane = (laneName: string) => {
+    setExpandedLanes((prev) => ({ ...prev, [laneName]: !prev[laneName] }));
   };
 
   return (
@@ -70,7 +75,13 @@ function BoardNode({ board }: { board: BoardSummary }) {
       {expanded && boardDetail.data && (
         <div className="ml-3">
           {boardDetail.data.board.lanes.map((lane) => (
-            <LaneNode key={lane.laneName} boardId={board.boardId} lane={lane} />
+            <LaneNode
+              key={lane.laneName}
+              boardId={board.boardId}
+              lane={lane}
+              expanded={expandedLanes[lane.laneName]}
+              onToggle={() => toggleLane(lane.laneName)}
+            />
           ))}
         </div>
       )}
@@ -96,11 +107,11 @@ function useActiveState() {
   };
 }
 
-function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
+function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane: LaneSummary; expanded: boolean | undefined; onToggle: () => void }) {
   const active = useActiveState();
   const navigate = useNavigate();
   const isActive = active.boardId === boardId && active.laneName === lane.laneName;
-  const [expanded, setExpanded] = useState(isActive);
+  const isExpanded = expanded ?? isActive;
 
   const runtimes = useRuntimesStore((s) => s.byId);
   const hasActiveRuntime = Object.values(runtimes).some(
@@ -112,7 +123,7 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
 
   const handleClick = () => {
     navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}`);
-    if (!expanded) setExpanded(true);
+    if (!isExpanded) onToggle();
   };
 
   return (
@@ -125,18 +136,18 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
       >
         <button
           className="w-4 text-base text-slate-500 hover:text-slate-300 shrink-0"
-          onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
+          onClick={(e) => { e.stopPropagation(); onToggle(); }}
         >
-          <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>{expanded ? '▾' : '▸'}</span>
+          <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>{isExpanded ? '▾' : '▸'}</span>
         </button>
         <span className="truncate flex-1">
-          {lane.laneName}
+          {lane.displayName}
         </span>
         <span className="text-xs text-slate-500 tabular-nums">{totalTickets}</span>
         {hasActiveRuntime && <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" title="Active runtime" />}
         {lane.orphanedCount > 0 && <span className="text-amber-400 text-xs shrink-0" title={`${lane.orphanedCount} orphaned`}>⚠</span>}
       </div>
-      {expanded && (
+      {isExpanded && (
         <div className="ml-5">
           {lane.states.map((st) => {
             const count = lane.ticketCounts[st.dir] ?? 0;

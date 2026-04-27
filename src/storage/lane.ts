@@ -36,18 +36,28 @@ function validateStates(states: LaneState[]): void {
   }
 }
 
-export async function createLane(boardPath: string, laneName: string, states: LaneState[]): Promise<void> {
-  if (!/^[a-z0-9][a-z0-9-]*$/i.test(laneName)) {
-    throw new InvalidInputError(`invalid lane name: ${laneName}`);
+function slugifyLaneName(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+export async function createLane(boardPath: string, laneName: string, states: LaneState[]): Promise<string> {
+  if (!laneName || !laneName.trim()) {
+    throw new InvalidInputError('lane name required');
   }
+  const slug = slugifyLaneName(laneName);
+  if (!slug) throw new InvalidInputError(`invalid lane name: ${laneName}`);
   validateStates(states);
-  const lp = lanePath(boardPath, laneName);
-  if (await exists(lp)) throw new ConflictError(`lane exists: ${laneName}`);
+  const lp = lanePath(boardPath, slug);
+  if (await exists(lp)) throw new ConflictError(`lane exists: ${slug}`);
   await mkdir(lp, { recursive: true });
   for (const s of states) await mkdir(path.join(lp, s.dir), { recursive: true });
-  await writeFile(path.join(lp, LANE_YAML), yaml.dump({ states }), 'utf8');
+  await writeFile(path.join(lp, LANE_YAML), yaml.dump({ name: laneName, states }), 'utf8');
   await writeFile(path.join(lp, PROCESS_MD), `# Process for ${laneName}\n\nDescribe stages and transition rules here.\n`, 'utf8');
   await writeFile(path.join(lp, PERMISSIONS), yaml.dump({ allowedPaths: [], allowedTools: [], deniedTools: [] }), 'utf8');
+  return slug;
 }
 
 async function readLaneStates(lp: string): Promise<LaneState[]> {
@@ -87,6 +97,7 @@ export async function listLanes(boardPath: string): Promise<LaneSummary[]> {
       if (err instanceof InvalidLaneError) {
         summaries.push({
           laneName: e.name,
+          displayName: e.name,
           states: [],
           ticketCounts: {},
           orphanedCount: 0,
@@ -99,9 +110,29 @@ export async function listLanes(boardPath: string): Promise<LaneSummary[]> {
   return summaries;
 }
 
+async function readLaneYaml(lp: string): Promise<Record<string, unknown>> {
+  try {
+    const raw = await readFile(path.join(lp, LANE_YAML), 'utf8');
+    return (yaml.load(raw) as Record<string, unknown>) ?? {};
+  } catch {
+    return {};
+  }
+}
+
+async function readLaneDisplayName(lp: string, fallback: string): Promise<string> {
+  try {
+    const raw = await readFile(path.join(lp, LANE_YAML), 'utf8');
+    const parsed = yaml.load(raw) as { name?: string } | null;
+    return parsed?.name ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 async function readLaneSummary(boardPath: string, laneName: string): Promise<LaneSummary> {
   const lp = lanePath(boardPath, laneName);
   const states = await readLaneStates(lp);
+  const displayName = await readLaneDisplayName(lp, laneName);
   const ticketCounts: Record<string, number> = {};
   for (const s of states) {
     const sp = path.join(lp, s.dir);
@@ -122,7 +153,7 @@ async function readLaneSummary(boardPath: string, laneName: string): Promise<Lan
     const files = await readdir(path.join(lp, e.name));
     orphanedCount += files.filter(f => f.endsWith('.md')).length;
   }
-  return { laneName, states, ticketCounts, orphanedCount };
+  return { laneName, displayName, states, ticketCounts, orphanedCount };
 }
 
 export async function readLaneDetail(boardPath: string, laneName: string): Promise<LaneDetail> {
@@ -157,19 +188,29 @@ export async function updateLaneStates(
   for (const s of newStates) {
     await mkdir(path.join(lp, s.dir), { recursive: true });
   }
-  await writeFile(path.join(lp, LANE_YAML), yaml.dump({ states: newStates }), 'utf8');
+  const existing = await readLaneYaml(lp);
+  await writeFile(path.join(lp, LANE_YAML), yaml.dump({ ...existing, states: newStates }), 'utf8');
   // Removed-state folders are NOT deleted from disk in this slice; tickets become orphaned.
 }
 
-export async function renameLane(boardPath: string, oldName: string, newName: string): Promise<void> {
-  if (!/^[a-z0-9][a-z0-9-]*$/i.test(newName)) {
-    throw new InvalidInputError(`invalid lane name: ${newName}`);
+export async function renameLane(boardPath: string, oldSlug: string, newDisplayName: string): Promise<string> {
+  if (!newDisplayName || !newDisplayName.trim()) {
+    throw new InvalidInputError('lane name required');
   }
-  const oldPath = lanePath(boardPath, oldName);
-  const newPath = lanePath(boardPath, newName);
-  if (!(await exists(oldPath))) throw new NotFoundError(`lane not found: ${oldName}`);
-  if (await exists(newPath)) throw new ConflictError(`lane exists: ${newName}`);
-  await rename(oldPath, newPath);
+  const newSlug = slugifyLaneName(newDisplayName);
+  if (!newSlug) throw new InvalidInputError(`invalid lane name: ${newDisplayName}`);
+  const oldPath = lanePath(boardPath, oldSlug);
+  if (!(await exists(oldPath))) throw new NotFoundError(`lane not found: ${oldSlug}`);
+  if (newSlug !== oldSlug) {
+    const newPath = lanePath(boardPath, newSlug);
+    if (await exists(newPath)) throw new ConflictError(`lane exists: ${newSlug}`);
+    await rename(oldPath, newPath);
+  }
+  const lp = lanePath(boardPath, newSlug);
+  const existing = await readLaneYaml(lp);
+  existing.name = newDisplayName;
+  await writeFile(path.join(lp, LANE_YAML), yaml.dump(existing), 'utf8');
+  return newSlug;
 }
 
 export async function deleteLaneFolder(boardPath: string, laneName: string): Promise<void> {

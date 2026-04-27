@@ -105,7 +105,7 @@ function LaneListItem({ lane, selected, onClick }: { lane: LaneSummary; selected
       onClick={onClick}
     >
       <div className="flex-1 min-w-0">
-        <div className="font-medium text-sm truncate">{lane.laneName}</div>
+        <div className="font-medium text-sm truncate">{lane.displayName}</div>
         <div className="text-xs text-slate-500 mt-0.5">
           {lane.states.map((s) => s.name).join(' → ')}
         </div>
@@ -131,11 +131,11 @@ function NewLaneEditor({ boardId, onCreated }: { boardId: string; onCreated: (na
 
   const removeState = (idx: number) => setStates(states.filter((_, i) => i !== idx));
 
-  const moveState = (idx: number, dir: -1 | 1) => {
+  const moveState = (from: number, to: number) => {
+    if (from === to || to < 0 || to >= states.length) return;
     const next = [...states];
-    const target = idx + dir;
-    if (target < 0 || target >= next.length) return;
-    [next[idx], next[target]] = [next[target], next[idx]];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
     setStates(next);
   };
 
@@ -143,9 +143,9 @@ function NewLaneEditor({ boardId, onCreated }: { boardId: string; onCreated: (na
     if (!name.trim()) { toast.error('Lane name is required'); return; }
     if (states.length === 0) { toast.error('At least one state is required'); return; }
     try {
-      await create.mutateAsync({ name: name.trim(), states });
+      const result = await create.mutateAsync({ name: name.trim(), states });
       toast.success('Lane created');
-      onCreated(name.trim());
+      onCreated(result.lane.laneName);
       setName('');
       setStates(DEFAULT_STATES);
     } catch (err) { toast.error((err as Error).message); }
@@ -186,12 +186,33 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
   const deleteLane = useDeleteLane(boardId, laneName);
   const [, setSearchParams] = useSearchParams();
   const [states, setStates] = useState<LaneState[] | null>(null);
+  const [editingName, setEditingName] = useState(false);
+  const [newName, setNewName] = useState('');
 
   if (lane.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
   if (!lane.data) return <div className="p-6 text-red-400">Lane not found.</div>;
 
   const currentStates = states ?? lane.data.lane.states;
   const dirty = states !== null;
+
+  const currentDisplayName = lane.data.lane.displayName;
+
+  const startEditName = () => {
+    setNewName(currentDisplayName);
+    setEditingName(true);
+  };
+
+  const saveLaneName = async () => {
+    const trimmed = newName.trim();
+    if (trimmed && trimmed !== currentDisplayName) {
+      try {
+        const result = await patchLane.mutateAsync({ name: trimmed });
+        setSearchParams({ lane: result.lane.laneName });
+        toast.success('Lane renamed');
+      } catch (err) { toast.error((err as Error).message); }
+    }
+    setEditingName(false);
+  };
 
   const updateState = (idx: number, field: keyof LaneState, value: string) => {
     const next = [...currentStates];
@@ -207,11 +228,11 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
     setStates(currentStates.filter((_, i) => i !== idx));
   };
 
-  const moveState = (idx: number, dir: -1 | 1) => {
+  const moveState = (from: number, to: number) => {
+    if (from === to || to < 0 || to >= currentStates.length) return;
     const next = [...currentStates];
-    const target = idx + dir;
-    if (target < 0 || target >= next.length) return;
-    [next[idx], next[target]] = [next[target], next[idx]];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
     setStates(next);
   };
 
@@ -236,7 +257,20 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
   return (
     <div className="p-6 max-w-2xl">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-lg font-semibold">{laneName}</h2>
+        {editingName ? (
+          <input
+            className="bg-slate-800 rounded px-2 py-1 text-lg font-semibold"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onBlur={saveLaneName}
+            onKeyDown={(e) => { if (e.key === 'Enter') saveLaneName(); if (e.key === 'Escape') setEditingName(false); }}
+            autoFocus
+          />
+        ) : (
+          <h2 className="text-lg font-semibold cursor-pointer hover:text-blue-400" onClick={startEditName}>
+            {currentDisplayName}
+          </h2>
+        )}
         <button className="px-3 py-1 rounded bg-red-700/50 hover:bg-red-700 text-sm" onClick={handleDelete}>
           Delete Lane
         </button>
@@ -252,21 +286,20 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
           onRemove={removeState}
           onMove={moveState}
         />
+        {dirty && (
+          <div className="flex gap-2 mt-3">
+            <button
+              className="px-3 py-1 rounded bg-blue-600 text-sm"
+              onClick={save}
+              disabled={patchLane.isPending}
+            >Save</button>
+            <button
+              className="px-3 py-1 rounded bg-slate-700 text-sm"
+              onClick={() => setStates(null)}
+            >Discard</button>
+          </div>
+        )}
       </section>
-
-      {dirty && (
-        <div className="flex gap-2">
-          <button
-            className="px-3 py-1 rounded bg-blue-600 text-sm"
-            onClick={save}
-            disabled={patchLane.isPending}
-          >Save</button>
-          <button
-            className="px-3 py-1 rounded bg-slate-700 text-sm"
-            onClick={() => setStates(null)}
-          >Discard</button>
-        </div>
-      )}
 
       {lane.data.lane.hasProcessDoc && (
         <section className="mt-8 pt-6 border-t border-slate-800">
@@ -284,27 +317,36 @@ interface StatesEditorProps {
   onUpdate: (idx: number, field: keyof LaneState, value: string) => void;
   onAdd: () => void;
   onRemove: (idx: number) => void;
-  onMove: (idx: number, dir: -1 | 1) => void;
+  onMove: (from: number, to: number) => void;
 }
 
 function StatesEditor({ states, ticketCounts, onUpdate, onAdd, onRemove, onMove }: StatesEditorProps) {
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+
   return (
     <>
-      <div className="space-y-2">
+      <div className="flex items-center gap-2 px-1 mb-1 text-xs text-slate-500">
+        <span className="px-0.5 invisible">⠿</span>
+        <span className="w-32">Folder</span>
+        <span className="flex-1">Display Title</span>
+        {ticketCounts && <span className="w-8" />}
+        <span className="px-1 invisible">×</span>
+      </div>
+      <div className="space-y-1">
         {states.map((s, i) => (
-          <div key={i} className="flex items-center gap-2">
-            <div className="flex flex-col gap-0.5">
-              <button
-                className="text-xs text-slate-500 hover:text-slate-300 leading-none"
-                onClick={() => onMove(i, -1)}
-                disabled={i === 0}
-              >▲</button>
-              <button
-                className="text-xs text-slate-500 hover:text-slate-300 leading-none"
-                onClick={() => onMove(i, 1)}
-                disabled={i === states.length - 1}
-              >▼</button>
-            </div>
+          <div
+            key={i}
+            draggable
+            onDragStart={() => setDragIdx(i)}
+            onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
+            onDragOver={(e) => { e.preventDefault(); setOverIdx(i); }}
+            onDrop={() => { if (dragIdx !== null) onMove(dragIdx, i); setDragIdx(null); setOverIdx(null); }}
+            className={`flex items-center gap-2 rounded px-1 py-0.5 transition-colors ${
+              dragIdx === i ? 'opacity-40' : ''
+            } ${overIdx === i && dragIdx !== null && dragIdx !== i ? 'bg-slate-700/50' : ''}`}
+          >
+            <span className="cursor-grab active:cursor-grabbing text-slate-500 hover:text-slate-300 select-none px-0.5">⠿</span>
             <input
               className="bg-slate-800 rounded px-2 py-1 text-sm w-32"
               placeholder="dir"
