@@ -6,6 +6,7 @@
 ## Components
 - [Storage](components/storage.md) — filesystem storage layer with YAML persistence
 - [Server](components/server.md) — Fastify server with REST API and WebSocket hub
+- [Web UI](components/web.md) — Vite + React SPA: project picker, Kanban board, ticket editor, WebSocket-driven live updates
 
 ## Concepts
 - [Project Model](project-model.md) — Projects, boards, lanes, and tickets
