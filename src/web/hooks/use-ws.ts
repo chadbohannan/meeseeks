@@ -5,7 +5,7 @@ import type { WsEvent } from '@shared/events.js';
 
 let singleton: WsClient | null = null;
 
-function getClient(): WsClient {
+export function getWsClient(): WsClient {
   if (!singleton) {
     singleton = new WsClient(makeWsUrl());
     singleton.connect();
@@ -16,7 +16,7 @@ function getClient(): WsClient {
 export function useWsInvalidation(): void {
   const qc = useQueryClient();
   useEffect(() => {
-    const client = getClient();
+    const client = getWsClient();
     const unsubscribe = client.subscribe((event: WsEvent) => {
       switch (event.type) {
         case 'project-opened':

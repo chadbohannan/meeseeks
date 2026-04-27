@@ -6,6 +6,7 @@ import type {
   ApiErrorBody,
   ProjectMeta, BoardSummary, BoardDetail, LaneDetail, TicketDetail,
 } from '@shared/api.js';
+import type { ListRuntimesResponse, SpawnRuntimeResponse, RuntimeSummary } from '@shared/runtime.js';
 
 export class ApiError extends Error {
   constructor(public code: string, message: string, public status: number) {
@@ -70,4 +71,12 @@ export const api = {
     request<{ ticket: TicketDetail }>('PATCH', `/api/boards/${enc(boardId)}/lanes/${enc(laneName)}/tickets/${enc(filename)}`, req),
   deleteTicket: (boardId: string, laneName: string, filename: string) =>
     request<{ ok: true }>('DELETE', `/api/boards/${enc(boardId)}/lanes/${enc(laneName)}/tickets/${enc(filename)}`),
+
+  // Runtimes
+  listRuntimes: () => request<ListRuntimesResponse>('GET', '/api/runtimes'),
+  getRuntime: (id: string) => request<{ runtime: RuntimeSummary }>('GET', `/api/runtimes/${enc(id)}`),
+  getRuntimeSnapshot: (id: string) => request<{ data: string }>('GET', `/api/runtimes/${enc(id)}/snapshot`),
+  spawnRuntime: (boardId: string, laneName: string, filename: string) =>
+    request<SpawnRuntimeResponse>('POST', `/api/tickets/${enc(boardId)}/${enc(laneName)}/${enc(filename)}/runtime`),
+  terminateRuntime: (id: string) => request<Record<string, never>>('DELETE', `/api/runtimes/${enc(id)}`),
 };

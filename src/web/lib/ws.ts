@@ -35,6 +35,12 @@ export class WsClient {
     return () => { this.handlers.delete(handler); };
   }
 
+  send(msg: unknown): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify(msg));
+    }
+  }
+
   close(): void {
     this.closed = true;
     this.ws?.close();

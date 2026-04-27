@@ -121,3 +121,22 @@ export function useDeleteTicket(boardId: string, laneName: string, filename: str
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] }); },
   });
 }
+
+export function useRuntimes() {
+  return useQuery({ queryKey: ["runtimes"], queryFn: api.listRuntimes });
+}
+export function useSpawnRuntime() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (vars: { boardId: string; laneName: string; filename: string }) =>
+      api.spawnRuntime(vars.boardId, vars.laneName, vars.filename),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["runtimes"] }); },
+  });
+}
+export function useTerminateRuntime() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.terminateRuntime(id),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["runtimes"] }); },
+  });
+}

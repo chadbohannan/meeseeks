@@ -1,0 +1,44 @@
+import { useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
+import { getWsClient } from './use-ws.js';
+import { useRuntimesStore } from '../store/runtimes.js';
+import { bytesFromB64, b64FromBytes } from '../lib/b64.js';
+
+type StdioHandler = (runtimeId: string, bytes: Uint8Array) => void;
+const handlers = new Set<StdioHandler>();
+
+export function onRuntimeStdio(h: StdioHandler): () => void {
+  handlers.add(h);
+  return () => { handlers.delete(h); };
+}
+
+export function useRuntimeWs(): void {
+  const qc = useQueryClient();
+  useEffect(() => {
+    const client = getWsClient();
+    return client.subscribe((evt) => {
+      if (evt.type === 'runtime-spawned') {
+        useRuntimesStore.getState().upsert(evt.payload);
+        qc.invalidateQueries({ queryKey: ['runtimes'] });
+      } else if (evt.type === 'runtime-status') {
+        useRuntimesStore.getState().setStatus(
+          evt.payload.runtimeId, evt.payload.status, evt.payload.exitCode, evt.payload.errorMessage,
+        );
+        qc.invalidateQueries({ queryKey: ['runtimes'] });
+      } else if (evt.type === 'runtime-stdio') {
+        const bytes = bytesFromB64(evt.payload.data);
+        for (const h of handlers) h(evt.payload.runtimeId, bytes);
+      } else if (evt.type === 'project-closed' || evt.type === 'project-opened') {
+        useRuntimesStore.getState().reset();
+      }
+    });
+  }, [qc]);
+}
+
+export function sendRuntimeInput(runtimeId: string, bytes: Uint8Array): void {
+  getWsClient().send({ type: 'runtime-input', payload: { runtimeId, data: b64FromBytes(bytes) } });
+}
+
+export function sendRuntimeResize(runtimeId: string, cols: number, rows: number): void {
+  getWsClient().send({ type: 'runtime-resize', payload: { runtimeId, cols, rows } });
+}
