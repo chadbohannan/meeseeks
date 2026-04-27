@@ -9,6 +9,7 @@ import { registerLaneRoutes } from '../../src/server/routes/lanes.js';
 import { registerTicketRoutes } from '../../src/server/routes/tickets.js';
 import { registerRuntimeRoutes } from '../../src/server/routes/runtimes.js';
 import { readProject } from '../../src/storage/project.js';
+import { startWatcher } from '../../src/server/watcher.js';
 
 export interface TestServer {
   app: FastifyInstance;
@@ -21,8 +22,9 @@ export interface TestServer {
 
 export async function bootTestServer(projectRoot: string): Promise<TestServer> {
   const meta = await readProject(projectRoot);
-  const state = new ServerState(meta);
   const hub = new WsHub();
+  const handle = startWatcher(meta, hub);
+  const state = new ServerState(meta, handle.cleanup);
   const app = Fastify({ logger: false });
   await app.register(websocket);
   app.setErrorHandler(mapErrorToResponse);

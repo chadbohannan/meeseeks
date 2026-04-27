@@ -35,16 +35,12 @@ let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
 
 async function setup() {
-  const srv = await bootTestServer();
+  const tp = await makeBareProject();
+  cleanups.push(tp.cleanup);
+  const srv = await bootTestServer(tp.root);
   cleanups.push(srv.cleanup);
   // override supervisor spawnFn for tests
   (srv.state.supervisor as unknown as { spawnFn: SpawnFn }).spawnFn = stubSpawn;
-  const tp = await makeBareProject();
-  cleanups.push(tp.cleanup);
-  await fetch(`${srv.url}/api/projects/open`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ path: tp.root }),
-  });
   const board = await (await fetch(`${srv.url}/api/boards`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name: 'B' }),

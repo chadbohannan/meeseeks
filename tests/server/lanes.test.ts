@@ -8,14 +8,10 @@ afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
 const STATES = [{ dir: 'todo', name: 'Todo' }, { dir: 'doing', name: 'Doing' }];
 
 async function setup() {
-  const srv = await bootTestServer();
-  cleanups.push(srv.cleanup);
   const tp = await makeBareProject();
   cleanups.push(tp.cleanup);
-  await fetch(`${srv.url}/api/projects/open`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ path: tp.root }),
-  });
+  const srv = await bootTestServer(tp.root);
+  cleanups.push(srv.cleanup);
   const board = await (await fetch(`${srv.url}/api/boards`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name: 'B' }),
