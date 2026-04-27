@@ -1,45 +1,46 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
-import { readProject, createProject, listBoards, addBoardToProject } from '../../src/storage/project.js';
-import { NotFoundError, ConflictError } from '../../src/storage/errors.js';
+import { readProject, listBoards, addBoardToProject } from '../../src/storage/project.js';
+import { ConflictError } from '../../src/storage/errors.js';
 import { makeTmpProject, makeBareProject } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
 
-describe('createProject', () => {
-  it('writes a project.meeseeks file', async () => {
+describe('readProject', () => {
+  it('reads project.yaml when present', async () => {
     const tp = await makeTmpProject();
     cleanups.push(tp.cleanup);
-
-    const meta = await createProject(tp.root, 'My Proj');
-    expect(meta.config.name).toBe('My Proj');
-    expect(meta.config.boards).toEqual([]);
-
-    const text = await readFile(path.join(tp.root, 'project.meeseeks'), 'utf8');
-    expect(text).toContain('name: My Proj');
+    await writeFile(path.join(tp.root, 'project.yaml'), 'name: YamlProj\nboards: []\n', 'utf8');
+    const meta = await readProject(tp.root);
+    expect(meta.config.name).toBe('YamlProj');
   });
 
-  it('rejects an existing project file', async () => {
-    const tp = await makeBareProject();
-    cleanups.push(tp.cleanup);
-    await expect(createProject(tp.root, 'Other')).rejects.toThrow(ConflictError);
-  });
-});
-
-describe('readProject', () => {
-  it('returns parsed config', async () => {
-    const tp = await makeBareProject('Hello');
+  it('falls back to project.meeseeks when project.yaml absent', async () => {
+    const tp = await makeBareProject('LegacyProj');  // writes project.meeseeks
     cleanups.push(tp.cleanup);
     const meta = await readProject(tp.root);
-    expect(meta.config.name).toBe('Hello');
+    expect(meta.config.name).toBe('LegacyProj');
   });
 
-  it('throws NotFoundError when project.meeseeks missing', async () => {
+  it('prefers project.yaml over project.meeseeks when both present', async () => {
+    const tp = await makeBareProject('LegacyName');
+    cleanups.push(tp.cleanup);
+    await writeFile(path.join(tp.root, 'project.yaml'), 'name: NewName\nboards: []\n', 'utf8');
+    const meta = await readProject(tp.root);
+    expect(meta.config.name).toBe('NewName');
+  });
+
+  it('auto-creates project.yaml from directory name when neither file exists', async () => {
     const tp = await makeTmpProject();
     cleanups.push(tp.cleanup);
-    await expect(readProject(tp.root)).rejects.toThrow(NotFoundError);
+    const meta = await readProject(tp.root);
+    expect(meta.config.name).toBe(path.basename(tp.root));
+    expect(meta.config.boards).toEqual([]);
+    // file was created on disk
+    const text = await readFile(path.join(tp.root, 'project.yaml'), 'utf8');
+    expect(text).toContain(`name: ${path.basename(tp.root)}`);
   });
 });
 

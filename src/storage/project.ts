@@ -1,52 +1,58 @@
 import { readFile, writeFile, access, stat } from 'node:fs/promises';
 import path from 'node:path';
 import yaml from 'js-yaml';
-import { NotFoundError, ConflictError, InvalidInputError } from './errors.js';
+import { ConflictError, InvalidInputError } from './errors.js';
 import { resolveWithin, slugifyBoardPath } from './paths.js';
 import type { ProjectConfig, ProjectMeta, BoardSummary } from '../shared/types.js';
 
-const PROJECT_FILE = 'project.meeseeks';
-
-function configPath(projectRoot: string): string {
-  return path.join(projectRoot, PROJECT_FILE);
-}
+const PROJECT_FILE = 'project.yaml';
+const PROJECT_FILE_LEGACY = 'project.meeseeks';
 
 async function exists(p: string): Promise<boolean> {
   try { await access(p); return true; } catch { return false; }
 }
 
-export async function readProject(projectRoot: string): Promise<ProjectMeta> {
-  const p = configPath(projectRoot);
-  if (!(await exists(p))) {
-    throw new NotFoundError(`no project.meeseeks at ${projectRoot}`);
-  }
-  const text = await readFile(p, 'utf8');
+function yamlPath(projectRoot: string): string {
+  return path.join(projectRoot, PROJECT_FILE);
+}
+
+async function resolveConfigPath(projectRoot: string): Promise<string | null> {
+  const p = yamlPath(projectRoot);
+  if (await exists(p)) return p;
+  const legacy = path.join(projectRoot, PROJECT_FILE_LEGACY);
+  if (await exists(legacy)) return legacy;
+  return null;
+}
+
+function parseConfig(text: string, projectRoot: string): ProjectConfig {
   const parsed = yaml.load(text) as Partial<ProjectConfig> | null;
   if (!parsed || typeof parsed !== 'object') {
-    throw new InvalidInputError(`malformed project.meeseeks at ${p}`);
+    throw new InvalidInputError(`malformed project config at ${projectRoot}`);
   }
-  const config: ProjectConfig = {
+  return {
     name: typeof parsed.name === 'string' ? parsed.name : path.basename(projectRoot),
-    boards: Array.isArray(parsed.boards) ? parsed.boards.filter((b): b is string => typeof b === 'string') : [],
+    boards: Array.isArray(parsed.boards)
+      ? parsed.boards.filter((b): b is string => typeof b === 'string')
+      : [],
   };
+}
+
+export async function readProject(projectRoot: string): Promise<ProjectMeta> {
+  const configFile = await resolveConfigPath(projectRoot);
+  if (configFile) {
+    const text = await readFile(configFile, 'utf8');
+    return { path: path.resolve(projectRoot), config: parseConfig(text, projectRoot) };
+  }
+  // Auto-create project.yaml using directory name
+  const config: ProjectConfig = { name: path.basename(projectRoot), boards: [] };
+  const text = yaml.dump(config, { lineWidth: 100 });
+  await writeFile(yamlPath(projectRoot), text, 'utf8');
   return { path: path.resolve(projectRoot), config };
 }
 
 export async function writeProject(projectRoot: string, config: ProjectConfig): Promise<void> {
   const text = yaml.dump(config, { lineWidth: 100 });
-  await writeFile(configPath(projectRoot), text, 'utf8');
-}
-
-export async function createProject(projectRoot: string, name: string): Promise<ProjectMeta> {
-  if (!name || typeof name !== 'string') {
-    throw new InvalidInputError('project name required');
-  }
-  if (await exists(configPath(projectRoot))) {
-    throw new ConflictError(`project already exists at ${projectRoot}`);
-  }
-  const config: ProjectConfig = { name, boards: [] };
-  await writeProject(projectRoot, config);
-  return { path: path.resolve(projectRoot), config };
+  await writeFile(yamlPath(projectRoot), text, 'utf8');
 }
 
 export async function addBoardToProject(projectRoot: string, boardPath: string): Promise<void> {
@@ -61,7 +67,7 @@ export async function addBoardToProject(projectRoot: string, boardPath: string):
 export async function removeBoardFromProject(projectRoot: string, boardPath: string): Promise<void> {
   const meta = await readProject(projectRoot);
   const idx = meta.config.boards.indexOf(boardPath);
-  if (idx === -1) throw new NotFoundError(`board not registered: ${boardPath}`);
+  if (idx === -1) throw new ConflictError(`board not registered: ${boardPath}`);
   meta.config.boards.splice(idx, 1);
   await writeProject(projectRoot, meta.config);
 }
@@ -88,10 +94,9 @@ export async function listBoards(projectRoot: string): Promise<BoardSummary[]> {
   return out;
 }
 
-/** Look up a board by its derived id; throws NotFoundError if absent. */
 export async function getBoard(projectRoot: string, boardId: string): Promise<BoardSummary> {
   const boards = await listBoards(projectRoot);
   const board = boards.find(b => b.boardId === boardId);
-  if (!board) throw new NotFoundError(`no board with id ${boardId}`);
+  if (!board) throw new ConflictError(`no board with id ${boardId}`);
   return board;
 }
