@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import websocket from '@fastify/websocket';
+import fastifyStatic from '@fastify/static';
 import { ServerState } from './state.js';
 import { WsHub, registerWs } from './ws.js';
 import { mapErrorToResponse } from './error-mapper.js';
@@ -11,6 +12,8 @@ import { registerTicketRoutes } from './routes/tickets.js';
 import { readProject, listBoards } from '../storage/project.js';
 import { startWatcher } from './watcher.js';
 import path from 'node:path';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 const PORT = Number(process.env.MEESEEKS_PORT ?? 5174);
 const HOST = process.env.MEESEEKS_HOST ?? '127.0.0.1';
@@ -28,6 +31,20 @@ async function main(): Promise<void> {
   await registerLaneRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });
   await registerWs(app, state, hub);
+
+  // dist/server/index.js → ../web → dist/web
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const webDir = path.resolve(__dirname, '../web');
+  if (existsSync(webDir)) {
+    await app.register(fastifyStatic, { root: webDir, prefix: '/', wildcard: false });
+    app.setNotFoundHandler((req, reply) => {
+      if (req.url.startsWith('/api') || req.url.startsWith('/ws')) {
+        reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'route not found' } });
+        return;
+      }
+      reply.type('text/html').sendFile('index.html');
+    });
+  }
 
   if (argPath) {
     try {
