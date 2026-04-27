@@ -9,6 +9,7 @@ import { registerProjectRoutes } from './routes/projects.js';
 import { registerBoardRoutes } from './routes/boards.js';
 import { registerLaneRoutes } from './routes/lanes.js';
 import { registerTicketRoutes } from './routes/tickets.js';
+import { registerRuntimeRoutes } from './routes/runtimes.js';
 import { readProject, listBoards } from '../storage/project.js';
 import { startWatcher } from './watcher.js';
 import path from 'node:path';
@@ -23,6 +24,9 @@ async function main(): Promise<void> {
   const state = new ServerState();
   const hub = new WsHub();
   const appConfig = new AppConfig();
+  state.supervisor.on('runtime-spawned', (s) => hub.broadcast({ type: 'runtime-spawned', payload: s }));
+  state.supervisor.on('runtime-status', (s) => hub.broadcast({ type: 'runtime-status', payload: s }));
+  state.supervisor.on('runtime-stdio', (s) => hub.broadcast({ type: 'runtime-stdio', payload: s }));
   const app = Fastify({ logger: true });
   await app.register(websocket);
   app.setErrorHandler(mapErrorToResponse);
@@ -30,6 +34,7 @@ async function main(): Promise<void> {
   await registerBoardRoutes(app, { state, hub });
   await registerLaneRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });
+  await registerRuntimeRoutes(app, { state, hub });
   await registerWs(app, state, hub);
 
   // dist/server/index.js → ../web → dist/web

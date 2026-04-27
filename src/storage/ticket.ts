@@ -27,7 +27,7 @@ interface FrontMatter {
   updated: string;
 }
 
-async function findTicketFile(lp: string, filename: string): Promise<{ state: string; abs: string } | null> {
+export async function findTicketFile(lp: string, filename: string): Promise<{ state: string; abs: string } | null> {
   const entries = await readdir(lp, { withFileTypes: true });
   for (const e of entries) {
     if (!e.isDirectory()) continue;

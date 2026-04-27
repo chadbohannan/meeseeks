@@ -7,6 +7,7 @@ import { registerProjectRoutes } from '../../src/server/routes/projects.js';
 import { registerBoardRoutes } from '../../src/server/routes/boards.js';
 import { registerLaneRoutes } from '../../src/server/routes/lanes.js';
 import { registerTicketRoutes } from '../../src/server/routes/tickets.js';
+import { registerRuntimeRoutes } from '../../src/server/routes/runtimes.js';
 import { AppConfig } from '../../src/server/app-config.js';
 import path from 'node:path';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -34,6 +35,10 @@ export async function bootTestServer(): Promise<TestServer> {
   await registerBoardRoutes(app, { state, hub });
   await registerLaneRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });
+  await registerRuntimeRoutes(app, { state, hub });
+  state.supervisor.on('runtime-spawned', (s) => hub.broadcast({ type: 'runtime-spawned', payload: s }));
+  state.supervisor.on('runtime-status', (s) => hub.broadcast({ type: 'runtime-status', payload: s }));
+  state.supervisor.on('runtime-stdio', (s) => hub.broadcast({ type: 'runtime-stdio', payload: s }));
   await registerWs(app, state, hub);
   await app.listen({ port: 0, host: '127.0.0.1' });
   const address = app.server.address();
