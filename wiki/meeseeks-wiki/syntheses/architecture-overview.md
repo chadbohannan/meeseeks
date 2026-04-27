@@ -44,5 +44,5 @@ The [Web UI](../components/web.md) and [Console panels](../components/console.md
 
 | Ingest Date | Source |
 | ----------- | ------ |
-| 2026-04-26 | [First Slice Design §2](code-rag:meeseeks/docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md:Meeseeks — First Slice Design: Storage, Server, UI, and Runtimes:2. Decomposition context) |
-| 2026-04-26 | [First Slice Design §3](code-rag:meeseeks/docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md:Meeseeks — First Slice Design: Storage, Server, UI, and Runtimes:3. Architecture) |
+| 2026-04-26 | First Slice Design §2 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |
+| 2026-04-26 | First Slice Design §3 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |

@@ -22,6 +22,6 @@ The system enforces a single-project operational model — only one project can 
 
 | Ingest Date | Source |
 | ----------- | ------ |
-| 2026-04-26 | [README.md](code-rag:meeseeks/README.md:meeseeks) |
-| 2026-04-26 | [idea.md](code-rag:meeseeks/idea.md:Meeseeks Concept) |
-| 2026-04-26 | [First Slice Design](code-rag:meeseeks/docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md:Meeseeks — First Slice Design: Storage, Server, UI, and Runtimes:1. Goals and non-goals) |
+| 2026-04-26 | `README.md` |
+| 2026-04-26 | `idea.md` |
+| 2026-04-26 | First Slice Design §1 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |

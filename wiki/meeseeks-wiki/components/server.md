@@ -33,7 +33,7 @@ The server runs via `npm run dev:server` (or `npm run dev` to run both server an
 
 | Ingest Date | Source |
 | ----------- | ------ |
-| 2026-04-26 | [`src/server`](code-rag:meeseeks/src/server) |
-| 2026-04-26 | [`src/server/routes`](code-rag:meeseeks/src/server/routes) |
-| 2026-04-26 | [First Slice Design §5](code-rag:meeseeks/docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md:Meeseeks — First Slice Design: Storage, Server, UI, and Runtimes:5. HTTP API) |
-| 2026-04-26 | [First Slice Design §6](code-rag:meeseeks/docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md:Meeseeks — First Slice Design: Storage, Server, UI, and Runtimes:6. WebSocket protocol) |
+| 2026-04-26 | `src/server` |
+| 2026-04-26 | `src/server/routes` |
+| 2026-04-26 | First Slice Design §5 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |
+| 2026-04-26 | First Slice Design §6 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |
