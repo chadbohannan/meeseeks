@@ -1,10 +1,4 @@
-import type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, TicketSummary, TicketDetail, RecentEntry } from './types.js';
-
-// Projects
-export interface OpenProjectRequest { path: string }
-export interface OpenProjectResponse { project: ProjectMeta; boards: BoardSummary[] }
-export interface CreateProjectRequest { path: string; name: string }
-export interface ListRecentsResponse { recents: RecentEntry[] }
+import type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, TicketSummary, TicketDetail } from './types.js';
 
 // Boards
 export interface CreateBoardRequest { name: string; path?: string }
@@ -26,4 +20,4 @@ export interface ApiErrorBody {
   error: { code: string; message: string };
 }
 
-export type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, TicketSummary, TicketDetail, RecentEntry };
+export type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, TicketSummary, TicketDetail };

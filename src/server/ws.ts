@@ -3,7 +3,6 @@ import type { WebSocket } from 'ws';
 import type { WebsocketHandler } from '@fastify/websocket';
 import type { WsEvent } from '../shared/events.js';
 import type { ServerState } from './state.js';
-import { listBoards } from '../storage/project.js';
 
 export class WsHub {
   private clients = new Set<WebSocket>();
@@ -35,15 +34,8 @@ export async function registerWs(
 ): Promise<void> {
   const handler: WebsocketHandler = async (socket) => {
     hub.add(socket);
-    const open = state.peek();
-    if (open) {
-      const boards = await listBoards(open.meta.path);
-      hub.send(socket, { type: 'project-opened', payload: { project: open.meta, boards } });
-      for (const r of state.supervisor.list()) {
-        hub.send(socket, { type: 'runtime-spawned', payload: r });
-      }
-    } else {
-      hub.send(socket, { type: 'project-closed', payload: {} });
+    for (const r of state.supervisor.list()) {
+      hub.send(socket, { type: 'runtime-spawned', payload: r });
     }
 
     socket.on('message', (raw: Buffer) => {
