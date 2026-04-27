@@ -39,8 +39,14 @@ export function TicketRoute() {
 
   const states = lane.data?.lane.states ?? [];
 
+  const stateName = states.find((s) => s.dir === ticket.data.ticket.state)?.name ?? ticket.data.ticket.state;
+  const stateUrl = `/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}/state/${encodeURIComponent(ticket.data.ticket.state)}`;
+
   const ticketEditor = (
     <div className="p-6 max-w-3xl h-full overflow-y-auto">
+      <nav className="text-sm text-slate-400 mb-3">
+        <button className="hover:text-white" onClick={() => navigate(stateUrl)}>← {stateName}</button>
+      </nav>
       <input
         className="w-full bg-slate-800 rounded px-3 py-2 text-lg font-medium mb-3"
         value={title}

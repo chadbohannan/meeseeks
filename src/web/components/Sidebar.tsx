@@ -44,7 +44,7 @@ function BoardNode({ board }: { board: BoardSummary }) {
 
   const handleClick = () => {
     navigate(`/boards/${encodeURIComponent(board.boardId)}`);
-    setExpanded(true);
+    if (!expanded) setExpanded(true);
   };
 
   return (
@@ -53,16 +53,16 @@ function BoardNode({ board }: { board: BoardSummary }) {
         className={`flex items-center gap-1 px-2 py-1.5 cursor-pointer hover:bg-slate-800 ${
           isBoardOnly ? 'bg-slate-800 text-white' : 'text-slate-300'
         }`}
+        onClick={handleClick}
       >
         <button
-          className="w-4 text-slate-500 hover:text-slate-300 shrink-0"
+          className="w-4 text-base text-slate-500 hover:text-slate-300 shrink-0"
           onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
         >
-          {expanded ? '▾' : '▸'}
+          <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>{expanded ? '▾' : '▸'}</span>
         </button>
         <span
           className={`truncate flex-1 ${!board.available ? 'opacity-50' : ''}`}
-          onClick={handleClick}
         >
           {board.name}
         </span>
@@ -112,7 +112,7 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
 
   const handleClick = () => {
     navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}`);
-    setExpanded(true);
+    if (!expanded) setExpanded(true);
   };
 
   return (
@@ -121,14 +121,15 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
         className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-slate-800 ${
           isActive && !active.stateDir && !active.filename ? 'bg-slate-800 text-white' : 'text-slate-300'
         }`}
+        onClick={handleClick}
       >
         <button
-          className="w-4 text-slate-500 hover:text-slate-300 shrink-0"
+          className="w-4 text-base text-slate-500 hover:text-slate-300 shrink-0"
           onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}
         >
-          {expanded ? '▾' : '▸'}
+          <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>{expanded ? '▾' : '▸'}</span>
         </button>
-        <span className="truncate flex-1" onClick={handleClick}>
+        <span className="truncate flex-1">
           {lane.laneName}
         </span>
         <span className="text-xs text-slate-500 tabular-nums">{totalTickets}</span>

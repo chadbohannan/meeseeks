@@ -18,9 +18,10 @@ export function TicketCard({ boardId, laneName, ticket }: Props) {
     >
       <div className="flex items-center gap-2">
         {runtime && <RuntimeStatusDot status={runtime.status} />}
-        <div className="font-medium text-sm">{ticket.title}</div>
+        <div className="font-medium text-xl">{ticket.title}</div>
       </div>
       <div className="text-xs text-slate-500 mt-1">{new Date(ticket.updated).toLocaleString()}</div>
+      {ticket.body && <div className="text-xs text-slate-300 mt-2 whitespace-pre-wrap">{ticket.body}</div>}
       {ticket.orphaned && <div className="text-xs text-amber-400 mt-1">orphaned</div>}
     </Link>
   );

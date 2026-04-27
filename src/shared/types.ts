@@ -40,14 +40,13 @@ export interface TicketSummary {
   filename: string;
   state: string;         // state.dir, or '__orphaned__' for tickets in unknown folders
   title: string;
+  body: string;
   created: string;       // ISO
   updated: string;       // ISO
   orphaned: boolean;
 }
 
-export interface TicketDetail extends TicketSummary {
-  body: string;
-}
+export type TicketDetail = TicketSummary;
 
 export interface RecentEntry {
   path: string;
