@@ -45,8 +45,9 @@ The "no project open" state is removed from `ServerState`. A project is always o
 - `project-opened` and `project-closed` WebSocket event broadcasts
 - `POST /api/projects/open` route
 - `POST /api/projects/close` route
-- `GET /api/projects/recents` route
-- `AppConfig` recents tracking (the class may be deleted entirely if recents is its only responsibility)
+- `POST /api/projects/create` route
+- `GET /api/projects/recent` route
+- `AppConfig` class and `src/server/app-config.ts` (recents is its only responsibility)
 
 The `GET /api/projects/current` route is retained — clients fetch project metadata on load to display the project name in the header.
 
@@ -132,8 +133,8 @@ Browser loads
 | `src/storage/project.ts` | Filename resolution + auto-create logic |
 | `src/server/index.ts` | Startup resolution (arg vs cwd), remove watcher/recents on close |
 | `src/server/state.ts` | Remove open/close lifecycle; project always set at construction |
-| `src/server/app-config.ts` | Delete if recents-only; otherwise remove recents methods |
-| `src/server/routes/projects.ts` | Delete open/close/recents routes; retain current |
+| `src/server/app-config.ts` | Delete entirely |
+| `src/server/routes/projects.ts` | Delete open/close/create/recent routes; retain current |
 | `src/web/App.tsx` | Remove PickerRoute, add Navigate redirect |
 | `src/web/components/AppShell.tsx` | Remove Close button, fix logo link |
 | `src/web/routes/PickerRoute.tsx` | Delete |
