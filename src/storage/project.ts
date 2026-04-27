@@ -1,7 +1,7 @@
 import { readFile, writeFile, access, stat } from 'node:fs/promises';
 import path from 'node:path';
 import yaml from 'js-yaml';
-import { ConflictError, InvalidInputError } from './errors.js';
+import { ConflictError, InvalidInputError, NotFoundError } from './errors.js';
 import { resolveWithin, slugifyBoardPath } from './paths.js';
 import type { ProjectConfig, ProjectMeta, BoardSummary } from '../shared/types.js';
 
@@ -67,7 +67,7 @@ export async function addBoardToProject(projectRoot: string, boardPath: string):
 export async function removeBoardFromProject(projectRoot: string, boardPath: string): Promise<void> {
   const meta = await readProject(projectRoot);
   const idx = meta.config.boards.indexOf(boardPath);
-  if (idx === -1) throw new ConflictError(`board not registered: ${boardPath}`);
+  if (idx === -1) throw new NotFoundError(`board not registered: ${boardPath}`);
   meta.config.boards.splice(idx, 1);
   await writeProject(projectRoot, meta.config);
 }
@@ -97,6 +97,6 @@ export async function listBoards(projectRoot: string): Promise<BoardSummary[]> {
 export async function getBoard(projectRoot: string, boardId: string): Promise<BoardSummary> {
   const boards = await listBoards(projectRoot);
   const board = boards.find(b => b.boardId === boardId);
-  if (!board) throw new ConflictError(`no board with id ${boardId}`);
+  if (!board) throw new NotFoundError(`no board with id ${boardId}`);
   return board;
 }
