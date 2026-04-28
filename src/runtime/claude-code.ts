@@ -44,6 +44,16 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
 
   for (const a of ctx.board?.runtime?.args ?? []) argv.push(a);
 
+  const boardName = path.basename(ctx.boardPath);
+  const processLine = ctx.processDocPath
+    ? ` Lane process doc: \`${ctx.processDocPath}\`.`
+    : '';
+  const preamble =
+    `You are working on ticket \`${ctx.ticketRef.filename}\` in lane \`${ctx.ticketRef.laneName}\` of board \`${boardName}\`. ` +
+    `Ticket file: \`${ctx.ticketAbsPath}\`.${processLine}`;
+
+  argv.push('--append-system-prompt', preamble);
+
   const env: Record<string, string> = {
     ...(process.env as Record<string, string>),
     MEESEEKS_TICKET_PATH: ctx.ticketAbsPath,
@@ -52,14 +62,6 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
     ...(ctx.board?.runtime?.env ?? {}),
   };
   if (ctx.board?.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.board.runtime.provider;
-
-  const boardName = path.basename(ctx.boardPath);
-  const processLine = ctx.processDocPath
-    ? ` Lane process doc: \`${ctx.processDocPath}\`.`
-    : '';
-  const preamble =
-    `You are working on ticket \`${ctx.ticketRef.filename}\` in lane \`${ctx.ticketRef.laneName}\` of board \`${boardName}\`. ` +
-    `Ticket file: \`${ctx.ticketAbsPath}\`.${processLine}`;
 
   return { argv, env, cwd: ctx.boardPath, preamble, settingsFile };
 }
