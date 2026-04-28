@@ -8,11 +8,10 @@ interface Props {
 
 export function Markdown({ children, className = '' }: Props) {
   return (
-    <ReactMarkdown
-      className={`prose prose-invert prose-sm prose-slate max-w-none ${className}`}
-      remarkPlugins={[remarkGfm]}
-    >
-      {children}
-    </ReactMarkdown>
+    <div className={`prose prose-invert prose-sm prose-slate max-w-none ${className}`}>
+      <ReactMarkdown remarkPlugins={[remarkGfm]}>
+        {children}
+      </ReactMarkdown>
+    </div>
   );
 }
