@@ -98,6 +98,8 @@ export function TicketRoute() {
           className="flex-1 min-h-0 w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm overflow-y-auto resize-none"
           value={body}
           onChange={(e) => { setBody(e.target.value); setDirty(true); }}
+          onBlur={() => { if (!dirty) setEditing(false); }}
+          autoFocus
         />
       ) : (
         <div
