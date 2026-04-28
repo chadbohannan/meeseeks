@@ -4,16 +4,15 @@ The runtime supervisor manages isolated Claude Code instances that execute withi
 
 ## Lifecycle States
 
-Runtimes transition through defined states: `starting` (spawned but not yet initialized), `idle` (ready), `running` (token generation), `terminating` (shutdown in progress), `exited` (clean termination), and `errored` (unexpected failure). The full lifecycle is `starting → idle → running ↔ idle → (terminating →) exited | errored`.
+Runtimes transition through defined states: `starting` (spawned but not yet initialized), `idle` (finished a turn, waiting at main prompt), `running` (token generation or tool execution in progress), `awaiting-user` (mid-turn, blocked on a tool-use permission prompt), `terminating` (shutdown in progress), `exited` (clean termination), and `errored` (unexpected failure). The full lifecycle is `starting → idle → running ↔ idle → (terminating →) exited | errored`, with `running ↔ awaiting-user` as a mid-turn branch.
 
 ## Spawning
 
 When a runtime is started for a ticket, the supervisor:
-1. Resolves configuration files (project.meeseeks, board.yaml, permissions.yaml)
-2. Builds a harness with appropriate flags
+1. Resolves configuration files (project.yaml, board.yaml, permissions.yaml)
+2. Builds a harness with appropriate flags (including `--append-system-prompt` to inject ticket context as a system-prompt addition)
 3. Spawns a pseudo-terminal (PTY)
-4. Injects an initial prompt
-5. Begins streaming stdio via WebSocket
+4. Begins streaming stdio via WebSocket
 
 ## Stdio Transport
 

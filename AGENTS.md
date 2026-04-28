@@ -36,7 +36,7 @@ When updating wiki pages, maintain cross-references. Add links to the index for 
 ```
 src/
 ├── storage/           # Filesystem CRUD layer (YAML + Markdown)
-│   ├── project.ts     # project.meeseeks read/write
+│   ├── project.ts     # project.yaml read/write
 │   ├── board.ts       # Board CRUD on disk
 │   ├── lane.ts        # Lane CRUD with lane.yaml
 │   └── ticket.ts      # Ticket CRUD with frontmatter
@@ -44,6 +44,12 @@ src/
 │   ├── routes/        # REST API endpoints
 │   ├── ws.ts          # WebSocket broadcast hub
 │   └── watcher.ts     # Chokidar filesystem watcher
+├── runtime/           # Claude Code process supervisor
+│   ├── supervisor.ts  # RuntimeSupervisor: spawn, lifecycle, ring buffer
+│   ├── claude-code.ts # Adapter: flag assembly, settings file, preamble
+│   ├── stream-parser.ts # Stream-json parser for non-interactive mode
+│   └── ring-buffer.ts # Circular stdio buffer (default 2 MB)
+├── web/               # Vite + React SPA (served by Fastify in production)
 └── shared/            # Shared types between server and client
     ├── types.ts       # Domain types
     └── api.ts         # Request/response shapes
@@ -90,6 +96,6 @@ Use **grep/glob/read** for specific code location when you know what you're look
 
 ## Deferred Features
 
-The current implementation covers: storage layer, REST API, WebSocket hub, filesystem watcher.
+The current implementation covers: storage layer, REST API, WebSocket hub, filesystem watcher, Claude Code runtime supervisor (PTY + ring buffer + lifecycle hooks), Vite + React web UI with xterm.js console panels.
 
-Deferred (not yet implemented): Web UI, xterm.js console panels, PTY support, Claude Code runtime supervisor, multi-user access, autonomous triggers.
+Deferred (not yet implemented): multi-user access, autonomous triggers, runtime persistence across server restarts.

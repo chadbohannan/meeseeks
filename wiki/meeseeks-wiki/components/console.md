@@ -4,7 +4,7 @@ Detachable xterm.js panels rendered on top of the SPA. Each panel is bound to a 
 
 ## State
 
-`store/mdi.ts` (Zustand) holds open panels keyed by runtime — position, size, z-order, minimized flag. `store/runtimes.ts` is the runtime registry; it's hydrated from `runtime-spawned` events on WS reconnect. The `Dock` at the bottom of the viewport always reflects the runtime registry — even runtimes whose panel is closed appear as dock entries; clicking re-opens the panel.
+`store/mdi.ts` (Zustand) holds open panels keyed by runtime — position, size, z-order, minimized flag. `store/runtimes.ts` is the runtime registry; it's hydrated from `runtime-spawned` events on WS reconnect. Ambient runtime visibility lives in the [Sidebar](web.md): each lane node shows a green dot when any of its runtimes is active, and an amber yield sign when one is `awaiting-user`. The `Dock.tsx` component still exists in the source tree but is not rendered — the bottom dock bar was removed (commit `e50943e`).
 
 ## Stdio path
 
