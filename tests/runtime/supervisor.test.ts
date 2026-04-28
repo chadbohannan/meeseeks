@@ -124,4 +124,23 @@ describe('RuntimeSupervisor', () => {
     }
     expect(removed).toBe(true);
   });
+
+  it('includes preamble in the summary returned by spawn', async () => {
+    const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192 });
+    const summary = await sup.spawn({
+      runtimeId: 'rt-preamble',
+      boardPath: tmp,
+      lanePath: path.join(tmp, 'lane'),
+      ticketAbsPath: path.join(tmp, 'lane', 'todo', 'my-ticket.md'),
+      processDocPath: null,
+      ticketRef: { boardId: 'b', laneName: 'lane', filename: 'my-ticket.md' },
+      board: null,
+      permissions: null,
+      adapterArgsOverride: ['--scripted=init,result'],
+    });
+    expect(summary.preamble).toBeTruthy();
+    expect(summary.preamble).toContain('my-ticket.md');
+    expect(summary.preamble).toContain('lane');
+    await sup.terminateAll();
+  });
 });

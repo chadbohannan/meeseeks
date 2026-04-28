@@ -118,6 +118,7 @@ export class RuntimeSupervisor extends EventEmitter {
         status: 'errored',
         startedAt: new Date().toISOString(),
         errorMessage,
+        preamble: spec.preamble,
       };
       this.emit('runtime-status', { runtimeId: input.runtimeId, status: 'errored', errorMessage });
       return summary;
@@ -131,6 +132,7 @@ export class RuntimeSupervisor extends EventEmitter {
       pid: pty.pid,
       status: 'starting',
       startedAt: new Date().toISOString(),
+      preamble: spec.preamble,
     };
     const rt: Runtime = { summary, pty, ring, parser, settingsPath: spec.settingsFile?.path ?? null };
     this.runtimes.set(input.runtimeId, rt);
@@ -159,11 +161,6 @@ export class RuntimeSupervisor extends EventEmitter {
       this.setStatus(rt, wasTerminating || exitCode === 0 ? 'exited' : 'errored', { exitCode });
       void this.cleanupSettings(rt);
       this.runtimes.delete(input.runtimeId);
-    });
-
-    setImmediate(() => {
-      const msg = JSON.stringify({ type: 'user', message: { role: 'user', content: [{ type: 'text', text: spec.preamble }] } });
-      try { pty.write(msg + '\n'); } catch { /* ignore: process may have died */ }
     });
 
     return { ...summary };

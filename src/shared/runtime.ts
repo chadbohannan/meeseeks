@@ -20,6 +20,7 @@ export interface RuntimeSummary {
   startedAt: string;
   exitCode?: number;
   errorMessage?: string;
+  preamble?: string;
 }
 
 export interface ListRuntimesResponse { runtimes: RuntimeSummary[] }
