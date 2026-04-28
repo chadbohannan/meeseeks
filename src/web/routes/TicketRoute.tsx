@@ -21,7 +21,10 @@ export function TicketRoute() {
     Object.values(s.byId).find(r =>
       r.ticketRef.boardId === boardId && r.ticketRef.laneName === laneName && r.ticketRef.filename === filename));
 
-  const activeRuntime = runtime?.status === 'exited' || runtime?.status === 'errored' || runtime?.status === 'terminating' ? null : runtime ?? null;
+  const activeRuntime =
+    runtime && !['exited', 'errored', 'terminating'].includes(runtime.status)
+      ? runtime
+      : null;
 
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
@@ -153,7 +156,7 @@ export function TicketRoute() {
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-800 text-sm shrink-0">
             <RuntimeStatusDot status={runtime.status} />
             <span className="font-mono text-xs">{runtime.ticketRef.filename}</span>
-            {(runtime.status === 'exited' || runtime.status === 'errored') && (
+            {(runtime.status === 'exited' || runtime.status === 'errored' || runtime.status === 'terminating') && (
               <span className="ml-auto text-xs text-slate-500">session ended</span>
             )}
           </div>
