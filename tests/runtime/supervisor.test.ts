@@ -125,6 +125,61 @@ describe('RuntimeSupervisor', () => {
     expect(removed).toBe(true);
   });
 
+  it('transitions starting → idle via debounce when no stream-json init arrives', async () => {
+    const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192, startingDebounceMs: 100 });
+    // scripted=crash: stub exits immediately after emitting nothing parseable
+    // Use a custom spawn that emits raw non-JSON data then stays silent
+    let ptyDataHandler: ((d: string) => void) | null = null;
+    let ptyExitHandler: ((e: { exitCode: number }) => void) | null = null;
+    const silentSpawn: typeof stubSpawn = () => ({
+      pid: 999,
+      write: () => {},
+      resize: () => {},
+      kill: () => {},
+      onData: (h) => { ptyDataHandler = h; return { dispose: () => {} }; },
+      onExit: (h) => { ptyExitHandler = h; return { dispose: () => {} }; },
+    });
+    const silentSup = new RuntimeSupervisor({ spawnFn: silentSpawn, ringBytes: 8192, startingDebounceMs: 100 });
+    await silentSup.spawn({
+      runtimeId: 'rt-debounce',
+      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
+      processDocPath: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      board: null, permissions: null,
+    });
+    expect(silentSup.get('rt-debounce')?.status).toBe('starting');
+    // Emit non-JSON TUI data to trigger the debounce timer
+    ptyDataHandler!('\x1b[2J\x1b[H> ');
+    await waitFor(() => silentSup.get('rt-debounce')?.status === 'idle', 500);
+    expect(silentSup.get('rt-debounce')?.status).toBe('idle');
+    ptyExitHandler!({ exitCode: 0 });
+    void sup.terminateAll();
+  });
+
+  it('notifyState transitions status and PTY data while awaiting-user drives running', async () => {
+    const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192 });
+    const statuses: string[] = [];
+    sup.on('runtime-status', (s) => statuses.push(s.status));
+    await sup.spawn({
+      runtimeId: 'rt-notify',
+      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
+      processDocPath: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      board: null, permissions: null,
+      adapterArgsOverride: ['--scripted=init'],
+    });
+    // Wait for idle from StreamParser init event
+    await waitFor(() => sup.get('rt-notify')?.status === 'idle' || sup.get('rt-notify')?.status === 'exited');
+    // notifyState awaiting-user
+    const ok = sup.notifyState('rt-notify', 'awaiting-user');
+    expect(ok).toBe(true);
+    expect(sup.get('rt-notify')?.status).toBe('awaiting-user');
+    // PTY data while awaiting-user → running (stub responds to user message with assistant+result)
+    sup.writeInput('rt-notify', Buffer.from(JSON.stringify({ type: 'user' }) + '\n'));
+    await waitFor(() => statuses.includes('running'));
+    expect(statuses).toContain('awaiting-user');
+    expect(statuses).toContain('running');
+    await sup.terminateAll();
+  });
+
   it('includes preamble in the summary returned by spawn', async () => {
     const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192 });
     const summary = await sup.spawn({

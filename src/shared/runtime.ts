@@ -2,6 +2,7 @@ export type RuntimeStatus =
   | 'starting'
   | 'running'
   | 'idle'
+  | 'awaiting-user'
   | 'terminating'
   | 'exited'
   | 'errored';

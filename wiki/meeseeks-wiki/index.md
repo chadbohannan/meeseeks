@@ -8,6 +8,7 @@
 - [Server](components/server.md) — Fastify server with REST API and WebSocket hub
 - [Web UI](components/web.md) — Vite + React SPA: project picker, Kanban board, ticket editor, WebSocket-driven live updates
 - [Runtime Supervisor](components/runtime.md) — per-ticket Claude Code process supervisor with ring buffer + stream-json parser
+- [Claude Code Client](components/claude-code-client.md) — Claude Code CLI integration: modes, flags, settings file, Notification hooks, stream-json events
 - [Console (MDI panels)](components/console.md) — xterm.js panels with dismiss-without-kill gesture
 
 ## Concepts

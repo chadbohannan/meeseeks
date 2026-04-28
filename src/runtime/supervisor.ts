@@ -41,28 +41,33 @@ interface Runtime {
   ring: RingBuffer;
   parser: StreamParser;
   settingsPath: string | null;
+  startingTimer: ReturnType<typeof setTimeout> | null;
 }
 
 export interface SupervisorOptions {
   spawnFn?: SpawnFn;
   ringBytes?: number;
   termKillMs?: number;
+  startingDebounceMs?: number;
 }
 
 const DEFAULT_RING = 2 * 1024 * 1024;
 const DEFAULT_TERM_KILL_MS = 5000;
+const DEFAULT_STARTING_DEBOUNCE_MS = 2000;
 
 export class RuntimeSupervisor extends EventEmitter {
   spawnFn: SpawnFn;
   private runtimes = new Map<string, Runtime>();
   private ringBytes: number;
   private termKillMs: number;
+  private startingDebounceMs: number;
 
   constructor(opts: SupervisorOptions = {}) {
     super();
     this.spawnFn = opts.spawnFn ?? defaultPtySpawn;
     this.ringBytes = opts.ringBytes ?? DEFAULT_RING;
     this.termKillMs = opts.termKillMs ?? DEFAULT_TERM_KILL_MS;
+    this.startingDebounceMs = opts.startingDebounceMs ?? DEFAULT_STARTING_DEBOUNCE_MS;
   }
 
   list(): RuntimeSummary[] {
@@ -134,14 +139,27 @@ export class RuntimeSupervisor extends EventEmitter {
       startedAt: new Date().toISOString(),
       preamble: spec.preamble,
     };
-    const rt: Runtime = { summary, pty, ring, parser, settingsPath: spec.settingsFile?.path ?? null };
+    const rt: Runtime = { summary, pty, ring, parser, settingsPath: spec.settingsFile?.path ?? null, startingTimer: null };
     this.runtimes.set(input.runtimeId, rt);
+    if (spec.settingsFile) {
+      console.error(`[meeseeks] settings file: ${spec.settingsFile.path}\n${spec.settingsFile.body}`);
+    }
     this.emit('runtime-spawned', { ...summary });
 
     pty.onData((data) => {
       const buf = Buffer.from(data, 'utf8');
       ring.append(buf);
       this.emit('runtime-stdio', { runtimeId: input.runtimeId, data: buf.toString('base64') });
+      const s = rt.summary.status;
+      if (s === 'idle' || s === 'awaiting-user') {
+        this.setStatus(rt, 'running');
+      } else if (s === 'starting') {
+        if (rt.startingTimer) clearTimeout(rt.startingTimer);
+        rt.startingTimer = setTimeout(() => {
+          rt.startingTimer = null;
+          if (rt.summary.status === 'starting') this.setStatus(rt, 'idle');
+        }, this.startingDebounceMs);
+      }
       parser.feed(buf);
     });
 
@@ -156,6 +174,7 @@ export class RuntimeSupervisor extends EventEmitter {
     });
 
     pty.onExit(({ exitCode }) => {
+      if (rt.startingTimer) { clearTimeout(rt.startingTimer); rt.startingTimer = null; }
       const wasTerminating = rt.summary.status === 'terminating';
       rt.summary.exitCode = exitCode;
       this.setStatus(rt, wasTerminating || exitCode === 0 ? 'exited' : 'errored', { exitCode });
@@ -183,6 +202,16 @@ export class RuntimeSupervisor extends EventEmitter {
 
   async terminateAll(): Promise<void> {
     await Promise.all([...this.runtimes.keys()].map(id => this.terminate(id)));
+  }
+
+  notifyState(runtimeId: string, status: 'idle' | 'awaiting-user'): boolean {
+    const rt = this.runtimes.get(runtimeId);
+    if (!rt) return false;
+    const s = rt.summary.status;
+    if (s === 'exited' || s === 'errored' || s === 'terminating') return false;
+    if (rt.startingTimer) { clearTimeout(rt.startingTimer); rt.startingTimer = null; }
+    this.setStatus(rt, status);
+    return true;
   }
 
   private setStatus(rt: Runtime, status: RuntimeStatus, extra: { exitCode?: number; errorMessage?: string } = {}): void {

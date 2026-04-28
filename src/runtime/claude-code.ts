@@ -28,19 +28,34 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
     argv.push('--add-dir', resolveAllowedPath(p, ctx.lanePath));
   }
 
-  let settingsFile: SpawnSpec['settingsFile'] = null;
   const allowedTools = ctx.permissions?.allowedTools ?? [];
   const deniedTools = ctx.permissions?.deniedTools ?? [];
+
+  const serverPort = Number(process.env.MEESEEKS_PORT ?? 5174);
+  const notifyBase = `http://127.0.0.1:${serverPort}/internal/runtime/${ctx.runtimeId}/notify`;
+  const settingsObj: Record<string, unknown> = {
+    hooks: {
+      Notification: [
+        {
+          matcher: 'idle_prompt',
+          hooks: [{ type: 'command', command: `curl -sf "${notifyBase}?state=idle"` }],
+        },
+        {
+          matcher: 'permission_prompt',
+          hooks: [{ type: 'command', command: `curl -sf "${notifyBase}?state=awaiting-user"` }],
+        },
+      ],
+    },
+  };
   if (allowedTools.length > 0 || deniedTools.length > 0) {
-    const filePath = path.join(ctx.boardPath, '.meeseeks', `session-${ctx.runtimeId}.json`);
-    const body = JSON.stringify(
-      { permissions: { allow: allowedTools, deny: deniedTools } },
-      null,
-      2,
-    );
-    settingsFile = { path: filePath, body };
-    argv.push('--settings', filePath);
+    settingsObj.permissions = { allow: allowedTools, deny: deniedTools };
   }
+  const filePath = path.join(ctx.boardPath, '.meeseeks', `session-${ctx.runtimeId}.json`);
+  const settingsFile: SpawnSpec['settingsFile'] = {
+    path: filePath,
+    body: JSON.stringify(settingsObj, null, 2),
+  };
+  argv.push('--settings', filePath);
 
   for (const a of ctx.board?.runtime?.args ?? []) argv.push(a);
 

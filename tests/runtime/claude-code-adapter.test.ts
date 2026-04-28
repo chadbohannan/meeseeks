@@ -22,7 +22,11 @@ describe('buildSpawnSpec', () => {
     expect(spec.argv).toContain('stream-json');
     expect(spec.argv).toContain('--input-format');
     expect(spec.argv.filter(a => a === '--add-dir')).toHaveLength(0);
-    expect(spec.settingsFile).toBeNull();
+    expect(spec.settingsFile).not.toBeNull();
+    expect(spec.argv).toContain('--settings');
+    const body = JSON.parse(spec.settingsFile!.body) as { hooks: { Notification: Array<{ matcher: string }> } };
+    expect(body.hooks.Notification.map(h => h.matcher)).toContain('idle_prompt');
+    expect(body.hooks.Notification.map(h => h.matcher)).toContain('permission_prompt');
     expect(spec.env.MEESEEKS_TICKET_PATH).toBe('/tmp/p/boards/b/lanes/l/todo/2026-04-26T1430-x.md');
     expect(spec.env.MEESEEKS_BOARD_PATH).toBe('/tmp/p/boards/b');
     expect(spec.env.MEESEEKS_LANE_PATH).toBe('/tmp/p/boards/b/lanes/l');
@@ -61,9 +65,10 @@ describe('buildSpawnSpec', () => {
     });
     expect(spec.settingsFile).not.toBeNull();
     expect(spec.settingsFile!.path).toMatch(/\.meeseeks\/session-rt-7\.json$/);
-    const body = JSON.parse(spec.settingsFile!.body) as { permissions: { allow: string[]; deny: string[] } };
+    const body = JSON.parse(spec.settingsFile!.body) as { permissions: { allow: string[]; deny: string[] }; hooks: unknown };
     expect(body.permissions.allow).toEqual(['Bash', 'Edit']);
     expect(body.permissions.deny).toEqual(['Write']);
+    expect(body.hooks).toBeDefined();
     expect(spec.argv).toContain('--settings');
     expect(spec.argv).toContain(spec.settingsFile!.path);
   });

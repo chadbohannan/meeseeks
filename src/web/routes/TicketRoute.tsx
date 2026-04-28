@@ -80,7 +80,7 @@ export function TicketRoute() {
           <>
             <RuntimeStatusDot status={activeRuntime.status} />
             <span className="text-sm">{activeRuntime.status}</span>
-            {(activeRuntime.status === 'running' || activeRuntime.status === 'idle' || activeRuntime.status === 'starting') && (
+            {!['exited', 'errored', 'terminating'].includes(activeRuntime.status) && (
               <button
                 className="rounded bg-red-700 px-3 py-1 text-sm"
                 onClick={async () => {

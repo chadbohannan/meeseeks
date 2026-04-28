@@ -14,6 +14,50 @@ States transition `starting → idle → running ↔ idle → (terminating →) 
 
 The supervisor accepts an injectable `spawnFn` for tests. Production uses the lazy default (`require('node-pty').spawn`); tests substitute a child_process-backed wrapper that runs `bin/stub-harness.mjs`, a small Node script emitting scripted stream-json. This keeps the supervisor unit-testable on machines that haven't built node-pty. Each runtime owns a `RingBuffer` (default 2 MB) that stores raw stdio bytes in a circular `Buffer`; when capacity is exceeded, old bytes are overwritten and `droppedBytes` is incremented.
 
+## State transitions in interactive mode
+
+The runtime is spawned in interactive PTY mode without `--print`, so Claude
+Code emits its TUI to stdout rather than stream-json. `system/init`,
+`assistant`, and `result` events never arrive, and `StreamParser` cannot
+advance the state machine on its own. Two mechanisms compensate.
+
+**Notification hooks (primary).** The adapter always generates a
+`session-<runtimeId>.json` settings file that injects `Notification` hooks:
+
+- `idle_prompt` → calls `GET /internal/runtime/:id/notify?state=idle`. This
+  fires when Claude Code finishes a turn and is waiting at its main prompt,
+  driving `running → idle`. It does not fire on initial startup — see the
+  startup debounce entry below.
+- `permission_prompt` → calls `GET /internal/runtime/:id/notify?state=awaiting-user`.
+  This fires when Claude Code is blocked mid-turn on a tool-use approval,
+  driving `running → awaiting-user`.
+
+The `/internal/runtime/:id/notify` route delegates to
+`supervisor.notifyState()`. The `awaiting-user` status is a distinct
+mid-turn state — not a synonym for `idle`. Once the user responds in the
+terminal, PTY data arrives and drives `awaiting-user → running`.
+
+**PTY data (activity signal).** Any data arriving on the PTY while the
+runtime is `idle` or `awaiting-user` immediately transitions to `running`.
+This check runs before `StreamParser.feed` so the parser's own transitions
+(in non-interactive mode) always win on the same data chunk.
+
+**Startup debounce (`starting → idle`).** `idle_prompt` does not fire on
+initial startup — it only fires after a completed turn. To handle the
+`starting → idle` transition, the first PTY data chunk while in `starting`
+arms a debounce timer (default 2 s). When the timer fires with no further
+PTY data, the runtime transitions to `idle`. Subsequent `notifyState` calls
+(from the hook) cancel the timer immediately. The debounce value is
+configurable via `SupervisorOptions.startingDebounceMs`.
+
+**Stream-json (non-interactive mode).** The adapter still passes
+`--output-format stream-json --input-format stream-json` so that when the
+runtime is spawned with `--print` — expected for autonomous triggers and
+scripted agent runs — `StreamParser` drives state transitions exactly as
+designed. Do not remove `StreamParser` or these flags; they are load-bearing
+for the planned non-interactive path even though they are no-ops in
+interactive mode.
+
 ## Termination
 
 `terminate(id)` sends SIGTERM, waits 5 seconds (configurable via `termKillMs`), then SIGKILL. The `terminate` method registers an `onExit` handler to resolve immediately if the process exits before the timeout, avoiding unnecessary SIGKILL. `terminateAll()` is invoked from `ServerState.close()`, so closing a project (or switching projects) reaps every active runtime.
