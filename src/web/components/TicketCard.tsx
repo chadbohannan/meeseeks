@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { TicketSummary } from '@shared/types.js';
 import { useRuntimesStore } from '../store/runtimes.js';
 import { RuntimeStatusDot } from './RuntimeStatusDot.js';
+import { Markdown } from './Markdown.js';
 
 interface Props {
   boardId: string;
@@ -41,7 +42,7 @@ export function TicketCard({ boardId, laneName, ticket, draggable, onDragStart, 
         <div className="font-medium text-xl">{ticket.title}</div>
       </div>
       <div className="text-xs text-slate-500 mt-1">{new Date(ticket.updated).toLocaleString()}</div>
-      {ticket.body && <div className="text-xs text-slate-300 mt-2 whitespace-pre-wrap">{ticket.body}</div>}
+      {ticket.body && <div className="text-xs text-slate-300 mt-2"><Markdown>{ticket.body}</Markdown></div>}
       {ticket.orphaned && <div className="text-xs text-amber-400 mt-1">orphaned</div>}
     </Link>
   );
