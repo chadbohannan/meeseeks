@@ -31,6 +31,7 @@ export function TicketRoute() {
   const [state, setState] = useState('');
   const [dirty, setDirty] = useState(false);
   const [editing, setEditing] = useState(false);
+  const [tab, setTab] = useState<'console' | 'context'>('console');
 
   useEffect(() => {
     if (!ticket.data) return;
@@ -160,8 +161,30 @@ export function TicketRoute() {
               <span className="ml-auto text-xs text-slate-500">session ended</span>
             )}
           </div>
-          <div className="flex-1 min-h-0 p-1">
-            <XtermHost runtimeId={runtime.runtimeId} />
+          <div className="flex gap-1 px-2 pt-1 bg-slate-900 shrink-0">
+            <button
+              className={`px-3 py-1 text-xs rounded-t ${tab === 'console' ? 'bg-black text-white' : 'text-slate-400 hover:text-white'}`}
+              onClick={() => setTab('console')}
+            >Console</button>
+            <button
+              className={`px-3 py-1 text-xs rounded-t ${tab === 'context' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}
+              onClick={() => setTab('context')}
+            >Context</button>
+          </div>
+          <div className="flex-1 min-h-0">
+            {tab === 'console' ? (
+              <div className="h-full p-1">
+                <XtermHost runtimeId={runtime.runtimeId} />
+              </div>
+            ) : (
+              <div className="h-full overflow-y-auto p-4">
+                {runtime.preamble ? (
+                  <pre className="text-slate-300 text-xs whitespace-pre-wrap font-mono">{runtime.preamble}</pre>
+                ) : (
+                  <span className="text-slate-500 text-sm">No context available.</span>
+                )}
+              </div>
+            )}
           </div>
         </>
       ) : (
