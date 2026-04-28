@@ -42,6 +42,6 @@ The only mandatory files are `project.meeseeks`, `lane.yaml`, and lane state fol
 
 | Ingest Date | Source |
 | ----------- | ------ |
-| 2026-04-26 | [Storage and Server Implementation Plan](code-rag:meeseeks/docs/superpowers/plans/2026-04-26-storage-and-server.md:Storage and Server Implementation Plan:Task 8: Lane CRUD with `lane.yaml`) |
-| 2026-04-26 | [First Slice Design §4](code-rag:meeseeks/docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md:Meeseeks — First Slice Design: Storage, Server, UI, and Runtimes:4. Filesystem data model) |
-| 2026-04-26 | [`src/storage`](code-rag:meeseeks/src/storage) |
+| 2026-04-26 | Storage and Server Implementation Plan (`docs/superpowers/plans/2026-04-26-storage-and-server.md`) |
+| 2026-04-26 | First Slice Design §4 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |
+| 2026-04-26 | `src/storage` |

@@ -157,4 +157,4 @@ npm run test:watch
 | ----------- | ------ |
 | 2026-04-26 | `package.json` |
 | 2026-04-26 | `src/server/index.ts` |
-| 2026-04-26 | [First Slice Design §4.1](code-rag:meeseeks/docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md:Meeseeks — First Slice Design: Storage, Server, UI, and Runtimes:4. Filesystem data model:4.1 Config files) |
+| 2026-04-26 | First Slice Design §4.1 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |

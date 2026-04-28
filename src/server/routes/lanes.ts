@@ -19,9 +19,9 @@ export async function registerLaneRoutes(
     const board = await getBoard(open.meta.path, req.params.boardId);
     const body = req.body ?? {} as { name?: string; states?: Array<{ dir: string; name: string }> };
     if (!body.name || !Array.isArray(body.states)) throw new InvalidInputError('name and states required');
-    await createLane(board.path, body.name, body.states);
-    hub.broadcast({ type: 'lane-changed', payload: { boardId: board.boardId, laneName: body.name, kind: 'created' } });
-    return { lane: await readLaneDetail(board.path, body.name) };
+    const slug = await createLane(board.path, body.name, body.states);
+    hub.broadcast({ type: 'lane-changed', payload: { boardId: board.boardId, laneName: slug, kind: 'created' } });
+    return { lane: await readLaneDetail(board.path, slug) };
   });
 
   app.get<{ Params: { boardId: string; laneName: string } }>(
@@ -44,8 +44,7 @@ export async function registerLaneRoutes(
       await updateLaneStates(board.path, currentName, req.body.states, { force: req.body.force });
     }
     if (req.body?.name) {
-      await renameLane(board.path, currentName, req.body.name);
-      currentName = req.body.name;
+      currentName = await renameLane(board.path, currentName, req.body.name);
     }
     hub.broadcast({ type: 'lane-changed', payload: { boardId: board.boardId, laneName: currentName, kind: 'updated' } });
     return { lane: await readLaneDetail(board.path, currentName) };

@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
 import { listBoards, addBoardToProject, removeBoardFromProject, getBoard, readProject } from '../../storage/project.js';
-import { createBoard, readBoardDetail, renameBoard, deleteBoardFolder } from '../../storage/board.js';
+import { createBoard, readBoardDetail, renameBoard, deleteBoardFolder, updateBoardName } from '../../storage/board.js';
 import { InvalidInputError } from '../../storage/errors.js';
 import { slugifyBoardPath } from '../../storage/paths.js';
 
@@ -44,13 +44,13 @@ export async function registerBoardRoutes(
       const meta = await readProject(open.meta.path);
       const oldEntry = meta.config.boards.find(b => slugifyBoardPath(b) === board.boardId);
       if (oldEntry) {
-        // Preserve the parent directory of the original entry so non-default
-        // board locations (e.g. `custom/path/foo`) keep their parent.
         const parentDir = path.dirname(oldEntry);
         const newEntry = parentDir === '.' ? slugifyBoardPath(req.body.name) : `${parentDir}/${slugifyBoardPath(req.body.name)}`;
         if (newEntry !== oldEntry) {
           await renameBoard(open.meta.path, oldEntry, newEntry);
         }
+        const newAbs = path.isAbsolute(newEntry) ? newEntry : path.resolve(open.meta.path, newEntry);
+        await updateBoardName(newAbs, req.body.name);
       }
     }
     hub.broadcast({ type: 'board-changed', payload: { boardId: board.boardId, kind: 'updated' } });

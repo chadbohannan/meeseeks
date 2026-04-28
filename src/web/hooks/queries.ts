@@ -81,7 +81,10 @@ export function useCreateTicket(boardId: string, laneName: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (req: CreateTicketRequest) => api.createTicket(boardId, laneName, req),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] });
+      qc.invalidateQueries({ queryKey: ['board', boardId] });
+    },
   });
 }
 export function usePatchTicket(boardId: string, laneName: string, filename: string) {
@@ -94,11 +97,25 @@ export function usePatchTicket(boardId: string, laneName: string, filename: stri
     },
   });
 }
+export function useMoveTicket(boardId: string, laneName: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ filename, state }: { filename: string; state: string }) =>
+      api.patchTicket(boardId, laneName, filename, { state }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] });
+      qc.invalidateQueries({ queryKey: ['board', boardId] });
+    },
+  });
+}
 export function useDeleteTicket(boardId: string, laneName: string, filename: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: () => api.deleteTicket(boardId, laneName, filename),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] }); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] });
+      qc.invalidateQueries({ queryKey: ['board', boardId] });
+    },
   });
 }
 

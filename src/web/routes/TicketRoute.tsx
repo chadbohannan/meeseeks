@@ -2,9 +2,11 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLane, useTicket, usePatchTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime } from '../hooks/queries.js';
 import { useRuntimesStore } from '../store/runtimes.js';
-import { useMdiStore } from '../store/mdi.js';
 import { RuntimeStatusDot } from '../components/RuntimeStatusDot.js';
+import { ResizableSplit } from '../components/ResizableSplit.js';
+import { XtermHost } from '../components/console/xterm-host.js';
 import { toast } from 'sonner';
+import { Markdown } from '../components/Markdown.js';
 
 export function TicketRoute() {
   const { boardId, laneName, filename } = useParams<{ boardId: string; laneName: string; filename: string }>();
@@ -15,7 +17,6 @@ export function TicketRoute() {
   const navigate = useNavigate();
   const spawn = useSpawnRuntime();
   const term = useTerminateRuntime();
-  const openPanel = useMdiStore((s) => s.open);
   const runtime = useRuntimesStore((s) =>
     Object.values(s.byId).find(r =>
       r.ticketRef.boardId === boardId && r.ticketRef.laneName === laneName && r.ticketRef.filename === filename));
@@ -24,6 +25,7 @@ export function TicketRoute() {
   const [body, setBody] = useState('');
   const [state, setState] = useState('');
   const [dirty, setDirty] = useState(false);
+  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
     if (!ticket.data) return;
@@ -39,15 +41,20 @@ export function TicketRoute() {
 
   const states = lane.data?.lane.states ?? [];
 
-  return (
-    <div className="p-6 max-w-3xl">
-      <button onClick={() => navigate(-1)} className="text-sm text-slate-400 mb-4">← Back</button>
+  const stateName = states.find((s) => s.dir === ticket.data.ticket.state)?.name ?? ticket.data.ticket.state;
+  const stateUrl = `/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}/state/${encodeURIComponent(ticket.data.ticket.state)}`;
+
+  const ticketEditor = (
+    <div className="p-6 max-w-3xl h-full flex flex-col">
+      <nav className="text-sm text-slate-400 mb-3 shrink-0">
+        <button className="hover:text-white" onClick={() => navigate(stateUrl)}>← {stateName}</button>
+      </nav>
       <input
-        className="w-full bg-slate-800 rounded px-3 py-2 text-lg font-medium mb-3"
+        className="w-full bg-slate-800 rounded px-3 py-2 text-lg font-medium mb-3 shrink-0"
         value={title}
         onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
       />
-      <div className="flex items-center gap-3 mb-3">
+      <div className="flex items-center gap-3 mb-3 shrink-0">
         <label className="text-sm text-slate-400">State</label>
         <select
           className="bg-slate-800 rounded px-2 py-1 text-sm"
@@ -58,15 +65,11 @@ export function TicketRoute() {
         </select>
         <span className="text-xs text-slate-500 font-mono ml-auto">{filename}</span>
       </div>
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2 mb-3 shrink-0">
         {runtime ? (
           <>
             <RuntimeStatusDot status={runtime.status} />
             <span className="text-sm">{runtime.status}</span>
-            <button
-              className="rounded bg-slate-700 px-3 py-1 text-sm"
-              onClick={() => openPanel(runtime.runtimeId)}
-            >Open console</button>
             {(runtime.status === 'running' || runtime.status === 'idle' || runtime.status === 'starting') && (
               <button
                 className="rounded bg-red-700 px-3 py-1 text-sm"
@@ -83,19 +86,31 @@ export function TicketRoute() {
             className="rounded bg-emerald-700 px-3 py-1 text-sm"
             onClick={async () => {
               try {
-                const r = await spawn.mutateAsync({ boardId, laneName, filename });
-                openPanel(r.runtime.runtimeId);
+                await spawn.mutateAsync({ boardId, laneName, filename });
               } catch (err) { toast.error((err as Error).message); }
             }}
           >Spawn runtime</button>
         )}
       </div>
-      <textarea
-        className="w-full h-96 bg-slate-800 rounded px-3 py-2 font-mono text-sm"
-        value={body}
-        onChange={(e) => { setBody(e.target.value); setDirty(true); }}
-      />
-      <div className="flex justify-between items-center mt-4">
+
+      {editing ? (
+        <textarea
+          className="flex-1 min-h-0 w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm overflow-y-auto resize-none"
+          value={body}
+          onChange={(e) => { setBody(e.target.value); setDirty(true); }}
+          onBlur={() => { if (!dirty) setEditing(false); }}
+          autoFocus
+        />
+      ) : (
+        <div
+          className="flex-1 min-h-0 w-full bg-slate-800 rounded px-3 py-2 overflow-y-auto cursor-pointer hover:ring-1 hover:ring-slate-600"
+          onClick={() => setEditing(true)}
+        >
+          <Markdown>{body}</Markdown>
+        </div>
+      )}
+
+      <div className="flex justify-between items-center mt-4 shrink-0">
         <button
           className="px-3 py-1 rounded bg-red-700 text-sm"
           onClick={async () => {
@@ -104,25 +119,58 @@ export function TicketRoute() {
             catch (err) { toast.error((err as Error).message); }
           }}
         >Delete</button>
-        <div className="flex gap-2">
-          <button
-            className="px-3 py-1 rounded bg-slate-700 text-sm"
-            onClick={() => { setDirty(false); }}
-            disabled={!dirty}
-          >Discard</button>
-          <button
-            className="px-3 py-1 rounded bg-blue-600 text-sm"
-            disabled={!dirty || patch.isPending}
-            onClick={async () => {
-              try {
-                await patch.mutateAsync({ title, body, state });
-                setDirty(false);
-                toast.success('Saved');
-              } catch (err) { toast.error((err as Error).message); }
-            }}
-          >Save</button>
-        </div>
+        {editing && (
+          <div className="flex gap-2">
+            <button
+              className="px-3 py-1 rounded bg-slate-700 text-sm"
+              onClick={() => { setDirty(false); setEditing(false); }}
+              disabled={!dirty}
+            >Discard</button>
+            <button
+              className="px-3 py-1 rounded bg-blue-600 text-sm"
+              disabled={!dirty || patch.isPending}
+              onClick={async () => {
+                try {
+                  await patch.mutateAsync({ title, body, state });
+                  setDirty(false);
+                  setEditing(false);
+                  toast.success('Saved');
+                } catch (err) { toast.error((err as Error).message); }
+              }}
+            >Save</button>
+          </div>
+        )}
       </div>
     </div>
+  );
+
+  const consolePane = (
+    <div className="flex flex-col h-full bg-black">
+      {runtime ? (
+        <>
+          <div className="flex items-center gap-2 px-3 py-1 bg-slate-800 text-sm shrink-0">
+            <RuntimeStatusDot status={runtime.status} />
+            <span className="font-mono text-xs">{runtime.ticketRef.filename}</span>
+          </div>
+          <div className="flex-1 min-h-0 p-1">
+            <XtermHost runtimeId={runtime.runtimeId} />
+          </div>
+        </>
+      ) : (
+        <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+          No runtime active. Spawn one to see the console here.
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <ResizableSplit
+      left={ticketEditor}
+      right={consolePane}
+      defaultSplit={0.5}
+      minLeft={300}
+      minRight={300}
+    />
   );
 }

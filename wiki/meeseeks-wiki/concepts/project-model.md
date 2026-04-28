@@ -24,5 +24,5 @@ A ticket is a unit of work, stored as a Markdown file in a lane state directory.
 
 | Ingest Date | Source |
 | ----------- | ------ |
-| 2026-04-26 | [idea.md](code-rag:meeseeks/idea.md:Meeseeks Concept) |
-| 2026-04-26 | [First Slice Design §4](code-rag:meeseeks/docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md:Meeseeks — First Slice Design: Storage, Server, UI, and Runtimes:4. Filesystem data model) |
+| 2026-04-26 | `idea.md` |
+| 2026-04-26 | First Slice Design §4 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |

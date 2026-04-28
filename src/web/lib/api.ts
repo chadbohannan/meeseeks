@@ -51,7 +51,7 @@ export const api = {
   getLane: (boardId: string, laneName: string) =>
     request<{ lane: LaneDetail }>('GET', `/api/boards/${enc(boardId)}/lanes/${enc(laneName)}`),
   patchLane: (boardId: string, laneName: string, req: PatchLaneRequest) =>
-    request<{ ok: true }>('PATCH', `/api/boards/${enc(boardId)}/lanes/${enc(laneName)}`, req),
+    request<{ lane: LaneDetail }>('PATCH', `/api/boards/${enc(boardId)}/lanes/${enc(laneName)}`, req),
   deleteLane: (boardId: string, laneName: string, req: DeleteLaneRequest) =>
     request<{ ok: true }>('DELETE', `/api/boards/${enc(boardId)}/lanes/${enc(laneName)}`, req),
 

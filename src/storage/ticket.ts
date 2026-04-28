@@ -82,6 +82,7 @@ export async function createTicket(
     filename,
     state: input.state,
     title: input.title,
+    body: input.body ?? '',
     created: now,
     updated: now,
     orphaned: false,
@@ -103,11 +104,12 @@ export async function listTickets(boardPath: string, laneName: string): Promise<
     for (const f of files) {
       try {
         const text = await readFile(path.join(dirAbs, f), 'utf8');
-        const { fm } = parse(text);
+        const { fm, body } = parse(text);
         out.push({
           filename: f,
           state: isKnown ? dirEntry.name : '__orphaned__',
           title: fm.title,
+          body,
           created: fm.created,
           updated: fm.updated,
           orphaned: !isKnown,
@@ -177,6 +179,7 @@ export async function updateTicket(
     filename,
     state: newState,
     title: newFm.title,
+    body: newBody,
     created: newFm.created,
     updated: newFm.updated,
     orphaned: false,

@@ -33,4 +33,4 @@ Runtimes are tied to the Meeseeks server process — they terminate when the ser
 
 | Ingest Date | Source |
 | ----------- | ------ |
-| 2026-04-26 | [First Slice Design §7](code-rag:meeseeks/docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md:Meeseeks — First Slice Design: Storage, Server, UI, and Runtimes:7. Runtime supervisor) |
+| 2026-04-26 | First Slice Design §7 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |

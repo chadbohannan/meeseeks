@@ -25,7 +25,8 @@ export interface LaneState {
 }
 
 export interface LaneSummary {
-  laneName: string;      // folder name = id
+  laneName: string;      // folder name = id (slug)
+  displayName: string;   // user-facing name preserving original casing
   states: LaneState[];
   ticketCounts: Record<string, number>;  // by state.dir
   orphanedCount: number;
@@ -40,14 +41,13 @@ export interface TicketSummary {
   filename: string;
   state: string;         // state.dir, or '__orphaned__' for tickets in unknown folders
   title: string;
+  body: string;
   created: string;       // ISO
   updated: string;       // ISO
   orphaned: boolean;
 }
 
-export interface TicketDetail extends TicketSummary {
-  body: string;
-}
+export type TicketDetail = TicketSummary;
 
 export interface RecentEntry {
   path: string;

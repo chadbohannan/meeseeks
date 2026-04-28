@@ -5,6 +5,16 @@ import { ConflictError, InvalidInputError, NotFoundError } from './errors.js';
 import { resolveWithin, slugifyBoardPath } from './paths.js';
 import type { ProjectConfig, ProjectMeta, BoardSummary } from '../shared/types.js';
 
+async function readBoardNameFromYaml(boardPath: string): Promise<string | null> {
+  try {
+    const raw = await readFile(path.join(boardPath, 'board.yaml'), 'utf8');
+    const parsed = yaml.load(raw) as { name?: string } | null;
+    return parsed?.name ?? null;
+  } catch {
+    return null;
+  }
+}
+
 const PROJECT_FILE = 'project.yaml';
 const PROJECT_FILE_LEGACY = 'project.meeseeks';
 
@@ -88,7 +98,7 @@ export async function listBoards(projectRoot: string): Promise<BoardSummary[]> {
 
     let available = false;
     try { available = (await stat(abs)).isDirectory(); } catch { available = false; }
-    const name = path.basename(abs);
+    const name = (available ? await readBoardNameFromYaml(abs) : null) ?? path.basename(abs);
     out.push({ boardId: id, name, path: abs, available });
   }
   return out;
