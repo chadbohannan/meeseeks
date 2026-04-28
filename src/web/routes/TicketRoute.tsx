@@ -41,6 +41,10 @@ export function TicketRoute() {
     setState(ticket.data.ticket.state);
   }, [ticket.data, dirty]);
 
+  useEffect(() => {
+    setTab('console');
+  }, [runtime?.runtimeId]);
+
   if (!boardId || !laneName || !filename) return null;
   if (ticket.isLoading) return <div className="p-8 text-slate-500">Loading ticket…</div>;
   if (!ticket.data) return <div className="p-8 text-red-400">Ticket not found.</div>;
@@ -163,11 +167,11 @@ export function TicketRoute() {
           </div>
           <div className="flex gap-1 px-2 pt-1 bg-slate-900 shrink-0">
             <button
-              className={`px-3 py-1 text-xs rounded-t ${tab === 'console' ? 'bg-black text-white' : 'text-slate-400 hover:text-white'}`}
+              className={`px-3 py-1 text-xs rounded-t ${tab === 'console' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
               onClick={() => setTab('console')}
             >Console</button>
             <button
-              className={`px-3 py-1 text-xs rounded-t ${tab === 'context' ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'}`}
+              className={`px-3 py-1 text-xs rounded-t ${tab === 'context' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
               onClick={() => setTab('context')}
             >Context</button>
           </div>
