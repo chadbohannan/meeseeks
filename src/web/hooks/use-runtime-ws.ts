@@ -18,7 +18,18 @@ export function useRuntimeWs(): void {
     const client = getWsClient();
     return client.subscribe((evt) => {
       if (evt.type === 'runtime-spawned') {
-        useRuntimesStore.getState().upsert(evt.payload);
+        const store = useRuntimesStore.getState();
+        Object.values(store.byId).forEach(r => {
+          if (
+            r.ticketRef.boardId === evt.payload.ticketRef.boardId &&
+            r.ticketRef.laneName === evt.payload.ticketRef.laneName &&
+            r.ticketRef.filename === evt.payload.ticketRef.filename &&
+            (r.status === 'exited' || r.status === 'errored')
+          ) {
+            store.remove(r.runtimeId);
+          }
+        });
+        store.upsert(evt.payload);
         qc.invalidateQueries({ queryKey: ['runtimes'] });
       } else if (evt.type === 'runtime-status') {
         useRuntimesStore.getState().setStatus(
