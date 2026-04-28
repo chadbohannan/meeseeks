@@ -21,10 +21,11 @@ export function useRuntimeWs(): void {
         const store = useRuntimesStore.getState();
         Object.values(store.byId).forEach(r => {
           if (
+            r.runtimeId !== evt.payload.runtimeId &&
             r.ticketRef.boardId === evt.payload.ticketRef.boardId &&
             r.ticketRef.laneName === evt.payload.ticketRef.laneName &&
             r.ticketRef.filename === evt.payload.ticketRef.filename &&
-            (r.status === 'exited' || r.status === 'errored')
+            (r.status === 'exited' || r.status === 'errored' || r.status === 'terminating')
           ) {
             store.remove(r.runtimeId);
           }
