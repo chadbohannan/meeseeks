@@ -21,6 +21,8 @@ export function TicketRoute() {
     Object.values(s.byId).find(r =>
       r.ticketRef.boardId === boardId && r.ticketRef.laneName === laneName && r.ticketRef.filename === filename));
 
+  const activeRuntime = runtime?.status === 'exited' || runtime?.status === 'errored' || runtime?.status === 'terminating' ? null : runtime ?? null;
+
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [state, setState] = useState('');
@@ -66,16 +68,16 @@ export function TicketRoute() {
         <span className="text-xs text-slate-500 font-mono ml-auto">{filename}</span>
       </div>
       <div className="flex items-center gap-2 mb-3 shrink-0">
-        {runtime ? (
+        {activeRuntime ? (
           <>
-            <RuntimeStatusDot status={runtime.status} />
-            <span className="text-sm">{runtime.status}</span>
-            {(runtime.status === 'running' || runtime.status === 'idle' || runtime.status === 'starting') && (
+            <RuntimeStatusDot status={activeRuntime.status} />
+            <span className="text-sm">{activeRuntime.status}</span>
+            {(activeRuntime.status === 'running' || activeRuntime.status === 'idle' || activeRuntime.status === 'starting') && (
               <button
                 className="rounded bg-red-700 px-3 py-1 text-sm"
                 onClick={async () => {
                   if (!confirm('Terminate runtime?')) return;
-                  try { await term.mutateAsync(runtime.runtimeId); }
+                  try { await term.mutateAsync(activeRuntime.runtimeId); }
                   catch (err) { toast.error((err as Error).message); }
                 }}
               >Terminate</button>
@@ -89,7 +91,7 @@ export function TicketRoute() {
                 await spawn.mutateAsync({ boardId, laneName, filename });
               } catch (err) { toast.error((err as Error).message); }
             }}
-          >Spawn runtime</button>
+          >Spawn agent</button>
         )}
       </div>
 
@@ -151,6 +153,9 @@ export function TicketRoute() {
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-800 text-sm shrink-0">
             <RuntimeStatusDot status={runtime.status} />
             <span className="font-mono text-xs">{runtime.ticketRef.filename}</span>
+            {(runtime.status === 'exited' || runtime.status === 'errored') && (
+              <span className="ml-auto text-xs text-slate-500">session ended</span>
+            )}
           </div>
           <div className="flex-1 min-h-0 p-1">
             <XtermHost runtimeId={runtime.runtimeId} />
@@ -158,7 +163,7 @@ export function TicketRoute() {
         </>
       ) : (
         <div className="flex items-center justify-center h-full text-slate-500 text-sm">
-          No runtime active. Spawn one to see the console here.
+          No agent running. Spawn one to see the console here.
         </div>
       )}
     </div>
