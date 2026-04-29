@@ -140,4 +140,16 @@ describe('writeBoardClaudeContent', () => {
     const second = await readBoardClaudeContent(boardPath);
     expect(second).toBe('Second version');
   });
+
+  it('throws NotFoundError when board path does not exist', async () => {
+    const tp = await makeBareProject();
+    cleanups.push(tp.cleanup);
+    const invalidPath = path.join(tp.root, 'boards/nonexistent');
+
+    const { writeBoardClaudeContent } = await import('../../src/storage/board.js');
+
+    await expect(
+      writeBoardClaudeContent(invalidPath, 'content')
+    ).rejects.toThrow(NotFoundError);
+  });
 });

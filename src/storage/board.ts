@@ -29,6 +29,9 @@ export async function readBoardClaudeContent(boardPath: string): Promise<string>
 }
 
 export async function writeBoardClaudeContent(boardPath: string, content: string): Promise<void> {
+  if (!(await exists(boardPath))) {
+    throw new NotFoundError(`board not found: ${boardPath}`);
+  }
   const claudePath = path.join(boardPath, 'CLAUDE.md');
   await writeFile(claudePath, content, 'utf8');
 }
