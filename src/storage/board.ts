@@ -19,6 +19,15 @@ const DEFAULT_BOARD_YAML = (name: string) => yaml.dump({
 
 const DEFAULT_CLAUDE_MD = (name: string) => `# ${name}\n\nBoard-level instructions for agents go here.\n`;
 
+export async function readBoardClaudeContent(boardPath: string): Promise<string> {
+  const claudePath = path.join(boardPath, 'CLAUDE.md');
+  try {
+    return await readFile(claudePath, 'utf8');
+  } catch {
+    return DEFAULT_CLAUDE_MD('');
+  }
+}
+
 async function exists(p: string): Promise<boolean> {
   try { await access(p); return true; } catch { return false; }
 }

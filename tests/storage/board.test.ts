@@ -81,3 +81,30 @@ describe('deleteBoardFolder', () => {
     await expect(deleteBoardFolder(path.join(tp.root, 'nope'))).rejects.toThrow(NotFoundError);
   });
 });
+
+describe('readBoardClaudeContent', () => {
+  it('returns CLAUDE.md content for an existing board', async () => {
+    const tp = await makeBareProject();
+    cleanups.push(tp.cleanup);
+    const boardPath = path.join(tp.root, 'boards/my-board');
+    await createBoard(boardPath, 'My Board');
+
+    const { readBoardClaudeContent } = await import('../../src/storage/board.js');
+    const content = await readBoardClaudeContent(boardPath);
+
+    expect(content).toContain('My Board');
+    expect(content).toContain('Board-level instructions');
+  });
+
+  it('returns default content when CLAUDE.md is missing', async () => {
+    const tp = await makeBareProject();
+    cleanups.push(tp.cleanup);
+    const boardPath = path.join(tp.root, 'boards/missing');
+
+    const { readBoardClaudeContent } = await import('../../src/storage/board.js');
+    const content = await readBoardClaudeContent(boardPath);
+
+    expect(content).toBeTruthy();
+    expect(content.length).toBeGreaterThan(0);
+  });
+});
