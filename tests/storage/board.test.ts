@@ -108,3 +108,36 @@ describe('readBoardClaudeContent', () => {
     expect(content.length).toBeGreaterThan(0);
   });
 });
+
+describe('writeBoardClaudeContent', () => {
+  it('writes content to CLAUDE.md', async () => {
+    const tp = await makeBareProject();
+    cleanups.push(tp.cleanup);
+    const boardPath = path.join(tp.root, 'boards/my-board');
+    await createBoard(boardPath, 'My Board');
+
+    const { writeBoardClaudeContent, readBoardClaudeContent } = await import('../../src/storage/board.js');
+    const newContent = '# Custom Instructions\n\nTest content';
+    await writeBoardClaudeContent(boardPath, newContent);
+
+    const readBack = await readBoardClaudeContent(boardPath);
+    expect(readBack).toBe(newContent);
+  });
+
+  it('overwrites existing CLAUDE.md content', async () => {
+    const tp = await makeBareProject();
+    cleanups.push(tp.cleanup);
+    const boardPath = path.join(tp.root, 'boards/my-board');
+    await createBoard(boardPath, 'My Board');
+
+    const { writeBoardClaudeContent, readBoardClaudeContent } = await import('../../src/storage/board.js');
+
+    await writeBoardClaudeContent(boardPath, 'First version');
+    const first = await readBoardClaudeContent(boardPath);
+    expect(first).toBe('First version');
+
+    await writeBoardClaudeContent(boardPath, 'Second version');
+    const second = await readBoardClaudeContent(boardPath);
+    expect(second).toBe('Second version');
+  });
+});

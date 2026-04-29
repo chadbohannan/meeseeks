@@ -28,6 +28,11 @@ export async function readBoardClaudeContent(boardPath: string): Promise<string>
   }
 }
 
+export async function writeBoardClaudeContent(boardPath: string, content: string): Promise<void> {
+  const claudePath = path.join(boardPath, 'CLAUDE.md');
+  await writeFile(claudePath, content, 'utf8');
+}
+
 async function exists(p: string): Promise<boolean> {
   try { await access(p); return true; } catch { return false; }
 }
