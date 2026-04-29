@@ -17,6 +17,7 @@ export interface BoardSummary {
 
 export interface BoardDetail extends BoardSummary {
   lanes: LaneSummary[];
+  claudeContent?: string;
 }
 
 export interface LaneState {

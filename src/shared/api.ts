@@ -2,7 +2,7 @@ import type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, Tic
 
 // Boards
 export interface CreateBoardRequest { name: string; path?: string }
-export interface PatchBoardRequest { name?: string }
+export interface PatchBoardRequest { name?: string; claudeContent?: string }
 export interface DeleteBoardRequest { deleteFiles?: boolean }
 
 // Lanes
