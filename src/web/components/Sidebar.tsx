@@ -40,7 +40,7 @@ function BoardNode({ board }: { board: BoardSummary }) {
   const laneActive = useIsLaneActive();
   const isActive = activeBoardId === board.boardId;
   const isBoardOnly = isActive && !laneActive;
-  const [expanded, setExpanded] = useState(isActive);
+  const [expanded, setExpanded] = useState(true);
   const [expandedLanes, setExpandedLanes] = useState<Record<string, boolean>>({});
 
   const boardDetail = useBoard(expanded || isActive ? board.boardId : undefined);
@@ -117,7 +117,7 @@ function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane
   const active = useActiveState();
   const navigate = useNavigate();
   const isActive = active.boardId === boardId && active.laneName === lane.laneName;
-  const isExpanded = expanded ?? isActive;
+  const isExpanded = expanded ?? true;
 
   const runtimes = useRuntimesStore((s) => s.byId);
   const laneRuntimes = Object.values(runtimes).filter(
@@ -154,9 +154,6 @@ function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane
         <span className="truncate flex-1">
           {lane.displayName}
         </span>
-        <span className="text-xs text-slate-500 tabular-nums">{totalTickets}</span>
-        {hasActiveRuntime && <span className="w-2 h-2 rounded-full bg-green-400 shrink-0" title="Active runtime" />}
-        {lane.orphanedCount > 0 && <span className="text-amber-400 text-xs shrink-0" title={`${lane.orphanedCount} orphaned`}>⚠</span>}
       </div>
       {isExpanded && (
         <div className="ml-5">

@@ -14,11 +14,7 @@ export function AppShell() {
           <Logo size={24} />
           Meeseeks
         </Link>
-        <div className="flex items-center gap-3 text-sm">
-          {project && (
-            <span className="text-slate-400">{project.config.name}</span>
-          )}
-        </div>
+        <div className="flex items-center gap-3 text-sm" />
       </header>
       <div className="flex flex-1 min-h-0">
         <div className="w-60 shrink-0">

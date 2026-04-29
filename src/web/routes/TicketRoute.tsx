@@ -58,7 +58,11 @@ export function TicketRoute() {
   const ticketEditor = (
     <div className="p-6 max-w-3xl h-full flex flex-col">
       <nav className="text-sm text-slate-400 mb-3 shrink-0 flex items-center justify-between">
-        <button className="hover:text-white" onClick={() => navigate(stateUrl)}>← {stateName}</button>
+        <span className="flex items-center gap-1">
+          <button className="hover:text-white" onClick={() => navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}`)}>{lane.data?.lane.displayName ?? laneName}</button>
+          <span className="text-slate-600">/</span>
+          <button className="hover:text-white" onClick={() => navigate(stateUrl)}>{stateName}</button>
+        </span>
         <div className="flex items-center gap-2">
           <label className="text-slate-400">State</label>
           <select
