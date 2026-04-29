@@ -104,7 +104,7 @@ describe('buildSpawnSpec', () => {
       boardPath: '/tmp/p/boards/my-board',
       lanePath: '/tmp/p/boards/my-board/lanes/dev',
       ticketAbsPath: '/tmp/p/boards/my-board/lanes/dev/todo/2026-04-26T1430-x.md',
-      processDocPath: '/tmp/p/boards/my-board/lanes/dev/PROCESS.md',
+      processDocContent: '# Development Process\n\nFollow TDD methodology.',
       ticketRef: { boardId: 'my-board', laneName: 'dev', filename: '2026-04-26T1430-x.md' },
       board: null,
       permissions: null,
@@ -112,6 +112,6 @@ describe('buildSpawnSpec', () => {
     expect(spec.preamble).toContain('2026-04-26T1430-x.md');
     expect(spec.preamble).toContain('dev');
     expect(spec.preamble).toContain('my-board');
-    expect(spec.preamble).toContain('/tmp/p/boards/my-board/lanes/dev/PROCESS.md');
+    expect(spec.preamble).toContain('Follow TDD methodology');
   });
 });
