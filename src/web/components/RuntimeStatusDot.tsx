@@ -10,15 +10,40 @@ const COLORS: Record<Exclude<RuntimeStatus, 'awaiting-user'>, string> = {
 };
 
 export function RuntimeStatusDot({ status, className = '' }: { status: RuntimeStatus; className?: string }) {
-  if (status === 'awaiting-user') {
+  if (status === 'running') {
     return (
       <svg
-        title="awaiting-user"
+        title="running"
+        viewBox="0 0 14 6"
+        className={`inline-block h-3 w-4 ${className}`}
+        aria-label="running"
+      >
+        <circle cx="2" cy="3" r="1.8" fill="#ffffff">
+          <animate attributeName="opacity" values="1;0.3;1" dur="1.2s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="7" cy="3" r="1.8" fill="#ffffff">
+          <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="12" cy="3" r="1.8" fill="#ffffff">
+          <animate attributeName="opacity" values="1;0.3;1" dur="1.9s" repeatCount="indefinite" />
+        </circle>
+      </svg>
+    );
+  }
+  if (status === 'awaiting-user' || status === 'idle') {
+    return (
+      <svg
+        title={status}
         viewBox="0 0 10 9"
         className={`inline-block h-3 w-3 animate-pulse ${className}`}
-        aria-label="awaiting-user"
+        aria-label={status}
       >
-        <polygon points="5,8.5 0.5,0.5 9.5,0.5" fill="none" stroke="#f59e0b" strokeWidth="1.2" />
+        <polygon
+          points="5,8.5 0.5,0.5 9.5,0.5"
+          fill="none"
+          stroke={status === 'idle' ? '#3b82f6' : '#f59e0b'}
+          strokeWidth="2"
+        />
       </svg>
     );
   }

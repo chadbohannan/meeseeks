@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useBoards, useBoard } from '../hooks/queries.js';
+import { useBoards, useBoard, useTickets } from '../hooks/queries.js';
 import { useRuntimesStore } from '../store/runtimes.js';
+import { RuntimeStatusDot } from './RuntimeStatusDot.js';
 import { NewBoardModal } from './NewBoardModal.js';
 import type { BoardSummary, LaneSummary } from '@shared/types.js';
+import type { RuntimeSummary } from '@shared/runtime.js';
 
 export function Sidebar() {
   const boards = useBoards();
@@ -107,6 +109,10 @@ function useActiveState() {
   };
 }
 
+function isRuntimeActive(r: RuntimeSummary) {
+  return r.status === 'running' || r.status === 'starting' || r.status === 'idle' || r.status === 'awaiting-user';
+}
+
 function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane: LaneSummary; expanded: boolean | undefined; onToggle: () => void }) {
   const active = useActiveState();
   const navigate = useNavigate();
@@ -114,9 +120,14 @@ function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane
   const isExpanded = expanded ?? isActive;
 
   const runtimes = useRuntimesStore((s) => s.byId);
-  const hasActiveRuntime = Object.values(runtimes).some(
-    (r) => r.ticketRef.boardId === boardId && r.ticketRef.laneName === lane.laneName &&
-      (r.status === 'running' || r.status === 'starting' || r.status === 'idle'),
+  const laneRuntimes = Object.values(runtimes).filter(
+    (r) => r.ticketRef.boardId === boardId && r.ticketRef.laneName === lane.laneName && isRuntimeActive(r),
+  );
+  const hasActiveRuntime = laneRuntimes.length > 0;
+
+  const tickets = useTickets(isExpanded && hasActiveRuntime ? boardId : undefined, isExpanded && hasActiveRuntime ? lane.laneName : undefined);
+  const ticketsByFilename = new Map(
+    (tickets.data?.tickets ?? []).map((t) => [t.filename, t]),
   );
 
   const totalTickets = Object.values(lane.ticketCounts).reduce((a, b) => a + b, 0);
@@ -152,18 +163,41 @@ function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane
           {lane.states.map((st) => {
             const count = lane.ticketCounts[st.dir] ?? 0;
             const isStateActive = active.stateDir === st.dir && active.laneName === lane.laneName;
+            const stateRuntimes = laneRuntimes.filter((r) => {
+              const ticket = ticketsByFilename.get(r.ticketRef.filename);
+              return ticket?.state === st.dir;
+            });
             return (
-              <div
-                key={st.dir}
-                className={`flex items-center gap-1 px-2 py-0.5 cursor-pointer hover:bg-slate-800 text-xs ${
-                  isStateActive ? 'bg-slate-800 text-white' : 'text-slate-400'
-                }`}
-                onClick={() =>
-                  navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}/state/${encodeURIComponent(st.dir)}`)
-                }
-              >
-                <span className="truncate flex-1">{st.name}</span>
-                <span className="text-slate-500 tabular-nums">{count}</span>
+              <div key={st.dir}>
+                <div
+                  className={`flex items-center gap-1 px-2 py-0.5 cursor-pointer hover:bg-slate-800 text-xs ${
+                    isStateActive ? 'bg-slate-800 text-white' : 'text-slate-400'
+                  }`}
+                  onClick={() =>
+                    navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}/state/${encodeURIComponent(st.dir)}`)
+                  }
+                >
+                  <span className="truncate flex-1">{st.name}</span>
+                  <span className="text-slate-500 tabular-nums">{count}</span>
+                </div>
+                {stateRuntimes.map((r) => {
+                  const ticket = ticketsByFilename.get(r.ticketRef.filename);
+                  const isTicketActive = active.filename === r.ticketRef.filename && active.laneName === lane.laneName;
+                  return (
+                    <div
+                      key={r.runtimeId}
+                      className={`flex items-center gap-1.5 pl-4 pr-2 py-[7px] my-[5px] rounded-md cursor-pointer hover:bg-slate-800 text-sm ${
+                        isTicketActive ? 'bg-slate-800 text-white' : 'text-slate-400'
+                      }`}
+                      onClick={() =>
+                        navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}/tickets/${encodeURIComponent(r.ticketRef.filename)}`)
+                      }
+                    >
+                      <span className="truncate whitespace-nowrap">{ticket?.title ?? r.ticketRef.filename}</span>
+                      <RuntimeStatusDot status={r.status} className="shrink-0 ml-auto h-3 w-3" />
+                    </div>
+                  );
+                })}
               </div>
             );
           })}

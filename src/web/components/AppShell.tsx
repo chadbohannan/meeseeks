@@ -1,5 +1,6 @@
 import { Outlet, Link } from 'react-router-dom';
 import { useCurrentProject } from '../hooks/queries.js';
+import { Logo } from './Logo.js';
 import { Sidebar } from './Sidebar.js';
 
 export function AppShell() {
@@ -9,7 +10,10 @@ export function AppShell() {
   return (
     <div className="flex flex-col h-screen">
       <header className="flex items-center justify-between border-b border-slate-800 px-4 py-2 bg-slate-900 shrink-0">
-        <Link to="/boards" className="font-semibold">Meeseeks</Link>
+        <Link to="/boards" className="flex items-center gap-2 font-semibold">
+          <Logo size={24} />
+          Meeseeks
+        </Link>
         <div className="flex items-center gap-3 text-sm">
           {project && (
             <span className="text-slate-400">{project.config.name}</span>

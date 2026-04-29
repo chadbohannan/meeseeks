@@ -231,6 +231,7 @@ export function TicketRoute() {
       right={consolePane}
       defaultSplit={0.5}
       minLeft={300}
+      storageKey={`ticket-split:${filename}`}
       minRight={300}
     />
   );

@@ -6,11 +6,25 @@ interface Props {
   defaultSplit?: number;
   minLeft?: number;
   minRight?: number;
+  storageKey?: string;
 }
 
-export function ResizableSplit({ left, right, defaultSplit = 0.5, minLeft = 200, minRight = 200 }: Props) {
+function readStored(key: string | undefined, fallback: number): number {
+  if (!key) return fallback;
+  const v = sessionStorage.getItem(key);
+  if (v == null) return fallback;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function ResizableSplit({ left, right, defaultSplit = 0.5, minLeft = 200, minRight = 200, storageKey }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [split, setSplit] = useState(defaultSplit);
+  const [split, setSplitRaw] = useState(() => readStored(storageKey, defaultSplit));
+
+  const setSplit = useCallback((v: number) => {
+    setSplitRaw(v);
+    if (storageKey) sessionStorage.setItem(storageKey, String(v));
+  }, [storageKey]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();

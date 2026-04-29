@@ -24,7 +24,7 @@ export function TicketCard({ boardId, laneName, ticket, draggable, onDragStart, 
   return (
     <Link
       to={`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}/tickets/${encodeURIComponent(ticket.filename)}`}
-      className="block bg-slate-800 hover:bg-slate-700 rounded p-3 mb-2"
+      className="block bg-slate-800 hover:bg-slate-700 rounded p-3 mb-2 overflow-hidden"
       draggable={draggable}
       onClick={(e) => { if (didDrag.current) { e.preventDefault(); didDrag.current = false; } }}
       onDragStart={(e) => {
@@ -42,7 +42,7 @@ export function TicketCard({ boardId, laneName, ticket, draggable, onDragStart, 
         <div className="font-medium text-xl">{ticket.title}</div>
       </div>
       <div className="text-xs text-slate-500 mt-1">{new Date(ticket.updated).toLocaleString()}</div>
-      {ticket.body && <div className="text-xs text-slate-300 mt-2"><Markdown>{ticket.body}</Markdown></div>}
+      {ticket.body && <div className="text-xs text-slate-300 mt-2 overflow-hidden"><Markdown>{ticket.body}</Markdown></div>}
       {ticket.orphaned && <div className="text-xs text-amber-400 mt-1">orphaned</div>}
     </Link>
   );
