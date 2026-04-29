@@ -80,26 +80,39 @@ export function TicketRoute() {
           <>
             <RuntimeStatusDot status={activeRuntime.status} />
             <span className="text-sm">{activeRuntime.status}</span>
-            {!['exited', 'errored', 'terminating'].includes(activeRuntime.status) && (
-              <button
-                className="rounded bg-red-700 px-3 py-1 text-sm"
-                onClick={async () => {
-                  if (!confirm('Terminate runtime?')) return;
-                  try { await term.mutateAsync(activeRuntime.runtimeId); }
-                  catch (err) { toast.error((err as Error).message); }
-                }}
-              >Terminate</button>
-            )}
+            <button
+              className="rounded bg-red-700 px-3 py-1 text-sm"
+              onClick={async () => {
+                if (!confirm('Terminate runtime?')) return;
+                try { await term.mutateAsync(activeRuntime.runtimeId); }
+                catch (err) { toast.error((err as Error).message); }
+              }}
+            >Terminate</button>
           </>
         ) : (
-          <button
-            className="rounded bg-emerald-700 px-3 py-1 text-sm"
-            onClick={async () => {
-              try {
-                await spawn.mutateAsync({ boardId, laneName, filename });
-              } catch (err) { toast.error((err as Error).message); }
-            }}
-          >Spawn agent</button>
+          <>
+            {runtime && (runtime.status === 'exited' || runtime.status === 'errored') && (
+              <div className="flex items-center gap-2">
+                <RuntimeStatusDot status={runtime.status} />
+                <span className="text-sm text-slate-400">
+                  {runtime.status === 'errored'
+                    ? runtime.errorMessage ?? 'Agent errored'
+                    : `Agent exited (code ${runtime.exitCode ?? '?'})`}
+                </span>
+              </div>
+            )}
+            <button
+              className="rounded bg-emerald-700 px-3 py-1 text-sm"
+              onClick={async () => {
+                try {
+                  const res = await spawn.mutateAsync({ boardId, laneName, filename });
+                  if (res.runtime.status === 'errored') {
+                    toast.error(res.runtime.errorMessage ?? 'Failed to spawn agent');
+                  }
+                } catch (err) { toast.error((err as Error).message); }
+              }}
+            >Spawn agent</button>
+          </>
         )}
       </div>
 

@@ -89,6 +89,7 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
       if (notifyStatus !== 'idle' && notifyStatus !== 'awaiting-user') {
         return reply.code(400).send({ error: { code: 'BAD_REQUEST', message: 'state must be idle or awaiting-user' } });
       }
+      console.error(`[meeseeks] notify ${req.params.id} → ${notifyStatus}`);
       const found = state.supervisor.notifyState(req.params.id, notifyStatus);
       if (!found) {
         return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'runtime not found' } });

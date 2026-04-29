@@ -36,7 +36,7 @@ async function main(): Promise<void> {
   state.supervisor.on('runtime-status', (s) => hub.broadcast({ type: 'runtime-status', payload: s }));
   state.supervisor.on('runtime-stdio', (s) => hub.broadcast({ type: 'runtime-stdio', payload: s }));
 
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: { level: 'warn' } });
   await app.register(websocket);
   app.setErrorHandler(mapErrorToResponse);
   await registerProjectRoutes(app, { state, hub });
@@ -60,8 +60,8 @@ async function main(): Promise<void> {
   }
 
   await app.listen({ port: PORT, host: HOST });
-  app.log.info({ project: meta.path }, `meeseeks open: ${meta.config.name}`);
-  app.log.info(`meeseeks server on http://${HOST}:${PORT}`);
+  console.error(`meeseeks open: ${meta.config.name} (${meta.path})`);
+  console.error(`meeseeks server on http://${HOST}:${PORT}`);
 }
 
 main().catch(err => {

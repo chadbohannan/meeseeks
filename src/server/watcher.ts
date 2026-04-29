@@ -23,7 +23,9 @@ export function startWatcher(meta: ProjectMeta, hub: WsHub): WatcherHandle {
   const watcher = chokidar.watch(projectRoot, {
     ignored: ['**/node_modules/**', '**/.git/**', '**/.meeseeks/**'],
     ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 30, pollInterval: 20 },
+    usePolling: true,
+    interval: 500,
+    awaitWriteFinish: { stabilityThreshold: 100, pollInterval: 50 },
   });
 
   const pending = new Map<string, PendingChange>();

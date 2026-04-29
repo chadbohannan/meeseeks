@@ -11,37 +11,63 @@ export function XtermHost({ runtimeId }: { runtimeId: string }) {
   useEffect(() => {
     const host = ref.current;
     if (!host) return;
-    const term = new Terminal({ convertEol: true, fontFamily: 'ui-monospace, monospace', fontSize: 13 });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
-    term.open(host);
-    try { fit.fit(); } catch { /* host may have zero size briefly */ }
-    sendRuntimeResize(runtimeId, term.cols, term.rows);
 
-    const unsub = onRuntimeStdio((id, bytes) => {
-      if (id === runtimeId) term.write(bytes);
-    });
-
-    void api.getRuntimeSnapshot(runtimeId).then((snap) => {
-      if (snap?.data) term.write(bytesFromB64(snap.data));
-    }).catch(() => { /* silent */ });
-
-    const onKey = term.onData((data) => {
-      const enc = new TextEncoder();
-      sendRuntimeInput(runtimeId, enc.encode(data));
-    });
+    let disposed = false;
+    let term: Terminal | null = null;
+    let fit: FitAddon | null = null;
+    let unsub: (() => void) | null = null;
+    let onKey: { dispose: () => void } | null = null;
 
     const onResize = () => {
-      try { fit.fit(); } catch { return; }
-      sendRuntimeResize(runtimeId, term.cols, term.rows);
+      try { fit?.fit(); } catch { return; }
+      if (term) sendRuntimeResize(runtimeId, term.cols, term.rows);
     };
-    window.addEventListener('resize', onResize);
+
+    const init = () => {
+      if (disposed) return;
+      term = new Terminal({ convertEol: true, fontFamily: 'ui-monospace, monospace', fontSize: 13 });
+      fit = new FitAddon();
+      term.loadAddon(fit);
+      term.open(host);
+      try { fit.fit(); } catch { /* ok */ }
+      sendRuntimeResize(runtimeId, term.cols, term.rows);
+
+      unsub = onRuntimeStdio((id, bytes) => {
+        if (id === runtimeId) term!.write(bytes);
+      });
+
+      void api.getRuntimeSnapshot(runtimeId).then((snap) => {
+        if (snap?.data && term) term.write(bytesFromB64(snap.data));
+      }).catch(() => { /* silent */ });
+
+      onKey = term.onData((data) => {
+        const enc = new TextEncoder();
+        sendRuntimeInput(runtimeId, enc.encode(data));
+      });
+
+      window.addEventListener('resize', onResize);
+    };
+
+    if (host.offsetWidth > 0 && host.offsetHeight > 0) {
+      init();
+    } else {
+      const ro = new ResizeObserver((entries) => {
+        const entry = entries[0];
+        if (entry && entry.contentRect.width > 0 && entry.contentRect.height > 0) {
+          ro.disconnect();
+          init();
+        }
+      });
+      ro.observe(host);
+      return () => { disposed = true; ro.disconnect(); };
+    }
 
     return () => {
+      disposed = true;
       window.removeEventListener('resize', onResize);
-      onKey.dispose();
-      unsub();
-      term.dispose();
+      onKey?.dispose();
+      unsub?.();
+      term?.dispose();
     };
   }, [runtimeId]);
   return <div ref={ref} className="h-full w-full" />;

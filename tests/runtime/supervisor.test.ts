@@ -149,13 +149,13 @@ describe('RuntimeSupervisor', () => {
     expect(silentSup.get('rt-debounce')?.status).toBe('starting');
     // Emit non-JSON TUI data to trigger the debounce timer
     ptyDataHandler!('\x1b[2J\x1b[H> ');
-    await waitFor(() => silentSup.get('rt-debounce')?.status === 'idle', 500);
-    expect(silentSup.get('rt-debounce')?.status).toBe('idle');
+    await waitFor(() => silentSup.get('rt-debounce')?.status === 'running', 500);
+    expect(silentSup.get('rt-debounce')?.status).toBe('running');
     ptyExitHandler!({ exitCode: 0 });
     void sup.terminateAll();
   });
 
-  it('notifyState transitions status and PTY data while awaiting-user drives running', async () => {
+  it('notifyState drives status; hooks are the sole authority for idle and awaiting-user', async () => {
     const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192 });
     const statuses: string[] = [];
     sup.on('runtime-status', (s) => statuses.push(s.status));
@@ -172,11 +172,12 @@ describe('RuntimeSupervisor', () => {
     const ok = sup.notifyState('rt-notify', 'awaiting-user');
     expect(ok).toBe(true);
     expect(sup.get('rt-notify')?.status).toBe('awaiting-user');
-    // PTY data while awaiting-user → running (stub responds to user message with assistant+result)
-    sup.writeInput('rt-notify', Buffer.from(JSON.stringify({ type: 'user' }) + '\n'));
-    await waitFor(() => statuses.includes('running'));
+    // notifyState idle
+    const ok2 = sup.notifyState('rt-notify', 'idle');
+    expect(ok2).toBe(true);
+    expect(sup.get('rt-notify')?.status).toBe('idle');
     expect(statuses).toContain('awaiting-user');
-    expect(statuses).toContain('running');
+    expect(statuses).toContain('idle');
     await sup.terminateAll();
   });
 

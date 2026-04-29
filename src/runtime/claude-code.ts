@@ -1,8 +1,17 @@
 import path from 'node:path';
 import os from 'node:os';
+import { execSync } from 'node:child_process';
 import type { SpawnContext, SpawnSpec } from './types.js';
 
-const HARNESS_BIN = 'claude';
+function resolveHarnessBin(): string {
+  try {
+    return execSync('which claude', { encoding: 'utf8' }).trim();
+  } catch {
+    return 'claude';
+  }
+}
+
+const HARNESS_BIN = resolveHarnessBin();
 
 function expandHome(p: string): string {
   if (p === '~') return os.homedir();
@@ -17,8 +26,6 @@ function resolveAllowedPath(p: string, lanePath: string): string {
 
 export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   const argv: string[] = [HARNESS_BIN];
-  argv.push('--output-format', 'stream-json');
-  argv.push('--input-format', 'stream-json');
   argv.push('--verbose');
 
   const model = ctx.board?.runtime?.model;
@@ -35,6 +42,11 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   const notifyBase = `http://127.0.0.1:${serverPort}/internal/runtime/${ctx.runtimeId}/notify`;
   const settingsObj: Record<string, unknown> = {
     hooks: {
+      Stop: [
+        {
+          hooks: [{ type: 'command', command: `curl -sf "${notifyBase}?state=idle"` }],
+        },
+      ],
       Notification: [
         {
           matcher: 'idle_prompt',
@@ -69,8 +81,10 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
 
   argv.push('--append-system-prompt', preamble);
 
+  const inherited = { ...(process.env as Record<string, string>) };
+  delete inherited.FORCE_COLOR;
   const env: Record<string, string> = {
-    ...(process.env as Record<string, string>),
+    ...inherited,
     MEESEEKS_TICKET_PATH: ctx.ticketAbsPath,
     MEESEEKS_BOARD_PATH: ctx.boardPath,
     MEESEEKS_LANE_PATH: ctx.lanePath,

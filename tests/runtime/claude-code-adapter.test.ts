@@ -17,10 +17,10 @@ describe('buildSpawnSpec', () => {
       board: null,
       permissions: null,
     });
-    expect(spec.argv[0]).toBe('claude');
-    expect(spec.argv).toContain('--output-format');
-    expect(spec.argv).toContain('stream-json');
-    expect(spec.argv).toContain('--input-format');
+    expect(path.basename(spec.argv[0]!)).toBe('claude');
+    expect(spec.argv).toContain('--verbose');
+    expect(spec.argv).not.toContain('--output-format');
+    expect(spec.argv).not.toContain('--input-format');
     expect(spec.argv.filter(a => a === '--add-dir')).toHaveLength(0);
     expect(spec.settingsFile).not.toBeNull();
     expect(spec.argv).toContain('--settings');

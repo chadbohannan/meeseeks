@@ -42,6 +42,7 @@ interface Runtime {
   parser: StreamParser;
   settingsPath: string | null;
   startingTimer: ReturnType<typeof setTimeout> | null;
+  pendingResize: { cols: number; rows: number } | null;
 }
 
 export interface SupervisorOptions {
@@ -87,14 +88,25 @@ export class RuntimeSupervisor extends EventEmitter {
   writeInput(runtimeId: string, data: Buffer): boolean {
     const r = this.runtimes.get(runtimeId);
     if (!r) return false;
-    r.pty.write(data.toString('utf8'));
+    const s = r.summary.status;
+    if (s === 'exited' || s === 'errored' || s === 'terminating') return false;
+    if ((s === 'idle' || s === 'awaiting-user') && data.includes(0x0d)) {
+      this.setStatus(r, 'running');
+    }
+    try { r.pty.write(data.toString('utf8')); } catch { return false; }
     return true;
   }
 
   resize(runtimeId: string, cols: number, rows: number): boolean {
     const r = this.runtimes.get(runtimeId);
     if (!r) return false;
-    r.pty.resize(cols, rows);
+    const s = r.summary.status;
+    if (s === 'exited' || s === 'errored' || s === 'terminating') return false;
+    if (s === 'starting') {
+      r.pendingResize = { cols, rows };
+      return true;
+    }
+    try { r.pty.resize(cols, rows); } catch { return false; }
     return true;
   }
 
@@ -139,10 +151,10 @@ export class RuntimeSupervisor extends EventEmitter {
       startedAt: new Date().toISOString(),
       preamble: spec.preamble,
     };
-    const rt: Runtime = { summary, pty, ring, parser, settingsPath: spec.settingsFile?.path ?? null, startingTimer: null };
+    const rt: Runtime = { summary, pty, ring, parser, settingsPath: spec.settingsFile?.path ?? null, startingTimer: null, pendingResize: null };
     this.runtimes.set(input.runtimeId, rt);
     if (spec.settingsFile) {
-      console.error(`[meeseeks] settings file: ${spec.settingsFile.path}\n${spec.settingsFile.body}`);
+      console.error(`[meeseeks] settings file: ${spec.settingsFile.path}`);
     }
     this.emit('runtime-spawned', { ...summary });
 
@@ -151,13 +163,11 @@ export class RuntimeSupervisor extends EventEmitter {
       ring.append(buf);
       this.emit('runtime-stdio', { runtimeId: input.runtimeId, data: buf.toString('base64') });
       const s = rt.summary.status;
-      if (s === 'idle' || s === 'awaiting-user') {
-        this.setStatus(rt, 'running');
-      } else if (s === 'starting') {
+      if (s === 'starting') {
         if (rt.startingTimer) clearTimeout(rt.startingTimer);
         rt.startingTimer = setTimeout(() => {
           rt.startingTimer = null;
-          if (rt.summary.status === 'starting') this.setStatus(rt, 'idle');
+          if (rt.summary.status === 'starting') this.setStatus(rt, 'running');
         }, this.startingDebounceMs);
       }
       parser.feed(buf);
@@ -177,7 +187,9 @@ export class RuntimeSupervisor extends EventEmitter {
       if (rt.startingTimer) { clearTimeout(rt.startingTimer); rt.startingTimer = null; }
       const wasTerminating = rt.summary.status === 'terminating';
       rt.summary.exitCode = exitCode;
-      this.setStatus(rt, wasTerminating || exitCode === 0 ? 'exited' : 'errored', { exitCode });
+      const status = wasTerminating || exitCode === 0 ? 'exited' : 'errored';
+      const errorMessage = status === 'errored' ? `Process exited with code ${exitCode}` : undefined;
+      this.setStatus(rt, status, { exitCode, errorMessage });
       void this.cleanupSettings(rt);
       this.runtimes.delete(input.runtimeId);
     });
@@ -215,10 +227,16 @@ export class RuntimeSupervisor extends EventEmitter {
   }
 
   private setStatus(rt: Runtime, status: RuntimeStatus, extra: { exitCode?: number; errorMessage?: string } = {}): void {
+    const wasStarting = rt.summary.status === 'starting';
     rt.summary.status = status;
     if (extra.exitCode !== undefined) rt.summary.exitCode = extra.exitCode;
     if (extra.errorMessage) rt.summary.errorMessage = extra.errorMessage;
     this.emit('runtime-status', { runtimeId: rt.summary.runtimeId, status, ...extra });
+    if (wasStarting && rt.pendingResize) {
+      const { cols, rows } = rt.pendingResize;
+      rt.pendingResize = null;
+      try { rt.pty.resize(cols, rows); } catch { /* ignore */ }
+    }
   }
 
   private async cleanupSettings(rt: Runtime): Promise<void> {

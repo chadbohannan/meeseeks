@@ -1,6 +1,6 @@
 # Claude Code Client
 
-Claude Code is the CLI agent harness that Meeseeks supervises. It is a compiled ELF binary installed at `~/.local/share/claude/versions/<version>` (symlinked from `~/.local/bin/claude`). The [runtime adapter](runtime.md) in `src/runtime/claude-code.ts` is the single place in Meeseeks that knows Claude Code's flag schema; everything else treats it as an opaque process.
+Claude Code is the CLI agent harness that Meeseeks supervises. It is a compiled ELF binary installed at `~/.local/share/claude/versions/<version>` (symlinked from `~/.local/bin/claude`). The [runtime adapter](runtime.md) in `src/runtime/claude-code.ts` is the single place in Meeseeks that knows Claude Code's flag schema; everything else treats it as an opaque process. The adapter resolves the `claude` binary to its full path at startup via `which`, and strips environment variables like `FORCE_COLOR` that leak from the dev toolchain — see [Platform Constraints](../concepts/platform-constraints.md) for details on these workarounds.
 
 ## Operating modes
 
@@ -8,7 +8,7 @@ Claude Code has two distinct operating modes that produce fundamentally differen
 
 **Interactive mode (default).** When spawned without `--print`, Claude Code runs a full TUI built with React Ink. All output is ANSI-encoded terminal rendering sent to the PTY. The `--output-format` and `--input-format` flags are silently ignored in this mode — structured stream-json events never arrive. This is the mode Meeseeks uses in production because it preserves the full terminal experience in xterm.js console panels and supports ongoing interactive sessions.
 
-**Non-interactive mode (`--print`).** When `--print` is passed, Claude Code takes an initial prompt from CLI args or stdin, processes one turn, and exits. Output is structured stream-json to stdout. `--output-format stream-json` and `--input-format stream-json` are only meaningful here. This mode is planned for Meeseeks's autonomous-trigger path (batch tickets, scheduled runs) but is not yet used in production.
+**Non-interactive mode (`--print`).** When `--print` is passed, Claude Code takes an initial prompt from CLI args or stdin, processes one turn, and exits. Output is structured stream-json to stdout. `--output-format stream-json` and `--input-format stream-json` are only meaningful with `--print` — they are silently ignored without it. Meeseeks does not pass these flags in interactive mode; they will be added to the `--print` code path when the autonomous-trigger feature (batch tickets, scheduled runs) is implemented.
 
 The implication for state detection is significant: in interactive mode the `StreamParser` receives only TUI bytes and can never fire lifecycle transitions. See [State transitions in interactive mode](runtime.md#state-transitions-in-interactive-mode) for how Meeseeks compensates.
 
@@ -18,8 +18,6 @@ All flags are assembled in `src/runtime/claude-code.ts:buildSpawnSpec`.
 
 | Flag | Effect | Notes |
 |------|--------|-------|
-| `--output-format stream-json` | Structured lifecycle events on stdout | No-op in interactive mode; load-bearing for future `--print` path |
-| `--input-format stream-json` | Reads JSON messages from stdin | No-op in interactive mode; `--append-system-prompt` is the interactive equivalent |
 | `--verbose` | Verbose logging | Always set |
 | `--model <model>` | Override model | Set from `board.yaml runtime.model` |
 | `--add-dir <path>` | Grant filesystem access | Repeated once per `permissions.yaml allowedPaths` entry; paths resolve relative to lane directory, `~` expands |
@@ -38,6 +36,11 @@ Every spawned runtime gets a generated settings file at `<boardPath>/.meeseeks/s
 ```json
 {
   "hooks": {
+    "Stop": [
+      {
+        "hooks": [{ "type": "command", "command": "curl -sf \"http://127.0.0.1:5174/internal/runtime/<id>/notify?state=idle\"" }]
+      }
+    ],
     "Notification": [
       {
         "matcher": "idle_prompt",
@@ -58,18 +61,51 @@ Every spawned runtime gets a generated settings file at `<boardPath>/.meeseeks/s
 
 The `permissions` key is omitted when `allowedTools` and `deniedTools` are both empty.
 
-## Notification hooks
+## Hook system
 
-Claude Code fires `Notification` events at defined points in its lifecycle. Each event runs the configured hook commands before proceeding. Meeseeks uses these to drive supervisor state transitions without parsing TUI output.
+Claude Code exposes a rich hook system with events spanning the full session lifecycle. Hooks are configured via the settings file and fire shell commands at defined points. Meeseeks uses a small subset of these to drive supervisor state transitions without parsing TUI output.
 
-| Matcher | When it fires | Meeseeks action |
-|---------|--------------|-----------------|
-| `idle_prompt` | Agent has finished a turn and is waiting at its main input prompt | `running → idle` via `/internal/runtime/:id/notify?state=idle` |
-| `permission_prompt` | Agent is blocked mid-turn on a tool-use approval (numbered choice block) | `running → awaiting-user` via `/internal/runtime/:id/notify?state=awaiting-user` |
-| `auth_success` | Authentication completes | Not used by Meeseeks |
-| `elicitation_dialog` | Agent asks the user a clarifying question | Not used by Meeseeks |
+### Available hook events
 
-**`idle_prompt` does not fire on initial startup.** This was confirmed empirically: after spawning with `--append-system-prompt`, Claude Code becomes ready for input without completing a turn, so no `idle_prompt` fires. The `starting → idle` transition is handled by a separate startup debounce in the supervisor (default 2 s of PTY silence after the first output chunk).
+Claude Code provides events at three cadences: once per session, once per turn, and on every tool call inside the agentic loop.
+
+**Session lifecycle:** `SessionStart`, `Setup`, `SessionEnd` — fire at session boundaries. `SessionStart` matchers include `startup`, `resume`, `clear`, `compact`.
+
+**Per-turn:** `UserPromptSubmit` (before Claude processes a prompt — can block), `UserPromptExpansion` (slash command expansion), `Stop` (Claude finishes responding), `StopFailure` (turn ends due to API error).
+
+**Tool execution:** `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PostToolBatch`, `PermissionRequest`, `PermissionDenied` — all accept tool name matchers (`Bash`, `Edit`, `Write`, etc.).
+
+**Notification:** `Notification` — fires when Claude Code sends a notification. Matchers: `idle_prompt`, `permission_prompt`, `auth_success`, `elicitation_dialog`.
+
+**Subagents:** `SubagentStart`, `SubagentStop`, `TeammateIdle` — fire during agent delegation.
+
+**Tasks:** `TaskCreated`, `TaskCompleted` — fire when Claude creates or completes a task.
+
+**Config/files:** `ConfigChange`, `FileChanged`, `CwdChanged`, `InstructionsLoaded` — fire on external state changes.
+
+**Compaction:** `PreCompact`, `PostCompact` — fire around context compaction.
+
+**Worktrees:** `WorktreeCreate`, `WorktreeRemove` — fire during worktree lifecycle.
+
+**MCP:** `Elicitation`, `ElicitationResult` — fire during MCP server interactions.
+
+The full reference is at [code.claude.com/docs/en/hooks](https://code.claude.com/docs/en/hooks).
+
+### Hooks used by Meeseeks
+
+The adapter in `src/runtime/claude-code.ts` injects three hooks via the per-session settings file:
+
+| Hook event | Matcher | When it fires | Meeseeks action |
+|------------|---------|--------------|-----------------|
+| `Stop` | *(none)* | Claude finishes responding (end of turn, before post-turn housekeeping) | `→ idle` via `/internal/runtime/:id/notify?state=idle` |
+| `Notification` | `idle_prompt` | Agent is waiting at its main input prompt (fires after post-turn housekeeping) | `→ idle` via `/internal/runtime/:id/notify?state=idle` |
+| `Notification` | `permission_prompt` | Agent is blocked mid-turn on a tool-use approval | `→ awaiting-user` via `/internal/runtime/:id/notify?state=awaiting-user` |
+
+Both `Stop` and `idle_prompt` set `idle` — whichever fires first wins. `Stop` fires immediately when Claude finishes its response; `idle_prompt` fires later, after post-turn work (compaction, memory sync, plugin tasks) completes. In practice `Stop` provides the responsive transition and `idle_prompt` serves as a backstop.
+
+**`idle_prompt` does not fire on initial startup.** After spawning with `--append-system-prompt`, Claude Code becomes ready for input without completing a turn, so no `idle_prompt` fires. The `starting → running` transition is handled by a separate startup debounce in the supervisor (default 2 s of PTY silence after the first output chunk).
+
+**`UserPromptSubmit` is not used.** It fires when the user submits a prompt through Claude Code's own prompt UI, but Meeseeks sends input through the PTY via `writeInput`, so this event never fires for Meeseeks-supervised sessions. The `idle → running` transition is instead driven by detecting a carriage return (Enter key) in `writeInput`.
 
 Hook commands run synchronously in the agent's context. The `curl -sf` invocation is fire-and-forget from the agent's perspective: `-s` suppresses output, `-f` causes curl to exit non-zero on HTTP errors without printing anything. If the Meeseeks server is unreachable, curl fails silently and Claude Code continues unaffected.
 
@@ -103,3 +139,4 @@ The earlier design assertion that both conditions should collapse into a single 
 | 2026-04-28 | Session investigation: state signalling, Notification hooks, interactive vs non-interactive mode |
 | 2026-04-26 | `docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md` §7.5 |
 | 2026-04-28 | `src/runtime/claude-code.ts`, `src/runtime/supervisor.ts` |
+| 2026-04-28 | Debugging session: removed stream-json flags from interactive mode, FORCE_COLOR stripping |
