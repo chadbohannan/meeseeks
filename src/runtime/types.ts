@@ -25,6 +25,7 @@ export interface SpawnContext {
   ticketRef: TicketRef;
   board: BoardRuntimeConfig | null;
   permissions: PermissionsConfig | null;
+  model?: string;
 }
 
 export interface SettingsFile {

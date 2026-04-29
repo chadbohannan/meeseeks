@@ -71,7 +71,7 @@ export const api = {
   listRuntimes: () => request<ListRuntimesResponse>('GET', '/api/runtimes'),
   getRuntime: (id: string) => request<{ runtime: RuntimeSummary }>('GET', `/api/runtimes/${enc(id)}`),
   getRuntimeSnapshot: (id: string) => request<{ data: string }>('GET', `/api/runtimes/${enc(id)}/snapshot`),
-  spawnRuntime: (boardId: string, laneName: string, filename: string) =>
-    request<SpawnRuntimeResponse>('POST', `/api/tickets/${enc(boardId)}/${enc(laneName)}/${enc(filename)}/runtime`),
+  spawnRuntime: (boardId: string, laneName: string, filename: string, model?: string) =>
+    request<SpawnRuntimeResponse>('POST', `/api/tickets/${enc(boardId)}/${enc(laneName)}/${enc(filename)}/runtime`, model ? { model } : undefined),
   terminateRuntime: (id: string) => request<Record<string, never>>('DELETE', `/api/runtimes/${enc(id)}`),
 };

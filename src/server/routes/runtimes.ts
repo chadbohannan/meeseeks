@@ -47,7 +47,7 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
     return {};
   });
 
-  app.post<{ Params: { boardId: string; laneName: string; filename: string } }>(
+  app.post<{ Params: { boardId: string; laneName: string; filename: string }; Body: { model?: string } }>(
     '/api/tickets/:boardId/:laneName/:filename/runtime',
     async (req) => {
       const open = state.require();
@@ -77,6 +77,7 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
         ticketRef: { boardId, laneName, filename },
         board: boardCfg,
         permissions,
+        model: req.body?.model,
       });
       return { runtime: summary };
     },

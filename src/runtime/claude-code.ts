@@ -28,7 +28,7 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   const argv: string[] = [HARNESS_BIN];
   argv.push('--verbose');
 
-  const model = ctx.board?.runtime?.model;
+  const model = ctx.model ?? ctx.board?.runtime?.model;
   if (model) argv.push('--model', model);
 
   for (const p of ctx.permissions?.allowedPaths ?? []) {

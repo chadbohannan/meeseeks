@@ -32,6 +32,7 @@ export function TicketRoute() {
   const [dirty, setDirty] = useState(false);
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<'console' | 'context'>('console');
+  const [model, setModel] = useState('');
 
   useEffect(() => {
     if (!ticket.data) return;
@@ -56,32 +57,31 @@ export function TicketRoute() {
 
   const ticketEditor = (
     <div className="p-6 max-w-3xl h-full flex flex-col">
-      <nav className="text-sm text-slate-400 mb-3 shrink-0">
+      <nav className="text-sm text-slate-400 mb-3 shrink-0 flex items-center justify-between">
         <button className="hover:text-white" onClick={() => navigate(stateUrl)}>← {stateName}</button>
+        <div className="flex items-center gap-2">
+          <label className="text-slate-400">State</label>
+          <select
+            className="bg-slate-800 rounded px-2 py-1 text-sm"
+            value={state}
+            onChange={(e) => { setState(e.target.value); setDirty(true); }}
+          >
+            {states.map((s) => <option key={s.dir} value={s.dir}>{s.name}</option>)}
+          </select>
+        </div>
       </nav>
       <input
         className="w-full bg-slate-800 rounded px-3 py-2 text-lg font-medium mb-3 shrink-0"
         value={title}
         onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
       />
-      <div className="flex items-center gap-3 mb-3 shrink-0">
-        <label className="text-sm text-slate-400">State</label>
-        <select
-          className="bg-slate-800 rounded px-2 py-1 text-sm"
-          value={state}
-          onChange={(e) => { setState(e.target.value); setDirty(true); }}
-        >
-          {states.map((s) => <option key={s.dir} value={s.dir}>{s.name}</option>)}
-        </select>
-        <span className="text-xs text-slate-500 font-mono ml-auto">{filename}</span>
-      </div>
       <div className="flex items-center gap-2 mb-3 shrink-0">
         {activeRuntime ? (
           <>
             <RuntimeStatusDot status={activeRuntime.status} />
             <span className="text-sm">{activeRuntime.status}</span>
             <button
-              className="rounded bg-red-700 px-3 py-1 text-sm"
+              className="rounded bg-red-700 px-3 py-1 text-sm ml-auto"
               onClick={async () => {
                 if (!confirm('Terminate runtime?')) return;
                 try { await term.mutateAsync(activeRuntime.runtimeId); }
@@ -101,17 +101,29 @@ export function TicketRoute() {
                 </span>
               </div>
             )}
-            <button
-              className="rounded bg-emerald-700 px-3 py-1 text-sm"
-              onClick={async () => {
-                try {
-                  const res = await spawn.mutateAsync({ boardId, laneName, filename });
-                  if (res.runtime.status === 'errored') {
-                    toast.error(res.runtime.errorMessage ?? 'Failed to spawn agent');
-                  }
-                } catch (err) { toast.error((err as Error).message); }
-              }}
-            >Spawn agent</button>
+            <div className="flex items-center gap-1 ml-auto">
+              <select
+                className="bg-slate-800 rounded px-2 py-1 text-xs text-slate-300"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+              >
+                <option value="">default model</option>
+                <option value="claude-opus-4-7">Opus 4.7</option>
+                <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+                <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+              </select>
+              <button
+                className="rounded bg-emerald-700 px-3 py-1 text-sm"
+                onClick={async () => {
+                  try {
+                    const res = await spawn.mutateAsync({ boardId, laneName, filename, model: model || undefined });
+                    if (res.runtime.status === 'errored') {
+                      toast.error(res.runtime.errorMessage ?? 'Failed to spawn agent');
+                    }
+                  } catch (err) { toast.error((err as Error).message); }
+                }}
+              >Spawn agent</button>
+            </div>
           </>
         )}
       </div>
@@ -164,6 +176,7 @@ export function TicketRoute() {
           </div>
         )}
       </div>
+      <div className="mt-2 text-xs text-slate-500 font-mono shrink-0">{filename}</div>
     </div>
   );
 

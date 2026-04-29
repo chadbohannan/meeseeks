@@ -19,7 +19,7 @@ All flags are assembled in `src/runtime/claude-code.ts:buildSpawnSpec`.
 | Flag | Effect | Notes |
 |------|--------|-------|
 | `--verbose` | Verbose logging | Always set |
-| `--model <model>` | Override model | Set from `board.yaml runtime.model` |
+| `--model <model>` | Override model | Set from `board.yaml runtime.model`, or from spawn-time request body `model` field (takes precedence). Accepts short aliases (`sonnet`, `opus`, `haiku`) or full model IDs (e.g. `claude-sonnet-4-6`). |
 | `--add-dir <path>` | Grant filesystem access | Repeated once per `permissions.yaml allowedPaths` entry; paths resolve relative to lane directory, `~` expands |
 | `--settings <file>` | Merge additional settings | Always a per-session JSON file at `<board>/.meeseeks/session-<runtimeId>.json`; removed on exit |
 | `--append-system-prompt <text>` | Append to system prompt | Used to inject ticket context (filename, lane, board, process doc) at spawn time; does not trigger a turn |
@@ -27,7 +27,15 @@ All flags are assembled in `src/runtime/claude-code.ts:buildSpawnSpec`.
 
 `--append-system-prompt` is the correct mechanism for injecting context into interactive sessions. Writing JSON to the PTY with `--input-format stream-json` looks like the right approach but does not work: that flag is only processed when `--print` is active, so in interactive mode the JSON appears as literal terminal input noise and is never parsed as a message.
 
-`--bare` is a mode Meeseeks does not use. It skips hooks, LSP, plugin sync, attribution, auto-memory, background prefetches, keychain reads, and CLAUDE.md auto-discovery. It is documented here because it explicitly enumerates the subsystems that the `--settings` file can influence, including hooks.
+### Notable flags Meeseeks does not currently use
+
+`--permission-mode <mode>` sets the tool-approval policy for the session. Enumerated choices: `acceptEdits` (auto-accept file edits, prompt for other tools), `auto` (automatic approval based on trust), `bypassPermissions` (skip all checks — sandboxes only), `default` (standard interactive approval), `dontAsk` (never prompt, never block), `plan` (plan-only mode, no execution). This is a natural candidate for a future board- or lane-level configuration surface.
+
+`--effort <level>` controls model reasoning intensity. Levels: `low`, `medium`, `high`, `xhigh`, `max`. Could be exposed alongside the model selector as a spawn-time parameter.
+
+`--worktree [name]` creates a git worktree for the session, optionally with a name. Potentially useful for isolating agent work per ticket, but would require coordination with the host repository's worktree layout.
+
+`--bare` skips hooks, LSP, plugin sync, attribution, auto-memory, background prefetches, keychain reads, and CLAUDE.md auto-discovery. It is documented here because it explicitly enumerates the subsystems that the `--settings` file can influence, including hooks. Meeseeks does not use it because hooks are load-bearing for state signalling.
 
 ## Settings file
 
@@ -140,3 +148,4 @@ The earlier design assertion that both conditions should collapse into a single 
 | 2026-04-26 | `docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md` §7.5 |
 | 2026-04-28 | `src/runtime/claude-code.ts`, `src/runtime/supervisor.ts` |
 | 2026-04-28 | Debugging session: removed stream-json flags from interactive mode, FORCE_COLOR stripping |
+| 2026-04-28 | `claude -h` — full flag reference |

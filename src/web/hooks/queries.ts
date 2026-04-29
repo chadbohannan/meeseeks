@@ -125,8 +125,8 @@ export function useRuntimes() {
 export function useSpawnRuntime() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { boardId: string; laneName: string; filename: string }) =>
-      api.spawnRuntime(vars.boardId, vars.laneName, vars.filename),
+    mutationFn: (vars: { boardId: string; laneName: string; filename: string; model?: string }) =>
+      api.spawnRuntime(vars.boardId, vars.laneName, vars.filename, vars.model),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["runtimes"] }); },
   });
 }
