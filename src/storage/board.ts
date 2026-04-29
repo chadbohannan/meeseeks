@@ -78,12 +78,14 @@ export async function readBoardDetail(
     throw new NotFoundError(`board not found: ${boardPath}`);
   }
   const lanes = await listLanes(boardPath);
+  const claudeContent = await readBoardClaudeContent(boardPath);
   return {
     boardId: identity.boardId,
     name: identity.name,
     path: boardPath,
     available: true,
     lanes,
+    claudeContent,
   };
 }
 

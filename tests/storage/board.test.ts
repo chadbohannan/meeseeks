@@ -36,13 +36,15 @@ describe('createBoard', () => {
 });
 
 describe('readBoardDetail', () => {
-  it('returns lane summaries for an existing board', async () => {
+  it('returns lane summaries and claudeContent for an existing board', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/b');
     await createBoard(boardPath, 'B');
     const detail = await readBoardDetail(boardPath, { boardId: 'b', name: 'B' });
     expect(detail.lanes).toEqual([]);
+    expect(detail.claudeContent).toBeTruthy();
+    expect(detail.claudeContent).toContain('B');
   });
 });
 
