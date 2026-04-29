@@ -4,7 +4,7 @@ The runtime supervisor in `src/runtime/` spawns and watches per-ticket Claude Co
 
 ## Lifecycle
 
-States transition `starting → idle → running ↔ idle → (terminating →) exited | errored`. The `StreamParser` in `src/runtime/stream-parser.ts` watches Claude's stream-json output: a `system/init` event flips `starting → idle`, `assistant` or `user` events mark `running`, and `result` events mark `idle`. Unexpected exit transitions to `errored` unless a prior explicit terminate had already set `terminating`.
+States transition `starting → idle → running ↔ idle → (terminating →) exited | errored`, with `running ↔ awaiting-user` as a mid-turn branch when the agent is blocked on a tool-use approval. The `StreamParser` in `src/runtime/stream-parser.ts` watches Claude's stream-json output: a `system/init` event flips `starting → idle`, `assistant` or `user` events mark `running`, and `result` events mark `idle`. Unexpected exit transitions to `errored` unless a prior explicit terminate had already set `terminating`.
 
 ## Adapter
 
