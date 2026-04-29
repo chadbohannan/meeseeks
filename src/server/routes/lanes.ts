@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
 import { getBoard } from '../../storage/project.js';
-import { createLane, readLaneDetail, renameLane, updateLaneStates, deleteLaneFolder } from '../../storage/lane.js';
+import { createLane, readLaneDetail, renameLane, updateLaneStates, deleteLaneFolder, writeProcessDoc } from '../../storage/lane.js';
 import { InvalidInputError } from '../../storage/errors.js';
 
 export async function registerLaneRoutes(
@@ -35,13 +35,16 @@ export async function registerLaneRoutes(
 
   app.patch<{
     Params: { boardId: string; laneName: string };
-    Body: { name?: string; states?: Array<{ dir: string; name: string }>; force?: boolean };
+    Body: { name?: string; states?: Array<{ dir: string; name: string }>; force?: boolean; processDoc?: string };
   }>('/api/boards/:boardId/lanes/:laneName', async (req) => {
     const open = state.require();
     const board = await getBoard(open.meta.path, req.params.boardId);
     let currentName = req.params.laneName;
     if (req.body?.states) {
       await updateLaneStates(board.path, currentName, req.body.states, { force: req.body.force });
+    }
+    if (req.body?.processDoc !== undefined) {
+      await writeProcessDoc(board.path, currentName, req.body.processDoc);
     }
     if (req.body?.name) {
       currentName = await renameLane(board.path, currentName, req.body.name);

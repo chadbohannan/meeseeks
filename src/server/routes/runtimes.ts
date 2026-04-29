@@ -59,6 +59,7 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
       const boardCfg = await readYaml<BoardRuntimeConfig>(path.join(board.path, 'board.yaml'));
       const permissions = await readYaml<PermissionsConfig>(path.join(lanePath, 'permissions.yaml'));
       const processDocPath = path.join(lanePath, 'PROCESS.md');
+      const processDocContent = await readFile(processDocPath, 'utf8').catch(() => null);
 
       const existing = state.supervisor.list().find(r =>
         r.ticketRef.boardId === boardId &&
@@ -73,7 +74,7 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
         boardPath: board.path,
         lanePath,
         ticketAbsPath: found.abs,
-        processDocPath,
+        processDocContent,
         ticketRef: { boardId, laneName, filename },
         board: boardCfg,
         permissions,

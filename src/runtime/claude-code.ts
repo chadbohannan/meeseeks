@@ -72,12 +72,12 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   for (const a of ctx.board?.runtime?.args ?? []) argv.push(a);
 
   const boardName = path.basename(ctx.boardPath);
-  const processLine = ctx.processDocPath
-    ? ` Lane process doc: \`${ctx.processDocPath}\`.`
-    : '';
-  const preamble =
+  const ticketContext =
     `You are working on ticket \`${ctx.ticketRef.filename}\` in lane \`${ctx.ticketRef.laneName}\` of board \`${boardName}\`. ` +
-    `Ticket file: \`${ctx.ticketAbsPath}\`.${processLine}`;
+    `Ticket file: \`${ctx.ticketAbsPath}\`.`;
+  const preamble = ctx.processDocContent
+    ? `${ctx.processDocContent}\n\n${ticketContext}`
+    : ticketContext;
 
   argv.push('--append-system-prompt', preamble);
 

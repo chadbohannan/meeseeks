@@ -28,10 +28,11 @@ export interface SpawnInput {
   boardPath: string;
   lanePath: string;
   ticketAbsPath: string;
-  processDocPath: string | null;
+  processDocContent?: string | null;
   ticketRef: TicketRef;
   board: BoardRuntimeConfig | null;
   permissions: PermissionsConfig | null;
+  model?: string;
   adapterArgsOverride?: string[];
 }
 

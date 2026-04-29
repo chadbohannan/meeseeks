@@ -3,6 +3,7 @@ import { useParams, useSearchParams, Navigate } from 'react-router-dom';
 import { useBoard, useLane, useCreateLane, usePatchLane, useDeleteLane, usePatchBoard } from '../hooks/queries.js';
 import type { LaneSummary, LaneState } from '@shared/types.js';
 import { toast } from 'sonner';
+import { Markdown } from '../components/Markdown.js';
 
 const NEW_LANE_KEY = '__new__';
 
@@ -188,6 +189,9 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
   const [states, setStates] = useState<LaneState[] | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
+  const [editingProcess, setEditingProcess] = useState(false);
+  const [processDoc, setProcessDoc] = useState<string | null>(null);
+  const dirtyProcess = processDoc !== null;
 
   if (lane.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
   if (!lane.data) return <div className="p-6 text-red-400">Lane not found.</div>;
@@ -304,7 +308,51 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
       {lane.data.lane.hasProcessDoc && (
         <section className="mt-8 pt-6 border-t border-slate-800">
           <h3 className="text-sm font-semibold text-slate-400 mb-2">PROCESS.md</h3>
-          <p className="text-xs text-slate-500">Process document editing coming soon.</p>
+          {editingProcess ? (
+            <>
+              <textarea
+                className="w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm resize-none min-h-48"
+                value={processDoc ?? lane.data.lane.processDoc ?? ''}
+                onChange={(e) => setProcessDoc(e.target.value)}
+                onBlur={async () => {
+                  if (dirtyProcess) {
+                    try {
+                      await patchLane.mutateAsync({ processDoc: processDoc! });
+                      toast.success('PROCESS.md saved');
+                    } catch (err) { toast.error((err as Error).message); }
+                  }
+                  setEditingProcess(false);
+                  setProcessDoc(null);
+                }}
+                autoFocus
+              />
+              <div className="flex gap-2 mt-2">
+                <button
+                  className="px-3 py-1 rounded bg-blue-600 text-sm"
+                  onClick={async () => {
+                    try {
+                      await patchLane.mutateAsync({ processDoc: processDoc! });
+                      toast.success('PROCESS.md saved');
+                      setEditingProcess(false);
+                      setProcessDoc(null);
+                    } catch (err) { toast.error((err as Error).message); }
+                  }}
+                  disabled={patchLane.isPending}
+                >Save</button>
+                <button
+                  className="px-3 py-1 rounded bg-slate-700 text-sm"
+                  onClick={() => { setEditingProcess(false); setProcessDoc(null); }}
+                >Discard</button>
+              </div>
+            </>
+          ) : (
+            <div
+              className="w-full bg-slate-800 rounded px-3 py-2 overflow-y-auto cursor-pointer hover:ring-1 hover:ring-slate-600"
+              onClick={() => { setProcessDoc(lane.data!.lane.processDoc ?? ''); setEditingProcess(true); }}
+            >
+              <Markdown>{lane.data.lane.processDoc ?? ''}</Markdown>
+            </div>
+          )}
         </section>
       )}
     </div>
