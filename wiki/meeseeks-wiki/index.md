@@ -18,6 +18,7 @@
 
 ## Runbooks
 - [Project Setup](runbooks/project-setup.md) — installation, development commands, environment variables, and production deployment
+- [Claude Code Sandboxing](runbooks/claude-code-sandboxing.md) — permission modes, settings file precedence, OS-level sandboxing, and folder-scoped constraints for orchestrated agents
 
 ## Syntheses
 - [Architecture Overview](syntheses/architecture-overview.md) — system decomposition and data flow

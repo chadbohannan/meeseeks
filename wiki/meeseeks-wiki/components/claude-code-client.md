@@ -29,7 +29,15 @@ All flags are assembled in `src/runtime/claude-code.ts:buildSpawnSpec`.
 
 ### Notable flags Meeseeks does not currently use
 
-`--permission-mode <mode>` sets the tool-approval policy for the session. Enumerated choices: `acceptEdits` (auto-accept file edits, prompt for other tools), `auto` (automatic approval based on trust), `bypassPermissions` (skip all checks — sandboxes only), `default` (standard interactive approval), `dontAsk` (never prompt, never block), `plan` (plan-only mode, no execution). This is a natural candidate for a future board- or lane-level configuration surface.
+`--permission-mode <mode>` sets the tool-approval policy for the session. Seven modes exist; three are primary for orchestration:
+
+- `dontAsk` — tools pre-approved by `allowedTools`, settings file allow rules, or hooks run automatically; everything else is denied without prompting. This is the soft-sandbox primitive for autonomous agent execution.
+- `acceptEdits` — auto-accepts file edits within the working directory and `additionalDirectories`, prompts for other tools. Useful for semi-supervised agents that need human approval for network access or process spawning but can freely modify their workspace.
+- `bypassPermissions` — skips all permission checks. Only safe when OS-level sandboxing is enabled, as the sandbox becomes the sole enforcement mechanism.
+
+The other modes (`auto`, `default`, `plan`) are interactive or adaptive modes that don't fit the orchestrator pattern. `dontAsk` is the natural mode for autonomous ticket execution — it is a candidate for future board- or lane-level configuration when Meeseeks implements unattended agent runs.
+
+See the [Claude Code Sandboxing runbook](../runbooks/claude-code-sandboxing.md) for the full architecture of permission modes, settings file precedence, and OS-level sandboxing layers.
 
 `--effort <level>` controls model reasoning intensity. Levels: `low`, `medium`, `high`, `xhigh`, `max`. Could be exposed alongside the model selector as a spawn-time parameter.
 
@@ -68,6 +76,41 @@ Every spawned runtime gets a generated settings file at `<boardPath>/.meeseeks/s
 ```
 
 The `permissions` key is omitted when `allowedTools` and `deniedTools` are both empty.
+
+## Sandboxing and Extended Filesystem Access
+
+Claude Code supports two mechanisms for controlling filesystem access beyond basic allow/deny rules: OS-level sandboxing and `additionalDirectories`.
+
+**OS-level sandboxing** (bubblewrap on Linux, Seatbelt on macOS) provides OS-enforced filesystem and network isolation that covers not just Claude Code's direct tool calls but also any scripts or subprocesses spawned via Bash. This closes a critical gap: deny rules block built-in tools but don't prevent Bash subprocesses from circumventing them (e.g., `Read(.env)` deny blocks the Read tool but not `cat .env`). Sandboxing is configured in settings files:
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true
+  }
+}
+```
+
+With sandboxing enabled, `autoAllowBashIfSandboxed` automatically allows the Bash tool because the OS-level restrictions make it safe to run shell commands within the sandbox.
+
+**`additionalDirectories`** grants a Claude Code instance access to paths outside its working directory. By default, an instance only accesses its working directory; this setting extends that scope. Common use cases include monorepo cross-package access (reading shared types or utilities from another package), shared configuration files outside the project root, or inspecting build artifacts managed by external tools.
+
+```json
+{
+  "permissions": {
+    "additionalDirectories": ["/shared/libs", "/shared/types"],
+    "allow": [
+      "Read(/shared/libs/**)",
+      "Read(/shared/types/**)"
+    ]
+  }
+}
+```
+
+`acceptEdits` mode applies to paths inside the working directory and `additionalDirectories`. Paths outside that scope still prompt.
+
+Meeseeks does not currently use either sandboxing or `additionalDirectories`. These are documented for future implementation when autonomous ticket execution requires tighter isolation or controlled cross-lane access. See the [Claude Code Sandboxing runbook](../runbooks/claude-code-sandboxing.md) for the full architecture.
 
 ## Hook system
 
@@ -149,3 +192,4 @@ The earlier design assertion that both conditions should collapse into a single 
 | 2026-04-28 | `src/runtime/claude-code.ts`, `src/runtime/supervisor.ts` |
 | 2026-04-28 | Debugging session: removed stream-json flags from interactive mode, FORCE_COLOR stripping |
 | 2026-04-28 | `claude -h` — full flag reference |
+| 2026-04-29 | Web documentation on soft-sandboxing Claude Code instances in orchestrators |
