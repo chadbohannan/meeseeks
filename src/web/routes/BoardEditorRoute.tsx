@@ -423,3 +423,84 @@ function StatesEditor({ states, ticketCounts, onUpdate, onAdd, onRemove, onMove 
     </>
   );
 }
+
+function ContextEditor({ boardId }: { boardId: string }) {
+  const board = useBoard(boardId);
+  const patchBoard = usePatchBoard(boardId);
+  const [editing, setEditing] = useState(false);
+  const [content, setContent] = useState<string | null>(null);
+  const dirty = content !== null;
+
+  if (board.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
+  if (!board.data) return <div className="p-6 text-red-400">Board not found.</div>;
+
+  const currentContent = content ?? board.data.board.claudeContent ?? '';
+
+  const save = async () => {
+    if (!dirty) return;
+    try {
+      await patchBoard.mutateAsync({ claudeContent: content! });
+      setContent(null);
+      toast.success('Context saved');
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
+  return (
+    <div className="p-6 max-w-2xl">
+      <h2 className="text-lg font-semibold mb-4">Board Context</h2>
+      <p className="text-sm text-slate-400 mb-4">
+        Board-level instructions for agents (CLAUDE.md)
+      </p>
+
+      {editing ? (
+        <>
+          <textarea
+            className="w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm resize-none min-h-96"
+            value={currentContent}
+            onChange={(e) => setContent(e.target.value)}
+            onBlur={async () => {
+              if (dirty) {
+                await save();
+              }
+              setEditing(false);
+            }}
+            autoFocus
+          />
+          <div className="flex gap-2 mt-2">
+            <button
+              className="px-3 py-1 rounded bg-blue-600 text-sm"
+              onClick={async () => {
+                await save();
+                setEditing(false);
+              }}
+              disabled={!dirty || patchBoard.isPending}
+            >
+              Save
+            </button>
+            <button
+              className="px-3 py-1 rounded bg-slate-700 text-sm"
+              onClick={() => {
+                setContent(null);
+                setEditing(false);
+              }}
+            >
+              Discard
+            </button>
+          </div>
+        </>
+      ) : (
+        <div
+          className="w-full bg-slate-800 rounded px-3 py-2 min-h-96 overflow-y-auto cursor-pointer hover:ring-1 hover:ring-slate-600"
+          onClick={() => {
+            setContent(board.data!.board.claudeContent ?? '');
+            setEditing(true);
+          }}
+        >
+          <Markdown>{currentContent}</Markdown>
+        </div>
+      )}
+    </div>
+  );
+}
