@@ -17,10 +17,26 @@ export function XtermHost({ runtimeId }: { runtimeId: string }) {
     let fit: FitAddon | null = null;
     let unsub: (() => void) | null = null;
     let onKey: { dispose: () => void } | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let resizeTimer: number | null = null;
+    let lastCols = 0;
+    let lastRows = 0;
 
     const onResize = () => {
       try { fit?.fit(); } catch { return; }
-      if (term) sendRuntimeResize(runtimeId, term.cols, term.rows);
+      if (!term) return;
+
+      // Debounce resize events to avoid spamming during drag operations
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
+      resizeTimer = window.setTimeout(() => {
+        if (!term) return;
+        // Only send if dimensions actually changed
+        if (term.cols !== lastCols || term.rows !== lastRows) {
+          lastCols = term.cols;
+          lastRows = term.rows;
+          sendRuntimeResize(runtimeId, term.cols, term.rows);
+        }
+      }, 100);
     };
 
     const init = () => {
@@ -30,6 +46,8 @@ export function XtermHost({ runtimeId }: { runtimeId: string }) {
       term.loadAddon(fit);
       term.open(host);
       try { fit.fit(); } catch { /* ok */ }
+      lastCols = term.cols;
+      lastRows = term.rows;
       sendRuntimeResize(runtimeId, term.cols, term.rows);
 
       unsub = onRuntimeStdio((id, bytes) => {
@@ -46,6 +64,10 @@ export function XtermHost({ runtimeId }: { runtimeId: string }) {
       });
 
       window.addEventListener('resize', onResize);
+
+      // Watch container for size changes (e.g., split slider movement)
+      resizeObserver = new ResizeObserver(() => onResize());
+      resizeObserver.observe(host);
     };
 
     if (host.offsetWidth > 0 && host.offsetHeight > 0) {
@@ -64,7 +86,9 @@ export function XtermHost({ runtimeId }: { runtimeId: string }) {
 
     return () => {
       disposed = true;
+      if (resizeTimer !== null) window.clearTimeout(resizeTimer);
       window.removeEventListener('resize', onResize);
+      resizeObserver?.disconnect();
       onKey?.dispose();
       unsub?.();
       term?.dispose();

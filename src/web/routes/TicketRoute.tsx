@@ -162,7 +162,7 @@ export function TicketRoute() {
         </div>
       )}
 
-      <div className="flex justify-between items-center mt-4 shrink-0">
+      <div className="mt-4 shrink-0">
         <button
           className="px-3 py-1 rounded bg-red-700 text-sm"
           onClick={async () => {
@@ -171,27 +171,6 @@ export function TicketRoute() {
             catch (err) { toast.error((err as Error).message); }
           }}
         >Delete Ticket</button>
-        {editing && (
-          <div className="flex gap-2">
-            <button
-              className="px-3 py-1 rounded bg-slate-700 text-sm"
-              onClick={() => { setDirty(false); setEditing(false); }}
-              disabled={!dirty}
-            >Discard</button>
-            <button
-              className="px-3 py-1 rounded bg-blue-600 text-sm"
-              disabled={!dirty || patch.isPending}
-              onClick={async () => {
-                try {
-                  await patch.mutateAsync({ title, body, state });
-                  setDirty(false);
-                  setEditing(false);
-                  toast.success('Saved');
-                } catch (err) { toast.error((err as Error).message); }
-              }}
-            >Save</button>
-          </div>
-        )}
       </div>
       <div className="mt-2 text-xs text-slate-500 font-mono shrink-0">{filename}</div>
     </div>

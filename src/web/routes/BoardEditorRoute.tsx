@@ -319,42 +319,22 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
         <section className="mt-8 pt-6 border-t border-slate-800">
           <h3 className="text-sm font-semibold text-slate-400 mb-2">PROCESS.md</h3>
           {editingProcess ? (
-            <>
-              <textarea
-                className="w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm resize-none min-h-48"
-                value={processDoc ?? lane.data.lane.processDoc ?? ''}
-                onChange={(e) => setProcessDoc(e.target.value)}
-                onBlur={async () => {
-                  if (dirtyProcess) {
-                    try {
-                      await patchLane.mutateAsync({ processDoc: processDoc! });
-                      toast.success('PROCESS.md saved');
-                    } catch (err) { toast.error((err as Error).message); }
-                  }
-                  setEditingProcess(false);
-                  setProcessDoc(null);
-                }}
-                autoFocus
-              />
-              <div className="flex gap-2 mt-2">
-                <button
-                  className="px-3 py-1 rounded bg-blue-600 text-sm"
-                  onClick={async () => {
-                    try {
-                      await patchLane.mutateAsync({ processDoc: processDoc! });
-                      toast.success('PROCESS.md saved');
-                      setEditingProcess(false);
-                      setProcessDoc(null);
-                    } catch (err) { toast.error((err as Error).message); }
-                  }}
-                  disabled={patchLane.isPending}
-                >Save</button>
-                <button
-                  className="px-3 py-1 rounded bg-slate-700 text-sm"
-                  onClick={() => { setEditingProcess(false); setProcessDoc(null); }}
-                >Discard</button>
-              </div>
-            </>
+            <textarea
+              className="w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm resize-none min-h-48"
+              value={processDoc ?? lane.data.lane.processDoc ?? ''}
+              onChange={(e) => setProcessDoc(e.target.value)}
+              onBlur={async () => {
+                if (dirtyProcess) {
+                  try {
+                    await patchLane.mutateAsync({ processDoc: processDoc! });
+                    toast.success('PROCESS.md saved');
+                  } catch (err) { toast.error((err as Error).message); }
+                }
+                setEditingProcess(false);
+                setProcessDoc(null);
+              }}
+              autoFocus
+            />
           ) : (
             <div
               className="w-full bg-slate-800 rounded px-3 py-2 overflow-y-auto cursor-pointer hover:ring-1 hover:ring-slate-600"
@@ -465,41 +445,18 @@ function ContextEditor({ boardId }: { boardId: string }) {
       </p>
 
       {editing ? (
-        <>
-          <textarea
-            className="w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm resize-none min-h-96"
-            value={currentContent}
-            onChange={(e) => setContent(e.target.value)}
-            onBlur={async () => {
-              if (dirty) {
-                await save();
-              }
-              setEditing(false);
-            }}
-            autoFocus
-          />
-          <div className="flex gap-2 mt-2">
-            <button
-              className="px-3 py-1 rounded bg-blue-600 text-sm"
-              onClick={async () => {
-                await save();
-                setEditing(false);
-              }}
-              disabled={!dirty || patchBoard.isPending}
-            >
-              Save
-            </button>
-            <button
-              className="px-3 py-1 rounded bg-slate-700 text-sm"
-              onClick={() => {
-                setContent(null);
-                setEditing(false);
-              }}
-            >
-              Discard
-            </button>
-          </div>
-        </>
+        <textarea
+          className="w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm resize-none min-h-96"
+          value={currentContent}
+          onChange={(e) => setContent(e.target.value)}
+          onBlur={async () => {
+            if (dirty) {
+              await save();
+            }
+            setEditing(false);
+          }}
+          autoFocus
+        />
       ) : (
         <div
           className="w-full bg-slate-800 rounded px-3 py-2 min-h-96 overflow-y-auto cursor-pointer hover:ring-1 hover:ring-slate-600"
