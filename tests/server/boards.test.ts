@@ -1,6 +1,8 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { bootTestServer } from '../helpers/server.js';
 import { makeBareProject } from '../helpers/tmp-project.js';
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -67,5 +69,57 @@ describe('board routes', () => {
     expect(r.status).toBe(200);
     const list = await fetch(`${srv.url}/api/boards`).then(r => r.json()) as { boards: unknown[] };
     expect(list.boards).toEqual([]);
+  });
+});
+
+describe('PATCH /api/boards/:boardId with claudeContent', () => {
+  it('updates CLAUDE.md content', async () => {
+    const { srv } = await setup();
+    const createRes = await (await fetch(`${srv.url}/api/boards`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Test Board' }),
+    })).json() as { board: { boardId: string } };
+    const boardId = createRes.board.boardId;
+
+    const newContent = '# Updated Instructions\n\nNew content here';
+    const patchRes = await fetch(`${srv.url}/api/boards/${boardId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ claudeContent: newContent }),
+    });
+
+    expect(patchRes.status).toBe(200);
+
+    const getRes = await fetch(`${srv.url}/api/boards/${boardId}`).then(r => r.json()) as { board: { claudeContent: string } };
+    expect(getRes.board.claudeContent).toBe(newContent);
+  });
+
+  it('persists claudeContent to disk', async () => {
+    const tp = await makeBareProject();
+    cleanups.push(tp.cleanup);
+    const srv = await bootTestServer(tp.root);
+    cleanups.push(srv.cleanup);
+
+    const createRes = await (await fetch(`${srv.url}/api/boards`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ name: 'Test Board' }),
+    })).json() as { board: { boardId: string } };
+    const boardId = createRes.board.boardId;
+
+    const newContent = '# Persisted Content\n\nShould write to disk';
+    await fetch(`${srv.url}/api/boards/${boardId}`, {
+      method: 'PATCH',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ claudeContent: newContent }),
+    });
+
+    // Read directly from filesystem to verify persistence
+    const boardPath = path.join(tp.root, 'boards/test-board');
+    const claudePath = path.join(boardPath, 'CLAUDE.md');
+    const diskContent = await readFile(claudePath, 'utf8');
+
+    expect(diskContent).toBe(newContent);
   });
 });
