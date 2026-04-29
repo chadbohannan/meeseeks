@@ -35,6 +35,7 @@ export interface LaneSummary {
 export interface LaneDetail extends LaneSummary {
   hasProcessDoc: boolean;
   hasPermissions: boolean;
+  processDoc: string | null;
 }
 
 export interface TicketSummary {

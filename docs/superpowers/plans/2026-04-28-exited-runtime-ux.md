@@ -147,7 +147,7 @@
             await spawn.mutateAsync({ boardId, laneName, filename });
           } catch (err) { toast.error((err as Error).message); }
         }}
-      >Spawn agent</button>
+      >Start</button>
     )}
   </div>
   ```

@@ -32,7 +32,7 @@ export function TicketRoute() {
   const [dirty, setDirty] = useState(false);
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<'console' | 'context'>('console');
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState('claude-sonnet-4-6');
 
   useEffect(() => {
     if (!ticket.data) return;
@@ -45,6 +45,14 @@ export function TicketRoute() {
   useEffect(() => {
     setTab('console');
   }, [runtime?.runtimeId]);
+
+  const saveIfDirty = async () => {
+    if (!dirty) return;
+    try {
+      await patch.mutateAsync({ title, body, state });
+      setDirty(false);
+    } catch (err) { toast.error((err as Error).message); }
+  };
 
   if (!boardId || !laneName || !filename) return null;
   if (ticket.isLoading) return <div className="p-8 text-slate-500">Loading ticket…</div>;
@@ -68,7 +76,13 @@ export function TicketRoute() {
           <select
             className="bg-slate-800 rounded px-2 py-1 text-sm"
             value={state}
-            onChange={(e) => { setState(e.target.value); setDirty(true); }}
+            onChange={async (e) => {
+              const newState = e.target.value;
+              setState(newState);
+              try {
+                await patch.mutateAsync({ title, body, state: newState });
+              } catch (err) { toast.error((err as Error).message); }
+            }}
           >
             {states.map((s) => <option key={s.dir} value={s.dir}>{s.name}</option>)}
           </select>
@@ -78,6 +92,7 @@ export function TicketRoute() {
         className="w-full bg-slate-800 rounded px-3 py-2 text-lg font-medium mb-3 shrink-0"
         value={title}
         onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
+        onBlur={saveIfDirty}
       />
       <div className="flex items-center gap-2 mb-3 shrink-0">
         {activeRuntime ? (
@@ -87,11 +102,10 @@ export function TicketRoute() {
             <button
               className="rounded bg-red-700 px-3 py-1 text-sm ml-auto"
               onClick={async () => {
-                if (!confirm('Terminate runtime?')) return;
                 try { await term.mutateAsync(activeRuntime.runtimeId); }
                 catch (err) { toast.error((err as Error).message); }
               }}
-            >Terminate</button>
+            >Release</button>
           </>
         ) : (
           <>
@@ -111,22 +125,21 @@ export function TicketRoute() {
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
               >
-                <option value="">default model</option>
-                <option value="claude-opus-4-7">Opus 4.7</option>
                 <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+                <option value="claude-opus-4-7">Opus 4.7</option>
                 <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
               </select>
               <button
                 className="rounded bg-emerald-700 px-3 py-1 text-sm"
                 onClick={async () => {
                   try {
-                    const res = await spawn.mutateAsync({ boardId, laneName, filename, model: model || undefined });
+                    const res = await spawn.mutateAsync({ boardId, laneName, filename, model });
                     if (res.runtime.status === 'errored') {
-                      toast.error(res.runtime.errorMessage ?? 'Failed to spawn agent');
+                      toast.error(res.runtime.errorMessage ?? 'Failed to start agent');
                     }
                   } catch (err) { toast.error((err as Error).message); }
                 }}
-              >Spawn agent</button>
+              >Start</button>
             </div>
           </>
         )}
@@ -137,7 +150,7 @@ export function TicketRoute() {
           className="flex-1 min-h-0 w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm overflow-y-auto resize-none"
           value={body}
           onChange={(e) => { setBody(e.target.value); setDirty(true); }}
-          onBlur={() => { if (!dirty) setEditing(false); }}
+          onBlur={async () => { await saveIfDirty(); setEditing(false); }}
           autoFocus
         />
       ) : (
@@ -157,7 +170,7 @@ export function TicketRoute() {
             try { await del.mutateAsync(); toast.success('Deleted'); navigate(-1); }
             catch (err) { toast.error((err as Error).message); }
           }}
-        >Delete</button>
+        >Delete Ticket</button>
         {editing && (
           <div className="flex gap-2">
             <button

@@ -7,7 +7,7 @@ export interface DeleteBoardRequest { deleteFiles?: boolean }
 
 // Lanes
 export interface CreateLaneRequest { name: string; states: LaneState[] }
-export interface PatchLaneRequest { name?: string; states?: LaneState[]; force?: boolean }
+export interface PatchLaneRequest { name?: string; states?: LaneState[]; force?: boolean; processDoc?: string }
 export interface DeleteLaneRequest { deleteFiles?: boolean }
 
 // Tickets

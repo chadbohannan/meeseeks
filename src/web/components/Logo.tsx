@@ -13,8 +13,7 @@ export function Logo({ size = 24 }: { size?: number }) {
         textAnchor="middle"
         dominantBaseline="central"
         fill="white"
-        fontSize={r * 1.3}
-        fontWeight="bold"
+        fontSize={r * 1.95}
       >
         ∞
       </text>

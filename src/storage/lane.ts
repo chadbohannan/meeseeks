@@ -160,11 +160,23 @@ export async function readLaneDetail(boardPath: string, laneName: string): Promi
   const lp = lanePath(boardPath, laneName);
   if (!(await exists(lp))) throw new NotFoundError(`lane not found: ${laneName}`);
   const summary = await readLaneSummary(boardPath, laneName);
+  const processDocPath = path.join(lp, PROCESS_MD);
+  const hasProcessDoc = await exists(processDocPath);
+  const processDoc = hasProcessDoc
+    ? await readFile(processDocPath, 'utf8')
+    : null;
   return {
     ...summary,
-    hasProcessDoc: await exists(path.join(lp, PROCESS_MD)),
+    hasProcessDoc,
     hasPermissions: await exists(path.join(lp, PERMISSIONS)),
+    processDoc,
   };
+}
+
+export async function writeProcessDoc(boardPath: string, laneName: string, content: string): Promise<void> {
+  const lp = lanePath(boardPath, laneName);
+  if (!(await exists(lp))) throw new NotFoundError(`lane not found: ${laneName}`);
+  await writeFile(path.join(lp, PROCESS_MD), content, 'utf8');
 }
 
 export async function updateLaneStates(

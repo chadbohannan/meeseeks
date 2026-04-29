@@ -94,6 +94,7 @@ export function usePatchTicket(boardId: string, laneName: string, filename: stri
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] });
       qc.invalidateQueries({ queryKey: ['ticket', boardId, laneName, filename] });
+      qc.invalidateQueries({ queryKey: ['board', boardId] });
     },
   });
 }

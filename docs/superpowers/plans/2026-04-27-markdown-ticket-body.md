@@ -207,7 +207,7 @@ Replace the entire `ticketEditor` const (lines 45-127) with this restructured ve
                   try { await term.mutateAsync(runtime.runtimeId); }
                   catch (err) { toast.error((err as Error).message); }
                 }}
-              >Terminate</button>
+              >Complete</button>
             )}
           </>
         ) : (
