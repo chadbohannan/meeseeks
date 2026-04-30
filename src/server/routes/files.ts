@@ -10,7 +10,6 @@ import type {
   ReadFileResponse,
   WriteFileResponse,
   PatchFileResponse,
-  DeleteFileResponse,
 } from '../../shared/api.js';
 
 const NAMESPACE_DIRS: Record<string, string> = {
@@ -156,7 +155,6 @@ export async function registerFileRoutes(
     const board = await getBoard(open.meta.path, boardId);
 
     await deleteFile(board.path, namespace, filepath);
-    const response: DeleteFileResponse = { ok: true };
-    return reply.send(response);
+    return reply.send({ ok: true });
   });
 }
