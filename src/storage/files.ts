@@ -1,7 +1,8 @@
 // src/storage/files.ts
 import { readdir, readFile as fsReadFile, writeFile as fsWriteFile, unlink, mkdir, stat } from 'node:fs/promises';
 import path from 'node:path';
-import { NotFoundError, InvalidInputError } from './errors.js';
+import { NotFoundError, InvalidInputError, PathSafetyError } from './errors.js';
+import { resolveWithin } from './paths.js';
 import type { FileNode } from '../shared/types.js';
 
 const NAMESPACE_DIRS: Record<string, string> = {
@@ -17,9 +18,6 @@ function validateNamespace(namespace: string): void {
 }
 
 function validateFilepath(filepath: string): void {
-  if (filepath.includes('..')) {
-    throw new InvalidInputError('path traversal not allowed');
-  }
   if (path.isAbsolute(filepath)) {
     throw new InvalidInputError('absolute paths not allowed');
   }
@@ -68,7 +66,16 @@ export async function readFile(boardPath: string, namespace: string, filepath: s
   validateNamespace(namespace);
   validateFilepath(filepath);
 
-  const fullPath = path.join(boardPath, NAMESPACE_DIRS[namespace]!, filepath);
+  const dir = path.join(boardPath, NAMESPACE_DIRS[namespace]!);
+  let fullPath: string;
+  try {
+    fullPath = resolveWithin(dir, filepath);
+  } catch (err) {
+    if (err instanceof PathSafetyError) {
+      throw new InvalidInputError('path traversal not allowed');
+    }
+    throw err;
+  }
 
   try {
     return await fsReadFile(fullPath, 'utf8');
@@ -94,7 +101,16 @@ export async function writeFile(
   }
 
   const dir = await ensureNamespaceDir(boardPath, namespace);
-  const fullPath = path.join(dir, filepath);
+  let fullPath: string;
+  try {
+    fullPath = resolveWithin(dir, filepath);
+  } catch (err) {
+    if (err instanceof PathSafetyError) {
+      throw new InvalidInputError('path traversal not allowed');
+    }
+    throw err;
+  }
+  await mkdir(path.dirname(fullPath), { recursive: true });
   await fsWriteFile(fullPath, content, 'utf8');
 }
 
@@ -102,7 +118,16 @@ export async function deleteFile(boardPath: string, namespace: string, filepath:
   validateNamespace(namespace);
   validateFilepath(filepath);
 
-  const fullPath = path.join(boardPath, NAMESPACE_DIRS[namespace]!, filepath);
+  const dir = path.join(boardPath, NAMESPACE_DIRS[namespace]!);
+  let fullPath: string;
+  try {
+    fullPath = resolveWithin(dir, filepath);
+  } catch (err) {
+    if (err instanceof PathSafetyError) {
+      throw new InvalidInputError('path traversal not allowed');
+    }
+    throw err;
+  }
 
   try {
     await unlink(fullPath);
