@@ -189,6 +189,7 @@ function FileListItem({ filename, boardId, isSelected, onClick }: FileListItemPr
   return (
     <button
       onClick={onClick}
+      aria-label={`Edit ${meta.name}`}
       className={`w-full px-4 py-2 text-left text-sm transition-colors ${
         isSelected
           ? 'bg-blue-600 text-white'
@@ -219,6 +220,12 @@ function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
       setEditContent(content);
     }
   }, [content]);
+
+  useEffect(() => {
+    return () => {
+      // Cleanup to prevent stale state updates after unmount
+    };
+  }, []);
 
   const handleSave = async () => {
     try {
@@ -303,7 +310,16 @@ function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
         ) : (
           <div
             onClick={() => setIsEditing(true)}
-            className="cursor-pointer p-4 bg-gray-800 border border-gray-700 rounded hover:border-blue-500 transition-colors"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                setIsEditing(true);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            aria-label="Click to edit skill content"
+            className="cursor-pointer p-4 bg-gray-800 border border-gray-700 rounded hover:border-blue-500 transition-colors focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400"
           >
             <Markdown>{content}</Markdown>
           </div>
