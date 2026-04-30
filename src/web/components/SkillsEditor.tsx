@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Skill } from '../../shared/types';
-import { useSkills } from '../hooks/useSkills';
-import { toast } from 'react-hot-toast';
+import React, { useState, useEffect } from 'react';
+import { toast } from 'sonner';
+import { useSkillFiles, useSkillFile, useCreateSkillFile, usePatchSkillFile, useDeleteSkillFile } from '../hooks/queries.js';
+import { Markdown } from './Markdown.js';
 
 const SKILL_TEMPLATE = `---
 name: New Skill
@@ -14,15 +14,28 @@ Write your skill documentation here in Markdown.
 `;
 
 interface SkillsEditorProps {
-  projectPath: string;
+  boardId: string;
 }
 
-export function SkillsEditor({ projectPath }: SkillsEditorProps) {
-  const { skills, isLoading, error, createSkill, updateSkill, deleteSkill } = useSkills(projectPath);
+interface SkillMeta {
+  name: string;
+  description: string;
+}
+
+function parseSkillMeta(content: string): SkillMeta {
+  const match = /^---\s*\nname:\s*(.+?)\s*\ndescription:\s*(.+?)\s*\n---/m.exec(content);
+  return match
+    ? { name: match[1], description: match[2] }
+    : { name: 'Untitled', description: 'No description' };
+}
+
+export function SkillsEditor({ boardId }: SkillsEditorProps) {
+  const { data: fileList, isLoading, error } = useSkillFiles(boardId);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [fileNameError, setFileNameError] = useState<string | null>(null);
+  const createMutation = useCreateSkillFile(boardId);
 
   const handleCreateClick = () => {
     setIsCreating(true);
@@ -35,7 +48,7 @@ export function SkillsEditor({ projectPath }: SkillsEditorProps) {
     if (!/^[a-z0-9-]+$/.test(name)) {
       return 'Filename must contain only lowercase letters, numbers, and hyphens';
     }
-    if (skills.some(s => s.filename === `${name}.md`)) {
+    if (fileList?.some(f => f === `${name}.md`)) {
       return 'A skill with this filename already exists';
     }
     return null;
@@ -49,7 +62,7 @@ export function SkillsEditor({ projectPath }: SkillsEditorProps) {
     }
 
     try {
-      await createSkill(`${newFileName}.md`, SKILL_TEMPLATE);
+      await createMutation.mutateAsync({ filename: `${newFileName}.md`, content: SKILL_TEMPLATE });
       setSelectedFile(`${newFileName}.md`);
       setIsCreating(false);
       setNewFileName('');
@@ -70,10 +83,10 @@ export function SkillsEditor({ projectPath }: SkillsEditorProps) {
   }
 
   if (error) {
-    return <div className="p-4 text-red-400">Error loading skills: {error.message}</div>;
+    return <div className="p-4 text-red-400">Error loading skills: {(error as Error).message}</div>;
   }
 
-  const selectedSkill = skills.find(s => s.filename === selectedFile);
+  const files = fileList || [];
 
   return (
     <div className="flex h-full bg-gray-900">
@@ -127,52 +140,30 @@ export function SkillsEditor({ projectPath }: SkillsEditorProps) {
         )}
 
         <div className="flex-1 overflow-y-auto">
-          {skills.length === 0 && !isCreating && (
+          {files.length === 0 && !isCreating && (
             <div className="p-4 text-sm text-gray-500">
               No skills yet. Click &quot;+ New Skill&quot; to create one.
             </div>
           )}
-          {skills.map(skill => (
-            <button
-              key={skill.filename}
-              onClick={() => setSelectedFile(skill.filename)}
-              className={`w-full px-4 py-2 text-left text-sm transition-colors ${
-                selectedFile === skill.filename
-                  ? 'bg-blue-600 text-white'
-                  : 'text-gray-300 hover:bg-gray-800'
-              }`}
-            >
-              <div className="font-medium">{skill.name}</div>
-              <div className="text-xs opacity-75 truncate">{skill.filename}</div>
-            </button>
+          {files.map(filename => (
+            <FileListItem
+              key={filename}
+              filename={filename}
+              boardId={boardId}
+              isSelected={selectedFile === filename}
+              onClick={() => setSelectedFile(filename)}
+            />
           ))}
         </div>
       </div>
 
       {/* Right Panel - Editor */}
       <div className="flex-1 overflow-hidden">
-        {selectedSkill ? (
+        {selectedFile ? (
           <FileEditor
-            skill={selectedSkill}
-            onSave={async (content) => {
-              try {
-                await updateSkill(selectedSkill.filename, content);
-                toast.success('Skill saved');
-              } catch (err) {
-                toast.error(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`);
-              }
-            }}
-            onDelete={async () => {
-              if (confirm(`Delete ${selectedSkill.filename}?`)) {
-                try {
-                  await deleteSkill(selectedSkill.filename);
-                  setSelectedFile(null);
-                  toast.success('Skill deleted');
-                } catch (err) {
-                  toast.error(`Failed to delete: ${err instanceof Error ? err.message : 'Unknown error'}`);
-                }
-              }
-            }}
+            boardId={boardId}
+            filename={selectedFile}
+            onDeleted={() => setSelectedFile(null)}
           />
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500">
@@ -184,44 +175,100 @@ export function SkillsEditor({ projectPath }: SkillsEditorProps) {
   );
 }
 
-interface FileEditorProps {
-  skill: Skill;
-  onSave: (content: string) => Promise<void>;
-  onDelete: () => Promise<void>;
+interface FileListItemProps {
+  filename: string;
+  boardId: string;
+  isSelected: boolean;
+  onClick: () => void;
 }
 
-function FileEditor({ skill, onSave, onDelete }: FileEditorProps) {
+function FileListItem({ filename, boardId, isSelected, onClick }: FileListItemProps) {
+  const { data: content } = useSkillFile(boardId, filename);
+  const meta = content ? parseSkillMeta(content) : { name: filename, description: '' };
+
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full px-4 py-2 text-left text-sm transition-colors ${
+        isSelected
+          ? 'bg-blue-600 text-white'
+          : 'text-gray-300 hover:bg-gray-800'
+      }`}
+    >
+      <div className="font-medium">{meta.name}</div>
+      <div className="text-xs opacity-75 truncate">{filename}</div>
+    </button>
+  );
+}
+
+interface FileEditorProps {
+  boardId: string;
+  filename: string;
+  onDeleted: () => void;
+}
+
+function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
+  const { data: content, isLoading } = useSkillFile(boardId, filename);
+  const patchMutation = usePatchSkillFile(boardId, filename);
+  const deleteMutation = useDeleteSkillFile(boardId);
   const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState(skill.content);
-  const [isSaving, setIsSaving] = useState(false);
+  const [editContent, setEditContent] = useState('');
+
+  useEffect(() => {
+    if (content) {
+      setEditContent(content);
+    }
+  }, [content]);
 
   const handleSave = async () => {
-    setIsSaving(true);
     try {
-      await onSave(editContent);
+      await patchMutation.mutateAsync({ content: editContent });
       setIsEditing(false);
+      toast.success('Skill saved');
     } catch (err) {
-      // Error already toasted by parent
-    } finally {
-      setIsSaving(false);
+      toast.error(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
   };
 
   const handleCancel = () => {
-    setEditContent(skill.content);
+    if (content) {
+      setEditContent(content);
+    }
     setIsEditing(false);
   };
+
+  const handleDelete = async () => {
+    if (!confirm(`Delete ${filename}?`)) return;
+    try {
+      await deleteMutation.mutateAsync(filename);
+      onDeleted();
+      toast.success('Skill deleted');
+    } catch (err) {
+      toast.error(`Failed to delete: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="p-6 text-gray-400">Loading...</div>;
+  }
+
+  if (!content) {
+    return <div className="p-6 text-red-400">Failed to load file</div>;
+  }
+
+  const meta = parseSkillMeta(content);
 
   return (
     <div className="h-full flex flex-col">
       <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
         <div>
-          <h3 className="text-lg font-semibold text-white">{skill.name}</h3>
-          <p className="text-sm text-gray-400">{skill.description}</p>
+          <h3 className="text-lg font-semibold text-white">{meta.name}</h3>
+          <p className="text-sm text-gray-400">{meta.description}</p>
         </div>
         <button
-          onClick={onDelete}
-          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-sm rounded transition-colors"
+          onClick={handleDelete}
+          disabled={deleteMutation.isPending}
+          className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors"
         >
           Delete
         </button>
@@ -239,14 +286,14 @@ function FileEditor({ skill, onSave, onDelete }: FileEditorProps) {
             <div className="flex gap-2 mt-4">
               <button
                 onClick={handleSave}
-                disabled={isSaving}
+                disabled={patchMutation.isPending}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded transition-colors"
               >
-                {isSaving ? 'Saving...' : 'Save'}
+                {patchMutation.isPending ? 'Saving...' : 'Save'}
               </button>
               <button
                 onClick={handleCancel}
-                disabled={isSaving}
+                disabled={patchMutation.isPending}
                 className="px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded transition-colors"
               >
                 Cancel
@@ -258,7 +305,7 @@ function FileEditor({ skill, onSave, onDelete }: FileEditorProps) {
             onClick={() => setIsEditing(true)}
             className="cursor-pointer p-4 bg-gray-800 border border-gray-700 rounded hover:border-blue-500 transition-colors"
           >
-            <pre className="text-white font-mono text-sm whitespace-pre-wrap">{skill.content}</pre>
+            <Markdown>{content}</Markdown>
           </div>
         )}
       </div>
