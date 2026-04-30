@@ -9,6 +9,7 @@ import { registerBoardRoutes } from './routes/boards.js';
 import { registerLaneRoutes } from './routes/lanes.js';
 import { registerTicketRoutes } from './routes/tickets.js';
 import { registerRuntimeRoutes } from './routes/runtimes.js';
+import { registerFileRoutes } from './routes/files.js';
 import { readProject } from '../storage/project.js';
 import { startWatcher } from './watcher.js';
 import path from 'node:path';
@@ -44,6 +45,7 @@ async function main(): Promise<void> {
   await registerLaneRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });
   await registerRuntimeRoutes(app, { state, hub });
+  await registerFileRoutes(app, { state, hub });
   await registerWs(app, state, hub);
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));

@@ -8,6 +8,7 @@ import { registerBoardRoutes } from '../../src/server/routes/boards.js';
 import { registerLaneRoutes } from '../../src/server/routes/lanes.js';
 import { registerTicketRoutes } from '../../src/server/routes/tickets.js';
 import { registerRuntimeRoutes } from '../../src/server/routes/runtimes.js';
+import { registerFileRoutes } from '../../src/server/routes/files.js';
 import { readProject } from '../../src/storage/project.js';
 import { startWatcher } from '../../src/server/watcher.js';
 
@@ -33,6 +34,7 @@ export async function bootTestServer(projectRoot: string): Promise<TestServer> {
   await registerLaneRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });
   await registerRuntimeRoutes(app, { state, hub });
+  await registerFileRoutes(app, { state, hub });
   state.supervisor.on('runtime-spawned', (s) => hub.broadcast({ type: 'runtime-spawned', payload: s }));
   state.supervisor.on('runtime-status', (s) => hub.broadcast({ type: 'runtime-status', payload: s }));
   state.supervisor.on('runtime-stdio', (s) => hub.broadcast({ type: 'runtime-stdio', payload: s }));
