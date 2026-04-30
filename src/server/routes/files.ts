@@ -56,12 +56,7 @@ export async function registerFileRoutes(
     Params: { boardId: string; namespace: string; '*': string };
   }>('/api/boards/:boardId/files/:namespace/*', async (req, reply) => {
     const { boardId, namespace } = req.params;
-    let filepath = req.params['*'];
-
-    // Fastify's wildcard includes leading slash, remove it
-    if (filepath && filepath.startsWith('/')) {
-      filepath = filepath.slice(1);
-    }
+    const filepath = req.params['*'];
 
     if (!filepath) {
       throw new InvalidInputError('File path is required');
@@ -86,13 +81,8 @@ export async function registerFileRoutes(
     Body: { content: string };
   }>('/api/boards/:boardId/files/:namespace/*', async (req, reply) => {
     const { boardId, namespace } = req.params;
-    let filepath = req.params['*'];
+    const filepath = req.params['*'];
     const { content } = req.body;
-
-    // Fastify's wildcard includes leading slash, remove it
-    if (filepath && filepath.startsWith('/')) {
-      filepath = filepath.slice(1);
-    }
 
     if (!filepath) {
       throw new InvalidInputError('File path is required');
@@ -121,13 +111,8 @@ export async function registerFileRoutes(
     Body: { content: string };
   }>('/api/boards/:boardId/files/:namespace/*', async (req, reply) => {
     const { boardId, namespace } = req.params;
-    let filepath = req.params['*'];
+    const filepath = req.params['*'];
     const { content } = req.body;
-
-    // Fastify's wildcard includes leading slash, remove it
-    if (filepath && filepath.startsWith('/')) {
-      filepath = filepath.slice(1);
-    }
 
     if (!filepath) {
       throw new InvalidInputError('File path is required');
@@ -157,12 +142,7 @@ export async function registerFileRoutes(
     Params: { boardId: string; namespace: string; '*': string };
   }>('/api/boards/:boardId/files/:namespace/*', async (req, reply) => {
     const { boardId, namespace } = req.params;
-    let filepath = req.params['*'];
-
-    // Fastify's wildcard includes leading slash, remove it
-    if (filepath && filepath.startsWith('/')) {
-      filepath = filepath.slice(1);
-    }
+    const filepath = req.params['*'];
 
     if (!filepath) {
       throw new InvalidInputError('File path is required');

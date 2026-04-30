@@ -77,13 +77,16 @@ describe('file routes', () => {
 
     it('rejects path traversal with ..', async () => {
       const { srv, boardId } = await setup();
-      const res = await fetch(`${srv.url}/api/boards/${boardId}/files/skills/../../../etc/passwd`);
+      // Note: Browser fetch() normalizes .. in URLs before sending, so we test the
+      // server-side validation using a path that contains .. in the filename itself
+      const res = await fetch(`${srv.url}/api/boards/${boardId}/files/skills/..%2Fescape.md`);
       expect(res.status).toBe(400);
     });
 
     it('rejects absolute paths', async () => {
       const { srv, boardId } = await setup();
-      const res = await fetch(`${srv.url}/api/boards/${boardId}/files/skills//etc/passwd`);
+      // Test server-side validation of paths starting with /
+      const res = await fetch(`${srv.url}/api/boards/${boardId}/files/skills/%2Fetc%2Fpasswd`);
       expect(res.status).toBe(400);
     });
   });
@@ -130,7 +133,8 @@ describe('file routes', () => {
 
     it('rejects path traversal', async () => {
       const { srv, boardId } = await setup();
-      const res = await fetch(`${srv.url}/api/boards/${boardId}/files/skills/../escape.md`, {
+      // Test server-side validation with URL-encoded path traversal
+      const res = await fetch(`${srv.url}/api/boards/${boardId}/files/skills/..%2Fescape.md`, {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ content: 'content' }),
       });
