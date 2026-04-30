@@ -1,7 +1,7 @@
 // tests/storage/files.test.ts
 import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
-import { writeFile as fsWriteFile, access } from 'node:fs/promises';
+import { writeFile as fsWriteFile, access, mkdir } from 'node:fs/promises';
 import { listFiles, readFile, writeFile, deleteFile } from '../../src/storage/files.js';
 import { createBoard } from '../../src/storage/board.js';
 import { NotFoundError, InvalidInputError } from '../../src/storage/errors.js';
@@ -29,6 +29,7 @@ describe('listFiles', () => {
     const boardPath = path.join(tp.root, 'boards/b');
     await createBoard(boardPath, 'B');
     const skillsDir = path.join(boardPath, '.claude/skills');
+    await mkdir(skillsDir, { recursive: true });
     await fsWriteFile(path.join(skillsDir, 'test.md'), 'content', 'utf8');
 
     const files = await listFiles(boardPath, 'skills');
@@ -56,6 +57,7 @@ describe('readFile', () => {
     const boardPath = path.join(tp.root, 'boards/b');
     await createBoard(boardPath, 'B');
     const skillsDir = path.join(boardPath, '.claude/skills');
+    await mkdir(skillsDir, { recursive: true });
     await fsWriteFile(path.join(skillsDir, 'test.md'), 'hello world', 'utf8');
 
     const content = await readFile(boardPath, 'skills', 'test.md');

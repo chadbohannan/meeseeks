@@ -70,7 +70,7 @@ export function BoardEditorRoute() {
             }`}
             onClick={() => setSearchParams({ context: 'true' })}
           >
-            <span className="text-sm font-medium">Context</span>
+            <span className="text-sm font-medium">CLAUDE.md</span>
           </div>
           {lanes.map((lane) => (
             <LaneListItem

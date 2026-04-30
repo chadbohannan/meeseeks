@@ -159,8 +159,9 @@ export function useDeleteSkillFile(boardId: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (filename: string) => api.deleteFile(boardId, 'skills', filename),
-    onSuccess: () => {
+    onSuccess: (_, filename) => {
       qc.invalidateQueries({ queryKey: ['files', boardId, 'skills'] });
+      qc.invalidateQueries({ queryKey: ['file', boardId, 'skills', filename] });
     },
   });
 }
