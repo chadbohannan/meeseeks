@@ -24,7 +24,7 @@ export function TicketCard({ boardId, laneName, ticket, draggable, onDragStart, 
   return (
     <Link
       to={`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}/tickets/${encodeURIComponent(ticket.filename)}`}
-      className="block bg-slate-800 hover:bg-slate-700 rounded p-3 mb-2 overflow-hidden"
+      className="block bg-slate-800 hover:bg-slate-700 rounded p-3 mb-2 overflow-hidden" style={{ border: ticket.color ? `2px solid ${ticket.color}` : "2px solid #6b7280" }}
       draggable={draggable}
       onClick={(e) => { if (didDrag.current) { e.preventDefault(); didDrag.current = false; } }}
       onDragStart={(e) => {

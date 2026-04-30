@@ -2,6 +2,8 @@
 
 Claude Code is the CLI agent harness that Meeseeks supervises. It is a compiled ELF binary installed at `~/.local/share/claude/versions/<version>` (symlinked from `~/.local/bin/claude`). The [runtime adapter](runtime.md) in `src/runtime/claude-code.ts` is the single place in Meeseeks that knows Claude Code's flag schema; everything else treats it as an opaque process. The adapter resolves the `claude` binary to its full path at startup via `which`, and strips environment variables like `FORCE_COLOR` that leak from the dev toolchain — see [Platform Constraints](../concepts/platform-constraints.md) for details on these workarounds.
 
+For a comparative analysis with the Pi coding agent as an alternative integration target, see [Claude Code vs. Pi Runtime Interfaces](../syntheses/claude-vs-pi-runtime-interfaces.md).
+
 ## Operating modes
 
 Claude Code has two distinct operating modes that produce fundamentally different output.

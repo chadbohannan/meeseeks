@@ -44,6 +44,7 @@ export interface TicketSummary {
   state: string;         // state.dir, or '__orphaned__' for tickets in unknown folders
   title: string;
   body: string;
+  color?: string;        // hex color for border/accent, stored in front-matter
   created: string;       // ISO
   updated: string;       // ISO
   orphaned: boolean;

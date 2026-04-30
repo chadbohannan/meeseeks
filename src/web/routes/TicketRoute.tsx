@@ -29,6 +29,7 @@ export function TicketRoute() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [state, setState] = useState('');
+  const [color, setColor] = useState<string | undefined>(undefined);
   const [dirty, setDirty] = useState(false);
   const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<'console' | 'context'>('console');
@@ -40,6 +41,7 @@ export function TicketRoute() {
     setTitle(ticket.data.ticket.title);
     setBody(ticket.data.ticket.body);
     setState(ticket.data.ticket.state);
+    setColor(ticket.data.ticket.color);
   }, [ticket.data, dirty]);
 
   useEffect(() => {
@@ -49,7 +51,7 @@ export function TicketRoute() {
   const saveIfDirty = async () => {
     if (!dirty) return;
     try {
-      await patch.mutateAsync({ title, body, state });
+      await patch.mutateAsync({ title, body, state, color });
       setDirty(false);
     } catch (err) { toast.error((err as Error).message); }
   };
@@ -63,8 +65,10 @@ export function TicketRoute() {
   const stateName = states.find((s) => s.dir === ticket.data.ticket.state)?.name ?? ticket.data.ticket.state;
   const stateUrl = `/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}/state/${encodeURIComponent(ticket.data.ticket.state)}`;
 
+  const accent = color ?? '#6b7280';
+
   const ticketEditor = (
-    <div className="p-6 max-w-3xl h-full flex flex-col">
+    <div className="p-6 max-w-3xl h-full flex flex-col" style={{ border: `2px solid ${accent}` }}>
       <nav className="text-sm text-slate-400 mb-3 shrink-0 flex items-center justify-between">
         <span className="flex items-center gap-1">
           <button className="hover:text-white" onClick={() => navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}`)}>{lane.data?.lane.displayName ?? laneName}</button>
@@ -80,7 +84,7 @@ export function TicketRoute() {
               const newState = e.target.value;
               setState(newState);
               try {
-                await patch.mutateAsync({ title, body, state: newState });
+                await patch.mutateAsync({ title, body, state: newState, color });
               } catch (err) { toast.error((err as Error).message); }
             }}
           >
@@ -162,7 +166,7 @@ export function TicketRoute() {
         </div>
       )}
 
-      <div className="mt-4 shrink-0">
+      <div className="mt-4 shrink-0 flex items-center justify-between">
         <button
           className="px-3 py-1 rounded bg-red-700 text-sm"
           onClick={async () => {
@@ -171,13 +175,14 @@ export function TicketRoute() {
             catch (err) { toast.error((err as Error).message); }
           }}
         >Delete Ticket</button>
+        <input type="color" value={color ?? '#6b7280'} onChange={(e) => { setColor(e.target.value); patch.mutate({ title, body, state, color: e.target.value }).catch(() => {}); }} className="w-5 h-5 rounded-full border border-slate-600 p-0 cursor-pointer" title="Ticket accent color" />
       </div>
       <div className="mt-2 text-xs text-slate-500 font-mono shrink-0">{filename}</div>
     </div>
   );
 
   const consolePane = (
-    <div className="flex flex-col h-full bg-black">
+    <div className="flex flex-col h-full bg-black" style={{ border: `2px solid ${accent}` }}>
       {runtime ? (
         <>
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-800 text-sm shrink-0">
@@ -222,13 +227,15 @@ export function TicketRoute() {
   );
 
   return (
-    <ResizableSplit
-      left={ticketEditor}
-      right={consolePane}
-      defaultSplit={0.5}
-      minLeft={300}
-      storageKey={`ticket-split:${filename}`}
-      minRight={300}
-    />
+    <div className="h-full">
+      <ResizableSplit
+        left={ticketEditor}
+        right={consolePane}
+        defaultSplit={0.5}
+        minLeft={300}
+        storageKey={`ticket-split:${filename}`}
+        minRight={300}
+      />
+    </div>
   );
 }

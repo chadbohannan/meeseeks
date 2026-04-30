@@ -22,3 +22,4 @@
 
 ## Syntheses
 - [Architecture Overview](syntheses/architecture-overview.md) — system decomposition and data flow
+- [Claude Code vs. Pi Runtime Interfaces](syntheses/claude-vs-pi-runtime-interfaces.md) — comparative gap analysis of Claude Code and Pi-mono as orchestrator integration targets

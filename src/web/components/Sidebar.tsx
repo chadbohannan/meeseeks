@@ -186,6 +186,7 @@ function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane
                       className={`flex items-center gap-1.5 pl-4 pr-2 py-[7px] my-[5px] rounded-md cursor-pointer hover:bg-slate-800 text-sm ${
                         isTicketActive ? 'bg-slate-800 text-white' : 'text-slate-400'
                       }`}
+                      style={{ border: `2px solid ${ticket?.color || "#6b7280"}` }}
                       onClick={() =>
                         navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}/tickets/${encodeURIComponent(r.ticketRef.filename)}`)
                       }

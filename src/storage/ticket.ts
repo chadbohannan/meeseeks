@@ -25,6 +25,7 @@ interface FrontMatter {
   title: string;
   created: string;
   updated: string;
+  color?: string;
 }
 
 export async function findTicketFile(lp: string, filename: string): Promise<{ state: string; abs: string } | null> {
@@ -41,18 +42,24 @@ function parse(content: string): { fm: FrontMatter; body: string } {
   const parsed = matter(content);
   const data = parsed.data as Partial<FrontMatter>;
   if (typeof data.title !== 'string') throw new InvalidInputError('ticket frontmatter missing title');
+  const color = typeof data.color === 'string' ? data.color : undefined;
   return {
     fm: {
       title: data.title,
       created: typeof data.created === 'string' ? data.created : new Date().toISOString(),
       updated: typeof data.updated === 'string' ? data.updated : new Date().toISOString(),
+      color,
     },
     body: parsed.content,
   };
 }
 
 function serialize(fm: FrontMatter, body: string): string {
-  return matter.stringify(body, fm);
+  const cleaned: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(fm)) {
+    if (v !== undefined) cleaned[k] = v;
+  }
+  return matter.stringify(body, cleaned);
 }
 
 export async function createTicket(
@@ -110,6 +117,7 @@ export async function listTickets(boardPath: string, laneName: string): Promise<
           state: isKnown ? dirEntry.name : '__orphaned__',
           title: fm.title,
           body,
+          color: fm.color,
           created: fm.created,
           updated: fm.updated,
           orphaned: !isKnown,
@@ -141,6 +149,7 @@ export async function readTicket(
     updated: fm.updated,
     orphaned,
     body,
+    color: fm.color,
   };
 }
 
@@ -148,7 +157,7 @@ export async function updateTicket(
   boardPath: string,
   laneName: string,
   filename: string,
-  patch: { title?: string; body?: string; state?: string },
+  patch: { title?: string; body?: string; state?: string; color?: string },
 ): Promise<TicketSummary> {
   const lp = lanePath(boardPath, laneName);
   const found = await findTicketFile(lp, filename);
@@ -164,6 +173,7 @@ export async function updateTicket(
     title: patch.title ?? fm.title,
     created: fm.created,
     updated: new Date().toISOString(),
+    color: patch.color !== undefined ? patch.color : fm.color,
   };
   const newBody = patch.body ?? body;
   const newAbs = path.join(lp, newState, filename);
@@ -180,6 +190,7 @@ export async function updateTicket(
     state: newState,
     title: newFm.title,
     body: newBody,
+    color: newFm.color,
     created: newFm.created,
     updated: newFm.updated,
     orphaned: false,

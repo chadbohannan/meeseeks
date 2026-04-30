@@ -12,7 +12,7 @@ export interface DeleteLaneRequest { deleteFiles?: boolean }
 
 // Tickets
 export interface CreateTicketRequest { title: string; state: string; body?: string }
-export interface PatchTicketRequest { title?: string; body?: string; state?: string }
+export interface PatchTicketRequest { title?: string; body?: string; state?: string; color?: string }
 export interface ListTicketsResponse { tickets: TicketSummary[] }
 
 // Errors
