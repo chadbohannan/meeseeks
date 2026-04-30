@@ -52,6 +52,13 @@ export interface TicketSummary {
 
 export type TicketDetail = TicketSummary;
 
+export interface FileNode {
+  name: string;
+  isDirectory: boolean;
+  size?: number;
+  modified?: string; // ISO timestamp
+}
+
 export interface RecentEntry {
   path: string;
   name: string;
