@@ -175,7 +175,22 @@ export function TicketRoute() {
             catch (err) { toast.error((err as Error).message); }
           }}
         >Delete Ticket</button>
-        <input type="color" value={color ?? '#6b7280'} onChange={(e) => { setColor(e.target.value); patch.mutate({ title, body, state, color: e.target.value }).catch(() => {}); }} className="w-5 h-5 rounded-full border border-slate-600 p-0 cursor-pointer" title="Ticket accent color" />
+        <div className="relative w-5 h-5">
+          <input
+            type="color"
+            value={color ?? '#6b7280'}
+            onChange={(e) => {
+              setColor(e.target.value);
+              patch.mutate({ title, body, state, color: e.target.value }).catch(() => {});
+            }}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            title="Ticket accent color"
+          />
+          <div
+            className="absolute inset-0 rounded-full border border-slate-600 pointer-events-none"
+            style={{ backgroundColor: color ?? '#6b7280' }}
+          />
+        </div>
       </div>
       <div className="mt-2 text-xs text-slate-500 font-mono shrink-0">{filename}</div>
     </div>
