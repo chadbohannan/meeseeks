@@ -4,6 +4,7 @@ import { useBoard, useLane, useCreateLane, usePatchLane, useDeleteLane, usePatch
 import type { LaneSummary, LaneState } from '@shared/types.js';
 import { toast } from 'sonner';
 import { Markdown } from '../components/Markdown.js';
+import { SkillsEditor } from '../components/SkillsEditor.js';
 
 const NEW_LANE_KEY = '__new__';
 
@@ -72,6 +73,14 @@ export function BoardEditorRoute() {
           >
             <span className="text-sm font-medium">CLAUDE.md</span>
           </div>
+          <div
+            className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
+              searchParams.get('skills') === 'true' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-300'
+            }`}
+            onClick={() => setSearchParams({ skills: 'true' })}
+          >
+            <span className="text-sm font-medium">.claude/skills</span>
+          </div>
           {lanes.map((lane) => (
             <LaneListItem
               key={lane.laneName}
@@ -93,6 +102,8 @@ export function BoardEditorRoute() {
         <div className="flex-1 overflow-y-auto">
           {searchParams.get('context') === 'true' ? (
             <ContextEditor boardId={boardId} />
+          ) : searchParams.get('skills') === 'true' ? (
+            <SkillsEditor boardId={boardId} />
           ) : selectedLane === NEW_LANE_KEY ? (
             <NewLaneEditor boardId={boardId} onCreated={(name) => setSearchParams({ lane: name })} />
           ) : selectedLane ? (
