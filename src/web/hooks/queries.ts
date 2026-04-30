@@ -120,6 +120,51 @@ export function useDeleteTicket(boardId: string, laneName: string, filename: str
   });
 }
 
+export const useSkillFiles = (boardId: string | undefined) => useQuery({
+  queryKey: ['files', boardId, 'skills'],
+  queryFn: () => api.listFiles(boardId!, 'skills'),
+  enabled: !!boardId,
+});
+
+export const useSkillFile = (boardId: string | undefined, filename: string | undefined) => useQuery({
+  queryKey: ['file', boardId, 'skills', filename],
+  queryFn: () => api.readFile(boardId!, 'skills', filename!),
+  enabled: !!boardId && !!filename,
+});
+
+export function useCreateSkillFile(boardId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ filename, content }: { filename: string; content: string }) =>
+      api.createFile(boardId, 'skills', filename, { content }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['files', boardId, 'skills'] });
+    },
+  });
+}
+
+export function usePatchSkillFile(boardId: string, filename: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ content }: { content: string }) =>
+      api.patchFile(boardId, 'skills', filename, { content }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['files', boardId, 'skills'] });
+      qc.invalidateQueries({ queryKey: ['file', boardId, 'skills', filename] });
+    },
+  });
+}
+
+export function useDeleteSkillFile(boardId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (filename: string) => api.deleteFile(boardId, 'skills', filename),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['files', boardId, 'skills'] });
+    },
+  });
+}
+
 export function useRuntimes() {
   return useQuery({ queryKey: ["runtimes"], queryFn: api.listRuntimes });
 }
