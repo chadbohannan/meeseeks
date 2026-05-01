@@ -79,7 +79,7 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
   };
 
   if (isLoading) {
-    return <div className="p-4 text-gray-400">Loading skills...</div>;
+    return <div className="p-4 text-slate-400">Loading skills...</div>;
   }
 
   if (error) {
@@ -89,21 +89,21 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
   const files = fileList || [];
 
   return (
-    <div className="flex h-full bg-gray-900">
+    <div className="flex h-full bg-slate-900">
       {/* Left Panel - File List */}
-      <div className="w-64 border-r border-gray-700 flex flex-col">
-        <div className="p-4 border-b border-gray-700">
+      <div className="w-64 border-r border-slate-700 flex flex-col">
+        <div className="p-4 border-b border-slate-700">
           <button
             onClick={handleCreateClick}
             disabled={isCreating}
-            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded transition-colors"
+            className="w-full px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded transition-colors"
           >
             + New Skill
           </button>
         </div>
 
         {isCreating && (
-          <div className="p-4 border-b border-gray-700 bg-gray-800">
+          <div className="p-4 border-b border-slate-700 bg-slate-800">
             <input
               type="text"
               value={newFileName}
@@ -116,7 +116,7 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
                 if (e.key === 'Escape') handleCreateCancel();
               }}
               placeholder="skill-name"
-              className="w-full px-2 py-1 mb-2 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
+              className="w-full px-2 py-1 mb-2 bg-slate-700 border border-slate-600 rounded text-white text-sm focus:outline-none focus:border-blue-500"
               autoFocus
             />
             {fileNameError && (
@@ -131,7 +131,7 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
               </button>
               <button
                 onClick={handleCreateCancel}
-                className="flex-1 px-2 py-1 bg-gray-600 hover:bg-gray-700 text-white text-sm rounded"
+                className="flex-1 px-2 py-1 bg-slate-600 hover:bg-slate-700 text-white text-sm rounded"
               >
                 Cancel
               </button>
@@ -141,7 +141,7 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
 
         <div className="flex-1 overflow-y-auto">
           {files.length === 0 && !isCreating && (
-            <div className="p-4 text-sm text-gray-500">
+            <div className="p-4 text-sm text-slate-500">
               No skills yet. Click &quot;+ New Skill&quot; to create one.
             </div>
           )}
@@ -166,7 +166,7 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
             onDeleted={() => setSelectedFile(null)}
           />
         ) : (
-          <div className="h-full flex items-center justify-center text-gray-500">
+          <div className="h-full flex items-center justify-center text-slate-500">
             Select a skill to edit or create a new one
           </div>
         )}
@@ -193,7 +193,7 @@ function FileListItem({ filename, boardId, isSelected, onClick }: FileListItemPr
       className={`w-full px-4 py-2 text-left text-sm transition-colors ${
         isSelected
           ? 'bg-blue-600 text-white'
-          : 'text-gray-300 hover:bg-gray-800'
+          : 'text-slate-300 hover:bg-slate-800'
       }`}
     >
       <div className="font-medium">{meta.name}</div>
@@ -256,7 +256,7 @@ function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
   };
 
   if (isLoading) {
-    return <div className="p-6 text-gray-400">Loading...</div>;
+    return <div className="p-6 text-slate-400">Loading...</div>;
   }
 
   if (!content) {
@@ -267,15 +267,15 @@ function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-6 py-4 border-b border-gray-700 flex items-center justify-between">
+      <div className="px-6 py-4 border-b border-slate-700 flex items-center justify-between">
         <div>
           <h3 className="text-lg font-semibold text-white">{meta.name}</h3>
-          <p className="text-sm text-gray-400">{meta.description}</p>
+          <p className="text-sm text-slate-400">{meta.description}</p>
         </div>
         <button
           onClick={handleDelete}
           disabled={deleteMutation.isPending}
-          className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors"
+          className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors"
         >
           Delete
         </button>
@@ -287,21 +287,21 @@ function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
             <textarea
               value={editContent}
               onChange={(e) => setEditContent(e.target.value)}
-              className="flex-1 p-4 bg-gray-800 border border-gray-700 rounded text-white font-mono text-sm resize-none focus:outline-none focus:border-blue-500"
+              className="flex-1 p-4 bg-slate-800 border border-slate-700 rounded text-white font-mono text-sm resize-none focus:outline-none focus:border-blue-500"
               autoFocus
             />
             <div className="flex gap-2 mt-4">
               <button
                 onClick={handleSave}
                 disabled={patchMutation.isPending}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded transition-colors"
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded transition-colors"
               >
                 {patchMutation.isPending ? 'Saving...' : 'Save'}
               </button>
               <button
                 onClick={handleCancel}
                 disabled={patchMutation.isPending}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white rounded transition-colors"
+                className="px-4 py-2 bg-slate-600 hover:bg-slate-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded transition-colors"
               >
                 Cancel
               </button>
@@ -319,7 +319,7 @@ function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
             role="button"
             tabIndex={0}
             aria-label="Click to edit skill content"
-            className="cursor-pointer p-4 bg-gray-800 border border-gray-700 rounded hover:border-blue-500 transition-colors focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400"
+            className="cursor-pointer p-4 bg-slate-800 border border-slate-700 rounded hover:border-blue-500 transition-colors focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400"
           >
             <Markdown>{content}</Markdown>
           </div>
