@@ -17,7 +17,7 @@ export function AppShell() {
         <div className="flex items-center gap-3 text-sm" />
       </header>
       <div className="flex flex-1 min-h-0">
-        <div className="w-60 shrink-0">
+        <div className="w-48 shrink-0">
           <Sidebar />
         </div>
         <main className="flex-1 overflow-auto"><Outlet /></main>

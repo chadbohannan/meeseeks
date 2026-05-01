@@ -47,6 +47,14 @@ export function RuntimeStatusDot({ status, className = '' }: { status: RuntimeSt
       </svg>
     );
   }
+  if (status === 'exited') {
+    return (
+      <span
+        title="exited"
+        className={`inline-block h-3.5 w-3.5 bg-gray-500 ${className}`}
+      />
+    );
+  }
   return (
     <span
       title={status}

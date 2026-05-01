@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Navigate } from 'react-router-dom';
+import { useParams, Navigate, Link } from 'react-router-dom';
 import { useTickets, useLane, useCreateTicket } from '../hooks/queries.js';
 import { TicketCard } from '../components/TicketCard.js';
 import { toast } from 'sonner';
@@ -20,6 +20,7 @@ export function StateRoute() {
   return (
     <div className="p-6">
       <div className="flex items-center gap-3 mb-4">
+        <Link to={`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}`} className="text-slate-400 hover:text-white text-lg font-semibold">{lane.data?.lane.displayName ?? laneName}</Link>
         <h2 className="text-lg font-semibold">{stateName}</h2>
         <form
           className="flex gap-2"

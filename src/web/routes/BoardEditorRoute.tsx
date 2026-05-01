@@ -19,6 +19,8 @@ export function BoardEditorRoute() {
   const board = useBoard(boardId);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedLane = searchParams.get('lane');
+  const hasSelection = searchParams.get('context') === 'true' || searchParams.get('skills') === 'true' || !!selectedLane;
+  const isContext = !hasSelection || searchParams.get('context') === 'true';
   const [editingName, setEditingName] = useState(false);
   const [boardName, setBoardName] = useState('');
   const patchBoard = usePatchBoard(boardId!);
@@ -64,10 +66,10 @@ export function BoardEditorRoute() {
       </div>
 
       <div className="flex flex-1 min-h-0">
-        <div className="w-72 shrink-0 border-r border-slate-800 overflow-y-auto">
+        <div className="w-44 shrink-0 border-r border-slate-800 overflow-y-auto">
           <div
             className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
-              searchParams.get('context') === 'true' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-300'
+              isContext ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-300'
             }`}
             onClick={() => setSearchParams({ context: 'true' })}
           >
@@ -100,7 +102,7 @@ export function BoardEditorRoute() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {searchParams.get('context') === 'true' ? (
+          {isContext ? (
             <ContextEditor boardId={boardId} />
           ) : searchParams.get('skills') === 'true' ? (
             <SkillsEditor boardId={boardId} />
@@ -118,7 +120,6 @@ export function BoardEditorRoute() {
 }
 
 function LaneListItem({ lane, selected, onClick }: { lane: LaneSummary; selected: boolean; onClick: () => void }) {
-  const total = Object.values(lane.ticketCounts).reduce((a, b) => a + b, 0);
   return (
     <div
       className={`flex items-center gap-2 px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
@@ -132,7 +133,6 @@ function LaneListItem({ lane, selected, onClick }: { lane: LaneSummary; selected
           {lane.states.map((s) => s.name).join(' → ')}
         </div>
       </div>
-      <span className="text-xs text-slate-500 tabular-nums">{total} tickets</span>
       {lane.orphanedCount > 0 && <span className="text-amber-400 text-xs">⚠ {lane.orphanedCount}</span>}
     </div>
   );
@@ -344,6 +344,7 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
                 setEditingProcess(false);
                 setProcessDoc(null);
               }}
+              onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 's' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur(); } }}
               autoFocus
             />
           ) : (
@@ -450,10 +451,6 @@ function ContextEditor({ boardId }: { boardId: string }) {
 
   return (
     <div className="p-6 max-w-2xl">
-      <h2 className="text-lg font-semibold mb-4">Board Context</h2>
-      <p className="text-sm text-slate-400 mb-4">
-        Board-level instructions for agents (CLAUDE.md)
-      </p>
 
       {editing ? (
         <textarea
@@ -466,6 +463,7 @@ function ContextEditor({ boardId }: { boardId: string }) {
             }
             setEditing(false);
           }}
+          onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 's' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur(); } }}
           autoFocus
         />
       ) : (

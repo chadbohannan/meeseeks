@@ -97,6 +97,7 @@ export function TicketRoute() {
         value={title}
         onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
         onBlur={saveIfDirty}
+        onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 's' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur(); } }}
       />
       <div className="flex items-center gap-2 mb-3 shrink-0">
         {activeRuntime ? (
@@ -155,6 +156,7 @@ export function TicketRoute() {
           value={body}
           onChange={(e) => { setBody(e.target.value); setDirty(true); }}
           onBlur={async () => { await saveIfDirty(); setEditing(false); }}
+          onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 's' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur(); } }}
           autoFocus
         />
       ) : (
