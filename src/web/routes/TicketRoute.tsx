@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useLane, useTicket, usePatchTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime } from '../hooks/queries.js';
 import { useRuntimesStore } from '../store/runtimes.js';
@@ -6,7 +6,7 @@ import { RuntimeStatusDot } from '../components/RuntimeStatusDot.js';
 import { ResizableSplit } from '../components/ResizableSplit.js';
 import { XtermHost } from '../components/console/xterm-host.js';
 import { toast } from 'sonner';
-import { Markdown } from '../components/Markdown.js';
+import { MarkdownEditor } from '../components/MarkdownEditor.js';
 
 export function TicketRoute() {
   const { boardId, laneName, filename } = useParams<{ boardId: string; laneName: string; filename: string }>();
@@ -31,7 +31,6 @@ export function TicketRoute() {
   const [state, setState] = useState('');
   const [color, setColor] = useState<string | undefined>(undefined);
   const [dirty, setDirty] = useState(false);
-  const [editing, setEditing] = useState(false);
   const [tab, setTab] = useState<'console' | 'context'>('console');
   const [model, setModel] = useState('claude-sonnet-4-6');
 
@@ -47,6 +46,24 @@ export function TicketRoute() {
   useEffect(() => {
     setTab('console');
   }, [runtime?.runtimeId]);
+
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  const debouncedSaveBody = useCallback((newBody: string) => {
+    setBody(newBody);
+    setDirty(true);
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(async () => {
+      try {
+        await patch.mutateAsync({ title, body: newBody, state, color });
+        setDirty(false);
+      } catch (err) { toast.error((err as Error).message); }
+    }, 1000);
+  }, [patch, title, state, color]);
+
+  useEffect(() => {
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, []);
 
   const saveIfDirty = async () => {
     if (!dirty) return;
@@ -150,23 +167,12 @@ export function TicketRoute() {
         )}
       </div>
 
-      {editing ? (
-        <textarea
-          className="flex-1 min-h-0 w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm overflow-y-auto resize-none"
-          value={body}
-          onChange={(e) => { setBody(e.target.value); setDirty(true); }}
-          onBlur={async () => { await saveIfDirty(); setEditing(false); }}
-          onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 's' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur(); } }}
-          autoFocus
-        />
-      ) : (
-        <div
-          className="flex-1 min-h-0 w-full bg-slate-800 rounded px-3 py-2 overflow-y-auto cursor-pointer hover:ring-1 hover:ring-slate-600"
-          onClick={() => setEditing(true)}
-        >
-          <Markdown>{body}</Markdown>
-        </div>
-      )}
+      <MarkdownEditor
+        value={body}
+        onChange={debouncedSaveBody}
+        className="flex-1 min-h-0 w-full bg-slate-800 rounded overflow-y-auto"
+        placeholder="Write ticket description…"
+      />
 
       <div className="mt-4 shrink-0 flex items-center justify-between">
         <button

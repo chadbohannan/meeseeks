@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams, Navigate } from 'react-router-dom';
 import { useBoard, useLane, useCreateLane, usePatchLane, useDeleteLane, usePatchBoard } from '../hooks/queries.js';
 import type { LaneSummary, LaneState } from '@shared/types.js';
 import { toast } from 'sonner';
-import { Markdown } from '../components/Markdown.js';
+import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { SkillsEditor } from '../components/SkillsEditor.js';
 import { BinEditor } from '../components/BinEditor.js';
 
@@ -221,9 +221,7 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
   const [states, setStates] = useState<LaneState[] | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
-  const [editingProcess, setEditingProcess] = useState(false);
-  const [processDoc, setProcessDoc] = useState<string | null>(null);
-  const dirtyProcess = processDoc !== null;
+  const processTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   if (lane.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
   if (!lane.data) return <div className="p-6 text-red-400">Lane not found.</div>;
@@ -340,32 +338,20 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
       {lane.data.lane.hasProcessDoc && (
         <section className="mt-8 pt-6 border-t border-slate-800">
           <h3 className="text-sm font-semibold text-slate-400 mb-2">PROCESS.md</h3>
-          {editingProcess ? (
-            <textarea
-              className="w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm resize-none min-h-48"
-              value={processDoc ?? lane.data.lane.processDoc ?? ''}
-              onChange={(e) => setProcessDoc(e.target.value)}
-              onBlur={async () => {
-                if (dirtyProcess) {
-                  try {
-                    await patchLane.mutateAsync({ processDoc: processDoc! });
-                    toast.success('PROCESS.md saved');
-                  } catch (err) { toast.error((err as Error).message); }
-                }
-                setEditingProcess(false);
-                setProcessDoc(null);
-              }}
-              onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 's' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur(); } }}
-              autoFocus
-            />
-          ) : (
-            <div
-              className="w-full bg-slate-800 rounded px-3 py-2 overflow-y-auto cursor-pointer hover:ring-1 hover:ring-slate-600"
-              onClick={() => { setProcessDoc(lane.data!.lane.processDoc ?? ''); setEditingProcess(true); }}
-            >
-              <Markdown>{lane.data.lane.processDoc ?? ''}</Markdown>
-            </div>
-          )}
+          <MarkdownEditor
+            value={lane.data.lane.processDoc ?? ''}
+            onChange={(md) => {
+              if (processTimerRef.current) clearTimeout(processTimerRef.current);
+              processTimerRef.current = setTimeout(async () => {
+                try {
+                  await patchLane.mutateAsync({ processDoc: md });
+                  toast.success('PROCESS.md saved');
+                } catch (err) { toast.error((err as Error).message); }
+              }, 1000);
+            }}
+            className="w-full bg-slate-800 rounded min-h-48"
+            placeholder="Write process documentation…"
+          />
         </section>
       )}
     </div>
@@ -440,54 +426,31 @@ function StatesEditor({ states, ticketCounts, onUpdate, onAdd, onRemove, onMove 
 function ContextEditor({ boardId }: { boardId: string }) {
   const board = useBoard(boardId);
   const patchBoard = usePatchBoard(boardId);
-  const [editing, setEditing] = useState(false);
-  const [content, setContent] = useState<string | null>(null);
-  const dirty = content !== null;
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  useEffect(() => {
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, []);
 
   if (board.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
   if (!board.data) return <div className="p-6 text-red-400">Board not found.</div>;
 
-  const currentContent = content ?? board.data.board.claudeContent ?? '';
-
-  const save = async () => {
-    if (!dirty) return;
-    try {
-      await patchBoard.mutateAsync({ claudeContent: content! });
-      setContent(null);
-      toast.success('Context saved');
-    } catch (err) {
-      toast.error((err as Error).message);
-    }
-  };
-
   return (
     <div className="p-6 max-w-2xl">
-
-      {editing ? (
-        <textarea
-          className="w-full bg-slate-800 rounded px-3 py-2 font-mono text-sm resize-none min-h-96"
-          value={currentContent}
-          onChange={(e) => setContent(e.target.value)}
-          onBlur={async () => {
-            if (dirty) {
-              await save();
-            }
-            setEditing(false);
-          }}
-          onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 's' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur(); } }}
-          autoFocus
-        />
-      ) : (
-        <div
-          className="w-full bg-slate-800 rounded px-3 py-2 min-h-96 overflow-y-auto cursor-pointer hover:ring-1 hover:ring-slate-600"
-          onClick={() => {
-            setContent(board.data!.board.claudeContent ?? '');
-            setEditing(true);
-          }}
-        >
-          <Markdown>{currentContent}</Markdown>
-        </div>
-      )}
+      <MarkdownEditor
+        value={board.data.board.claudeContent ?? ''}
+        onChange={(md) => {
+          if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+          saveTimerRef.current = setTimeout(async () => {
+            try {
+              await patchBoard.mutateAsync({ claudeContent: md });
+              toast.success('Context saved');
+            } catch (err) { toast.error((err as Error).message); }
+          }, 1000);
+        }}
+        className="w-full bg-slate-800 rounded min-h-96"
+        placeholder="Write CLAUDE.md context…"
+      />
     </div>
   );
 }

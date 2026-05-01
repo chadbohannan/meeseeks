@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useSkillFiles, useSkillFile, useCreateSkillFile, usePatchSkillFile, useDeleteSkillFile } from '../hooks/queries.js';
-import { Markdown } from './Markdown.js';
+import { MarkdownEditor } from './MarkdownEditor.js';
 
 const SKILL_TEMPLATE = `---
 name: New Skill
@@ -27,6 +27,17 @@ function parseSkillMeta(content: string): SkillMeta {
   return match
     ? { name: match[1], description: match[2] }
     : { name: 'Untitled', description: 'No description' };
+}
+
+function splitFrontmatter(content: string): { frontmatter: string; body: string } {
+  const match = /^(---\s*\n[\s\S]*?\n---)\s*\n?/.exec(content);
+  if (!match) return { frontmatter: '', body: content };
+  return { frontmatter: match[1], body: content.slice(match[0].length) };
+}
+
+function reassemble(frontmatter: string, body: string): string {
+  if (!frontmatter) return body;
+  return frontmatter + '\n\n' + body;
 }
 
 export function SkillsEditor({ boardId }: SkillsEditorProps) {
@@ -215,36 +226,26 @@ function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
   const content = data?.content;
   const patchMutation = usePatchSkillFile(boardId, filename);
   const deleteMutation = useDeleteSkillFile(boardId);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editContent, setEditContent] = useState('');
+  const [frontmatter, setFrontmatter] = useState('');
+  const [body, setBody] = useState('');
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
-    if (content) {
-      setEditContent(content);
+    if (content && !dirty) {
+      const split = splitFrontmatter(content);
+      setFrontmatter(split.frontmatter);
+      setBody(split.body);
     }
-  }, [content]);
-
-  useEffect(() => {
-    return () => {
-      // Cleanup to prevent stale state updates after unmount
-    };
-  }, []);
+  }, [content, dirty]);
 
   const handleSave = async () => {
     try {
-      await patchMutation.mutateAsync({ content: editContent });
-      setIsEditing(false);
+      await patchMutation.mutateAsync({ content: reassemble(frontmatter, body) });
+      setDirty(false);
       toast.success('Skill saved');
     } catch (err) {
       toast.error(`Failed to save: ${err instanceof Error ? err.message : 'Unknown error'}`);
     }
-  };
-
-  const handleCancel = () => {
-    if (content) {
-      setEditContent(content);
-    }
-    setIsEditing(false);
   };
 
   const handleDelete = async () => {
@@ -266,7 +267,7 @@ function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
     return <div className="p-6 text-red-400">Failed to load file</div>;
   }
 
-  const meta = parseSkillMeta(content);
+  const meta = parseSkillMeta(reassemble(frontmatter, body) || content);
 
   return (
     <div className="h-full flex flex-col">
@@ -275,58 +276,33 @@ function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
           <h3 className="text-lg font-semibold text-white">{meta.name}</h3>
           <p className="text-sm text-slate-400">{meta.description}</p>
         </div>
-        <button
-          onClick={handleDelete}
-          disabled={deleteMutation.isPending}
-          className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors"
-        >
-          Delete
-        </button>
+        <div className="flex items-center gap-2">
+          {dirty && (
+            <button
+              onClick={handleSave}
+              disabled={patchMutation.isPending}
+              className="px-3 py-1 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors"
+            >
+              {patchMutation.isPending ? 'Saving...' : 'Save'}
+            </button>
+          )}
+          <button
+            onClick={handleDelete}
+            disabled={deleteMutation.isPending}
+            className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-sm rounded transition-colors"
+          >
+            Delete
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 overflow-y-auto p-6">
-        {isEditing ? (
-          <div className="h-full flex flex-col">
-            <textarea
-              value={editContent}
-              onChange={(e) => setEditContent(e.target.value)}
-              className="flex-1 p-4 bg-slate-800 border border-slate-700 rounded text-white font-mono text-sm resize-none focus:outline-none focus:border-blue-500"
-              autoFocus
-            />
-            <div className="flex gap-2 mt-4">
-              <button
-                onClick={handleSave}
-                disabled={patchMutation.isPending}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white rounded transition-colors"
-              >
-                {patchMutation.isPending ? 'Saving...' : 'Save'}
-              </button>
-              <button
-                onClick={handleCancel}
-                disabled={patchMutation.isPending}
-                className="px-4 py-2 bg-slate-600 hover:bg-slate-700 disabled:bg-slate-700 disabled:cursor-not-allowed text-white rounded transition-colors"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div
-            onClick={() => setIsEditing(true)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                setIsEditing(true);
-              }
-            }}
-            role="button"
-            tabIndex={0}
-            aria-label="Click to edit skill content"
-            className="cursor-pointer p-4 bg-slate-800 border border-slate-700 rounded hover:border-blue-500 transition-colors focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-400"
-          >
-            <Markdown>{content}</Markdown>
-          </div>
-        )}
+        <MarkdownEditor
+          value={body}
+          onChange={(md) => { setBody(md); setDirty(true); }}
+          className="bg-slate-800 border border-slate-700 rounded"
+          placeholder="Write skill content…"
+        />
       </div>
     </div>
   );
