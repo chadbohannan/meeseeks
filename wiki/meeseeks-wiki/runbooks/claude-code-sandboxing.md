@@ -16,7 +16,7 @@ The other modes (`auto`, `default`, `plan`) are interactive or adaptive modes th
 
 ## Settings File Precedence
 
-Claude Code loads settings from four sources, evaluated in this order:
+Claude Code loads settings from multiple sources. This precedence chain governs permissions and hooks; the parallel instruction bootstrapping chain (CLAUDE.md, rules, nested instructions) is documented in the [Claude Code Client](../components/claude-code-client.md#instruction-bootstrapping) component page. Settings are evaluated in this order:
 
 1. **Managed settings** — Admin-deployed via MDM or OS-level policies, cannot be overridden. Located at `/etc/claude/managed-settings.json` (Linux) or `/Library/Application Support/Claude/managed-settings.json` (macOS).
 2. **Command line arguments** — Per-invocation flags like `--allowedTools`, `--permission-mode`, `--settings`.
@@ -183,3 +183,4 @@ The permission mode, additional directories, and sandboxing features are documen
 | Ingest Date | Source |
 | ----------- | ------ |
 | 2026-04-29 | Web documentation on soft-sandboxing Claude Code instances in orchestrators |
+| 2026-04-30 | [Claude Context](../../sources/Claude%20Context.md) — instruction bootstrapping and active reloading behaviour |
