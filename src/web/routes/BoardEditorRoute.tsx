@@ -5,6 +5,7 @@ import type { LaneSummary, LaneState } from '@shared/types.js';
 import { toast } from 'sonner';
 import { Markdown } from '../components/Markdown.js';
 import { SkillsEditor } from '../components/SkillsEditor.js';
+import { BinEditor } from '../components/BinEditor.js';
 
 const NEW_LANE_KEY = '__new__';
 
@@ -19,7 +20,7 @@ export function BoardEditorRoute() {
   const board = useBoard(boardId);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedLane = searchParams.get('lane');
-  const hasSelection = searchParams.get('context') === 'true' || searchParams.get('skills') === 'true' || !!selectedLane;
+  const hasSelection = searchParams.get('context') === 'true' || searchParams.get('skills') === 'true' || searchParams.get('bin') === 'true' || !!selectedLane;
   const isContext = !hasSelection || searchParams.get('context') === 'true';
   const [editingName, setEditingName] = useState(false);
   const [boardName, setBoardName] = useState('');
@@ -83,6 +84,14 @@ export function BoardEditorRoute() {
           >
             <span className="text-sm font-medium">.claude/skills</span>
           </div>
+          <div
+            className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
+              searchParams.get('bin') === 'true' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-300'
+            }`}
+            onClick={() => setSearchParams({ bin: 'true' })}
+          >
+            <span className="text-sm font-medium">.claude/bin</span>
+          </div>
           {lanes.map((lane) => (
             <LaneListItem
               key={lane.laneName}
@@ -106,6 +115,8 @@ export function BoardEditorRoute() {
             <ContextEditor boardId={boardId} />
           ) : searchParams.get('skills') === 'true' ? (
             <SkillsEditor boardId={boardId} />
+          ) : searchParams.get('bin') === 'true' ? (
+            <BinEditor boardId={boardId} />
           ) : selectedLane === NEW_LANE_KEY ? (
             <NewLaneEditor boardId={boardId} onCreated={(name) => setSearchParams({ lane: name })} />
           ) : selectedLane ? (

@@ -9,6 +9,7 @@ const NAMESPACE_DIRS: Record<string, string> = {
   skills: '.claude/skills',
   prompts: '.claude/prompts',
   hooks: '.claude/hooks',
+  bin: '.claude/bin',
 };
 
 function validateNamespace(namespace: string): void {

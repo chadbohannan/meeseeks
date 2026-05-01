@@ -16,7 +16,10 @@ const NAMESPACE_DIRS: Record<string, string> = {
   skills: '.claude/skills',
   prompts: '.claude/prompts',
   hooks: '.claude/hooks',
+  bin: '.claude/bin',
 };
+
+const ALLOWED_NAMESPACES = new Set(['skills', 'bin']);
 
 function getFullPath(boardPath: string, namespace: string, filepath: string): string {
   const namespaceDir = NAMESPACE_DIRS[namespace];
@@ -38,8 +41,8 @@ export async function registerFileRoutes(
   }>('/api/boards/:boardId/files/:namespace', async (req, reply) => {
     const { boardId, namespace } = req.params;
 
-    if (namespace !== 'skills') {
-      throw new InvalidInputError('Only "skills" namespace is supported');
+    if (!ALLOWED_NAMESPACES.has(namespace)) {
+      throw new InvalidInputError(`Namespace "${namespace}" is not supported`);
     }
 
     const open = state.require();
@@ -61,8 +64,8 @@ export async function registerFileRoutes(
       throw new InvalidInputError('File path is required');
     }
 
-    if (namespace !== 'skills') {
-      throw new InvalidInputError('Only "skills" namespace is supported');
+    if (!ALLOWED_NAMESPACES.has(namespace)) {
+      throw new InvalidInputError(`Namespace "${namespace}" is not supported`);
     }
 
     const open = state.require();
@@ -87,8 +90,8 @@ export async function registerFileRoutes(
       throw new InvalidInputError('File path is required');
     }
 
-    if (namespace !== 'skills') {
-      throw new InvalidInputError('Only "skills" namespace is supported');
+    if (!ALLOWED_NAMESPACES.has(namespace)) {
+      throw new InvalidInputError(`Namespace "${namespace}" is not supported`);
     }
 
     if (typeof content !== 'string') {
@@ -117,8 +120,8 @@ export async function registerFileRoutes(
       throw new InvalidInputError('File path is required');
     }
 
-    if (namespace !== 'skills') {
-      throw new InvalidInputError('Only "skills" namespace is supported');
+    if (!ALLOWED_NAMESPACES.has(namespace)) {
+      throw new InvalidInputError(`Namespace "${namespace}" is not supported`);
     }
 
     if (typeof content !== 'string') {
@@ -147,8 +150,8 @@ export async function registerFileRoutes(
       throw new InvalidInputError('File path is required');
     }
 
-    if (namespace !== 'skills') {
-      throw new InvalidInputError('Only "skills" namespace is supported');
+    if (!ALLOWED_NAMESPACES.has(namespace)) {
+      throw new InvalidInputError(`Namespace "${namespace}" is not supported`);
     }
 
     const open = state.require();

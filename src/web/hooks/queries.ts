@@ -172,6 +172,57 @@ export function useDeleteSkillFile(boardId: string) {
   });
 }
 
+export const useBinFiles = (boardId: string | undefined) => useQuery({
+  queryKey: ['files', boardId, 'bin'],
+  queryFn: () => api.listFiles(boardId!, 'bin'),
+  enabled: !!boardId,
+});
+
+export const useBinFile = (boardId: string | undefined, filename: string | undefined) => useQuery({
+  queryKey: ['file', boardId, 'bin', filename],
+  queryFn: () => api.readFile(boardId!, 'bin', filename!),
+  enabled: !!boardId && !!filename,
+});
+
+export function useCreateBinFile(boardId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ filename, content }: { filename: string; content: string }) =>
+      api.createFile(boardId, 'bin', filename, { content }),
+    onSuccess: (res, { filename, content }) => {
+      qc.setQueryData<ListFilesResponse>(['files', boardId, 'bin'], (old) =>
+        old ? { files: [...old.files, { name: filename, isDirectory: false }] } : old
+      );
+      qc.setQueryData(['file', boardId, 'bin', filename], { content, path: res.path });
+    },
+  });
+}
+
+export function usePatchBinFile(boardId: string, filename: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ content }: { content: string }) =>
+      api.patchFile(boardId, 'bin', filename, { content }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['files', boardId, 'bin'] });
+      qc.invalidateQueries({ queryKey: ['file', boardId, 'bin', filename] });
+    },
+  });
+}
+
+export function useDeleteBinFile(boardId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (filename: string) => api.deleteFile(boardId, 'bin', filename),
+    onSuccess: (_, filename) => {
+      qc.setQueryData<ListFilesResponse>(['files', boardId, 'bin'], (old) =>
+        old ? { files: old.files.filter(f => f.name !== filename) } : old
+      );
+      qc.removeQueries({ queryKey: ['file', boardId, 'bin', filename] });
+    },
+  });
+}
+
 export function useRuntimes() {
   return useQuery({ queryKey: ["runtimes"], queryFn: api.listRuntimes });
 }
