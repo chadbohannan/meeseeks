@@ -48,7 +48,7 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
     if (!/^[a-z0-9-]+$/.test(name)) {
       return 'Filename must contain only lowercase letters, numbers, and hyphens';
     }
-    if (fileList?.some(f => f === `${name}.md`)) {
+    if (fileList?.files?.some(f => f.name === `${name}.md`)) {
       return 'A skill with this filename already exists';
     }
     return null;
@@ -86,7 +86,7 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
     return <div className="p-4 text-red-400">Error loading skills: {(error as Error).message}</div>;
   }
 
-  const files = fileList || [];
+  const files = (fileList?.files || []).map(f => f.name);
 
   return (
     <div className="flex h-full bg-slate-900">
@@ -112,7 +112,7 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
                 setFileNameError(null);
               }}
               onKeyDown={(e) => {
-                if (e.key === 'Enter') handleCreateSubmit();
+                if (e.key === 'Enter' && !createMutation.isPending) handleCreateSubmit();
                 if (e.key === 'Escape') handleCreateCancel();
               }}
               placeholder="skill-name"
@@ -125,9 +125,10 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
             <div className="flex gap-2">
               <button
                 onClick={handleCreateSubmit}
-                className="flex-1 px-2 py-1 bg-green-600 hover:bg-green-700 text-white text-sm rounded"
+                disabled={createMutation.isPending}
+                className="flex-1 px-2 py-1 bg-green-600 hover:bg-green-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-sm rounded"
               >
-                Create
+                {createMutation.isPending ? 'Creating...' : 'Create'}
               </button>
               <button
                 onClick={handleCreateCancel}
@@ -183,7 +184,8 @@ interface FileListItemProps {
 }
 
 function FileListItem({ filename, boardId, isSelected, onClick }: FileListItemProps) {
-  const { data: content } = useSkillFile(boardId, filename);
+  const { data } = useSkillFile(boardId, filename);
+  const content = data?.content;
   const meta = content ? parseSkillMeta(content) : { name: filename, description: '' };
 
   return (
@@ -209,7 +211,8 @@ interface FileEditorProps {
 }
 
 function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
-  const { data: content, isLoading } = useSkillFile(boardId, filename);
+  const { data, isLoading } = useSkillFile(boardId, filename);
+  const content = data?.content;
   const patchMutation = usePatchSkillFile(boardId, filename);
   const deleteMutation = useDeleteSkillFile(boardId);
   const [isEditing, setIsEditing] = useState(false);

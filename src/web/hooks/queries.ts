@@ -4,6 +4,7 @@ import type {
   CreateBoardRequest, PatchBoardRequest, DeleteBoardRequest,
   CreateLaneRequest, PatchLaneRequest, DeleteLaneRequest,
   CreateTicketRequest, PatchTicketRequest,
+  ListFilesResponse,
 } from '@shared/api.js';
 
 export const useCurrentProject = () => useQuery({ queryKey: ['current'], queryFn: () => api.current() });
@@ -137,8 +138,11 @@ export function useCreateSkillFile(boardId: string) {
   return useMutation({
     mutationFn: ({ filename, content }: { filename: string; content: string }) =>
       api.createFile(boardId, 'skills', filename, { content }),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['files', boardId, 'skills'] });
+    onSuccess: (res, { filename, content }) => {
+      qc.setQueryData<ListFilesResponse>(['files', boardId, 'skills'], (old) =>
+        old ? { files: [...old.files, { name: filename, isDirectory: false }] } : old
+      );
+      qc.setQueryData(['file', boardId, 'skills', filename], { content, path: res.path });
     },
   });
 }
@@ -160,8 +164,10 @@ export function useDeleteSkillFile(boardId: string) {
   return useMutation({
     mutationFn: (filename: string) => api.deleteFile(boardId, 'skills', filename),
     onSuccess: (_, filename) => {
-      qc.invalidateQueries({ queryKey: ['files', boardId, 'skills'] });
-      qc.invalidateQueries({ queryKey: ['file', boardId, 'skills', filename] });
+      qc.setQueryData<ListFilesResponse>(['files', boardId, 'skills'], (old) =>
+        old ? { files: old.files.filter(f => f.name !== filename) } : old
+      );
+      qc.removeQueries({ queryKey: ['file', boardId, 'skills', filename] });
     },
   });
 }

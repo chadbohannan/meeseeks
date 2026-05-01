@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev:server": "tsx watch --exclude 'boards/**' --exclude 'wiki/**' src/server/index.ts",
+    "dev:server": "tsx watch --exclude 'boards/**' --exclude 'wiki/**' --exclude '**/.claude/**' src/server/index.ts",
     "dev:web": "vite",
     "dev": "concurrently -n server,web -c blue,magenta \"npm:dev:server\" \"npm:dev:web\"",
     "build:server": "tsc -p tsconfig.server.json",

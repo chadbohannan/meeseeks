@@ -21,11 +21,11 @@ const DEBOUNCE_MS = 50;
 export function startWatcher(meta: ProjectMeta, hub: WsHub): WatcherHandle {
   const projectRoot = meta.path;
   const watcher = chokidar.watch(projectRoot, {
-    ignored: ['**/node_modules/**', '**/.git/**', '**/.meeseeks/**'],
+    ignored: ['**/node_modules/**', '**/.git/**', '**/.meeseeks/**', '**/.claude/**'],
     ignoreInitial: true,
     usePolling: true,
-    interval: 500,
-    awaitWriteFinish: { stabilityThreshold: 100, pollInterval: 50 },
+    interval: 2000,
+    awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 100 },
   });
 
   const pending = new Map<string, PendingChange>();
