@@ -18,6 +18,7 @@ export function MarkdownEditor({ value, onChange, className = '', placeholder }:
   const onChangeRef = useRef(onChange);
   const valueRef = useRef(value);
   const suppressRef = useRef(false);
+  const lastEmittedRef = useRef(value);
 
   onChangeRef.current = onChange;
   valueRef.current = value;
@@ -41,6 +42,7 @@ export function MarkdownEditor({ value, onChange, className = '', placeholder }:
     crepe.on((listener) => {
       listener.markdownUpdated((_ctx, markdown, prevMarkdown) => {
         if (markdown !== prevMarkdown && !suppressRef.current) {
+          lastEmittedRef.current = markdown;
           onChangeRef.current(markdown);
         }
       });
@@ -63,11 +65,15 @@ export function MarkdownEditor({ value, onChange, className = '', placeholder }:
   useEffect(() => {
     const crepe = crepeRef.current;
     if (!crepe || !readyRef.current) return;
+    // Skip echo: if value came from the editor itself, the editor already has this state.
+    // Calling replaceAll would reset cursor position and cause focus jitter.
+    if (value === lastEmittedRef.current) return;
     const current = crepe.getMarkdown();
     if (value !== current) {
       suppressRef.current = true;
       crepe.editor.action(replaceAll(value));
       suppressRef.current = false;
+      lastEmittedRef.current = value;
     }
   }, [value]);
 

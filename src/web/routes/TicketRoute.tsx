@@ -33,12 +33,23 @@ export function TicketRoute() {
   const [dirty, setDirty] = useState(false);
   const [tab, setTab] = useState<'console' | 'context'>('console');
   const [model, setModel] = useState('claude-sonnet-4-6');
+  const bodyInitializedRef = useRef(false);
+
+  useEffect(() => {
+    bodyInitializedRef.current = false;
+  }, [filename]);
 
   useEffect(() => {
     if (!ticket.data) return;
+    // Body is owned by the editor once initialized. Server refetches (from WS
+    // ticket-changed or explicit invalidation) must not overwrite what the user
+    // is typing — that's what causes the focus jitter.
+    if (!bodyInitializedRef.current) {
+      bodyInitializedRef.current = true;
+      setBody(ticket.data.ticket.body);
+    }
     if (dirty) return;
     setTitle(ticket.data.ticket.title);
-    setBody(ticket.data.ticket.body);
     setState(ticket.data.ticket.state);
     setColor(ticket.data.ticket.color);
   }, [ticket.data, dirty]);
