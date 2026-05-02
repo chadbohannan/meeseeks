@@ -1,4 +1,4 @@
-import type { RuntimeStatus, TicketRef, RuntimeSummary } from '../shared/runtime.js';
+import type { RuntimeStatus, TicketRef, PromptRef, RuntimeSummary } from '../shared/runtime.js';
 
 export interface BoardRuntimeConfig {
   runtime?: {
@@ -41,4 +41,14 @@ export interface SpawnSpec {
   settingsFile: SettingsFile | null;
 }
 
-export type { RuntimeStatus, TicketRef, RuntimeSummary };
+export interface PromptSpawnContext {
+  runtimeId: string;
+  boardPath: string;
+  promptRef: PromptRef;
+  promptBody: string;
+  board: BoardRuntimeConfig | null;
+  permissions: PermissionsConfig | null;
+  model?: string;
+}
+
+export type { RuntimeStatus, TicketRef, PromptRef, RuntimeSummary };

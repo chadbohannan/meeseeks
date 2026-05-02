@@ -2,6 +2,7 @@ import { Outlet, Link } from 'react-router-dom';
 import { useCurrentProject } from '../hooks/queries.js';
 import { Logo } from './Logo.js';
 import { Sidebar } from './Sidebar.js';
+import { Dock } from './console/Dock.js';
 
 export function AppShell() {
   const { data } = useCurrentProject();
@@ -14,7 +15,9 @@ export function AppShell() {
           <Logo size={24} />
           Meeseeks
         </Link>
-        <div className="flex items-center gap-3 text-sm" />
+        <div className="flex items-center gap-3 text-sm">
+          <Dock />
+        </div>
       </header>
       <div className="flex flex-1 min-h-0">
         <div className="w-48 shrink-0">

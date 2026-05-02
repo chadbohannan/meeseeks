@@ -10,6 +10,7 @@ import { registerLaneRoutes } from './routes/lanes.js';
 import { registerTicketRoutes } from './routes/tickets.js';
 import { registerRuntimeRoutes } from './routes/runtimes.js';
 import { registerFileRoutes } from './routes/files.js';
+import { registerPromptRoutes } from './routes/prompts.js';
 import { readProject } from '../storage/project.js';
 import { startWatcher } from './watcher.js';
 import path from 'node:path';
@@ -36,6 +37,7 @@ async function main(): Promise<void> {
   state.supervisor.on('runtime-spawned', (s) => hub.broadcast({ type: 'runtime-spawned', payload: s }));
   state.supervisor.on('runtime-status', (s) => hub.broadcast({ type: 'runtime-status', payload: s }));
   state.supervisor.on('runtime-stdio', (s) => hub.broadcast({ type: 'runtime-stdio', payload: s }));
+  state.supervisor.on('runtime-message', (s) => hub.broadcast({ type: 'runtime-message', payload: s }));
 
   const app = Fastify({ logger: { level: 'warn' } });
   await app.register(websocket);
@@ -46,6 +48,7 @@ async function main(): Promise<void> {
   await registerTicketRoutes(app, { state, hub });
   await registerRuntimeRoutes(app, { state, hub });
   await registerFileRoutes(app, { state, hub });
+  await registerPromptRoutes(app, { state, hub });
   await registerWs(app, state, hub);
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));

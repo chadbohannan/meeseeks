@@ -1,7 +1,7 @@
 import path from 'node:path';
 import os from 'node:os';
 import { execSync } from 'node:child_process';
-import type { SpawnContext, SpawnSpec } from './types.js';
+import type { SpawnContext, SpawnSpec, PromptSpawnContext } from './types.js';
 
 function resolveHarnessBin(): string {
   try {
@@ -92,5 +92,50 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   };
   if (ctx.board?.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.board.runtime.provider;
 
+  return { argv, env, cwd: ctx.boardPath, preamble, settingsFile };
+}
+
+export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
+  const argv: string[] = [HARNESS_BIN];
+  argv.push('--print');
+  argv.push('--output-format', 'stream-json');
+  argv.push('--verbose');
+
+  const model = ctx.model ?? ctx.board?.runtime?.model;
+  if (model) argv.push('--model', model);
+
+  for (const p of ctx.permissions?.allowedPaths ?? []) {
+    argv.push('--add-dir', resolveAllowedPath(p, ctx.boardPath));
+  }
+
+  const allowedTools = ctx.permissions?.allowedTools ?? [];
+  const deniedTools = ctx.permissions?.deniedTools ?? [];
+  const settingsObj: Record<string, unknown> = {};
+  if (allowedTools.length > 0 || deniedTools.length > 0) {
+    settingsObj.permissions = { allow: allowedTools, deny: deniedTools };
+  }
+  let settingsFile: SpawnSpec['settingsFile'] = null;
+  if (Object.keys(settingsObj).length > 0) {
+    const filePath = path.join(ctx.boardPath, '.meeseeks', `prompt-${ctx.runtimeId}.json`);
+    settingsFile = { path: filePath, body: JSON.stringify(settingsObj, null, 2) };
+    argv.push('--settings', filePath);
+  }
+
+  for (const a of ctx.board?.runtime?.args ?? []) argv.push(a);
+
+  // Pass the prompt body as the positional argv argument (standard --print invocation).
+  argv.push(ctx.promptBody);
+
+  const inherited = { ...(process.env as Record<string, string>) };
+  delete inherited.FORCE_COLOR;
+  const env: Record<string, string> = {
+    ...inherited,
+    MEESEEKS_BOARD_PATH: ctx.boardPath,
+    MEESEEKS_PROMPT_NAME: ctx.promptRef.name,
+    ...(ctx.board?.runtime?.env ?? {}),
+  };
+  if (ctx.board?.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.board.runtime.provider;
+
+  const preamble = `Prompt: ${ctx.promptRef.name}`;
   return { argv, env, cwd: ctx.boardPath, preamble, settingsFile };
 }

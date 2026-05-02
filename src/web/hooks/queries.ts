@@ -244,3 +244,47 @@ export function useTerminateRuntime() {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["runtimes"] }); },
   });
 }
+
+export const usePrompts = (boardId: string | undefined) => useQuery({
+  queryKey: ['prompts', boardId],
+  queryFn: () => api.listPrompts(boardId!),
+  enabled: !!boardId,
+});
+export const usePrompt = (boardId: string | undefined, name: string | undefined) => useQuery({
+  queryKey: ['prompt', boardId, name],
+  queryFn: () => api.getPrompt(boardId!, name!),
+  enabled: !!boardId && !!name,
+});
+export function usePutPrompt(boardId: string, name: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: string) => api.putPrompt(boardId, name, { body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['prompts', boardId] });
+      // Don't invalidate ['prompt', boardId, name] — we just wrote it, and a refetch
+      // races with setDirty(false) causing the editor body to reset mid-typing.
+    },
+  });
+}
+export function useDeletePrompt(boardId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api.deletePrompt(boardId, name),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['prompts', boardId] }); },
+  });
+}
+export function useRunPrompt(boardId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ name, model }: { name: string; model?: string }) => api.runPrompt(boardId, name, model),
+    onSuccess: (_, { name }) => {
+      qc.invalidateQueries({ queryKey: ['runtimes'] });
+      qc.invalidateQueries({ queryKey: ['prompt-logs', boardId, name] });
+    },
+  });
+}
+export const usePromptLogs = (boardId: string | undefined, name: string | undefined) => useQuery({
+  queryKey: ['prompt-logs', boardId, name],
+  queryFn: () => api.getPromptLogs(boardId!, name!),
+  enabled: !!boardId && !!name,
+});

@@ -66,7 +66,7 @@ export async function createTicket(
   boardPath: string,
   laneName: string,
   input: { title: string; state: string; body?: string },
-): Promise<TicketSummary> {
+): Promise<TicketDetail> {
   if (!input.title) throw new InvalidInputError('title required');
   const lp = lanePath(boardPath, laneName);
   const states = await readStates(lp);
@@ -93,6 +93,7 @@ export async function createTicket(
     created: now,
     updated: now,
     orphaned: false,
+    absPath: target,
   };
 }
 
@@ -150,6 +151,7 @@ export async function readTicket(
     orphaned,
     body,
     color: fm.color,
+    absPath: found.abs,
   };
 }
 
@@ -158,7 +160,7 @@ export async function updateTicket(
   laneName: string,
   filename: string,
   patch: { title?: string; body?: string; state?: string; color?: string },
-): Promise<TicketSummary> {
+): Promise<TicketDetail> {
   const lp = lanePath(boardPath, laneName);
   const found = await findTicketFile(lp, filename);
   if (!found) throw new NotFoundError(`ticket not found: ${filename}`);
@@ -194,6 +196,7 @@ export async function updateTicket(
     created: newFm.created,
     updated: newFm.updated,
     orphaned: false,
+    absPath: newAbs,
   };
 }
 

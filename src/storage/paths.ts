@@ -40,6 +40,17 @@ function formatStamp(d: Date): string {
          `T${pad(d.getUTCHours())}${pad(d.getUTCMinutes())}`;
 }
 
+/** Sanitize a free-form prompt name into a `<slug>.md` filename. */
+export function buildPromptFilename(name: string): string {
+  const trimmed = name.trim().replace(/\.md$/i, '');
+  const slug = trimmed
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'untitled';
+  return `${slug}.md`;
+}
+
 export function appendCollisionSuffix(filename: string, suffix: string): string {
   const ext = path.extname(filename);
   const base = filename.slice(0, -ext.length);

@@ -23,6 +23,23 @@ export interface WriteFileResponse { ok: boolean; path: string }
 export interface PatchFileRequest { content: string }
 export interface PatchFileResponse { ok: boolean }
 
+// Prompts
+export interface PromptSummary { name: string; size: number; modified: string }
+export interface PromptDetail { name: string; body: string }
+export interface ListPromptsResponse { prompts: PromptSummary[] }
+export interface GetPromptResponse { prompt: PromptDetail }
+export interface PutPromptRequest { body: string }
+export interface RunPromptRequest { model?: string }
+export interface PromptRunLog {
+  runtimeId: string;
+  startedAt: string;
+  exitedAt: string;
+  status: 'exited' | 'errored';
+  errorMessage?: string;
+  output: string;
+}
+export interface ListPromptLogsResponse { logs: PromptRunLog[] }
+
 // Errors
 export interface ApiErrorBody {
   error: { code: string; message: string };

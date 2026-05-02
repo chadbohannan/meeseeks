@@ -62,9 +62,10 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
       const processDocContent = await readFile(processDocPath, 'utf8').catch(() => null);
 
       const existing = state.supervisor.list().find(r =>
-        r.ticketRef.boardId === boardId &&
-        r.ticketRef.laneName === laneName &&
-        r.ticketRef.filename === filename &&
+        r.kind === 'ticket' &&
+        r.ticketRef?.boardId === boardId &&
+        r.ticketRef?.laneName === laneName &&
+        r.ticketRef?.filename === filename &&
         r.status !== 'exited' && r.status !== 'errored');
       if (existing) return { runtime: existing };
 

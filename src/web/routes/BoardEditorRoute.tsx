@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { SkillsEditor } from '../components/SkillsEditor.js';
 import { BinEditor } from '../components/BinEditor.js';
+import { PromptsEditor } from '../components/PromptsEditor.js';
 
 const NEW_LANE_KEY = '__new__';
 
@@ -20,8 +21,9 @@ export function BoardEditorRoute() {
   const board = useBoard(boardId);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedLane = searchParams.get('lane');
-  const hasSelection = searchParams.get('context') === 'true' || searchParams.get('skills') === 'true' || searchParams.get('bin') === 'true' || !!selectedLane;
+  const hasSelection = searchParams.get('context') === 'true' || searchParams.get('skills') === 'true' || searchParams.get('bin') === 'true' || searchParams.get('prompts') === 'true' || !!selectedLane;
   const isContext = !hasSelection || searchParams.get('context') === 'true';
+  const isPrompts = searchParams.get('prompts') === 'true';
   const [editingName, setEditingName] = useState(false);
   const [boardName, setBoardName] = useState('');
   const patchBoard = usePatchBoard(boardId!);
@@ -70,6 +72,14 @@ export function BoardEditorRoute() {
         <div className="w-44 shrink-0 border-r border-slate-800 overflow-y-auto">
           <div
             className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
+              isPrompts ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-300'
+            }`}
+            onClick={() => setSearchParams({ prompts: 'true' })}
+          >
+            <span className="text-sm font-medium">One-Shot Prompts</span>
+          </div>
+          <div
+            className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
               isContext ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-300'
             }`}
             onClick={() => setSearchParams({ context: 'true' })}
@@ -111,7 +121,9 @@ export function BoardEditorRoute() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {isContext ? (
+          {isPrompts ? (
+            <PromptsEditor boardId={boardId} />
+          ) : isContext ? (
             <ContextEditor boardId={boardId} />
           ) : searchParams.get('skills') === 'true' ? (
             <SkillsEditor boardId={boardId} />

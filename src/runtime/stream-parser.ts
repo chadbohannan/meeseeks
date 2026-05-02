@@ -4,6 +4,7 @@ export type ParseEvent =
   | { kind: 'init'; raw: unknown }
   | { kind: 'turn-start'; raw: unknown }
   | { kind: 'turn-end'; raw: unknown }
+  | { kind: 'message-text'; text: string; raw: unknown }
   | { kind: 'parse-error'; line: string; error: string };
 
 export class StreamParser extends EventEmitter {
@@ -24,7 +25,7 @@ export class StreamParser extends EventEmitter {
         this.emit('event', { kind: 'parse-error', line: trimmed, error: String(err) } satisfies ParseEvent);
         continue;
       }
-      const obj = parsed as { type?: string; subtype?: string };
+      const obj = parsed as { type?: string; subtype?: string; message?: { content?: Array<{ type?: string; text?: string }> }; result?: string };
       if (obj.type === 'system' && obj.subtype === 'init') {
         this.emit('event', { kind: 'init', raw: parsed } satisfies ParseEvent);
       } else if (obj.type === 'assistant' || obj.type === 'user') {
@@ -32,7 +33,17 @@ export class StreamParser extends EventEmitter {
           this.inTurn = true;
           this.emit('event', { kind: 'turn-start', raw: parsed } satisfies ParseEvent);
         }
+        if (obj.type === 'assistant' && Array.isArray(obj.message?.content)) {
+          const text = obj.message!.content!
+            .filter(b => b?.type === 'text' && typeof b.text === 'string')
+            .map(b => b.text!)
+            .join('');
+          if (text) this.emit('event', { kind: 'message-text', text, raw: parsed } satisfies ParseEvent);
+        }
       } else if (obj.type === 'result') {
+        if (typeof obj.result === 'string' && obj.result) {
+          this.emit('event', { kind: 'message-text', text: obj.result, raw: parsed } satisfies ParseEvent);
+        }
         this.inTurn = false;
         this.emit('event', { kind: 'turn-end', raw: parsed } satisfies ParseEvent);
       }

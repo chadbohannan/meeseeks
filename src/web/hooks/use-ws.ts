@@ -32,6 +32,10 @@ export function useWsInvalidation(): void {
           qc.invalidateQueries({ queryKey: ['tickets', event.payload.boardId, event.payload.laneName] });
           qc.invalidateQueries({ queryKey: ['ticket', event.payload.boardId, event.payload.laneName, event.payload.filename] });
           return;
+        case 'prompts-changed':
+          qc.invalidateQueries({ queryKey: ['prompts', event.payload.boardId] });
+          qc.invalidateQueries({ queryKey: ['prompt', event.payload.boardId, event.payload.name] });
+          return;
       }
     });
     return unsubscribe;

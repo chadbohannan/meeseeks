@@ -72,7 +72,7 @@ export function BinEditor({ boardId }: BinEditorProps) {
 
   return (
     <div className="flex h-full bg-slate-900">
-      <div className="w-64 border-r border-slate-700 flex flex-col">
+      <div className="w-44 border-r border-slate-700 flex flex-col">
         <div className="p-4 border-b border-slate-700">
           <button
             onClick={handleCreateClick}

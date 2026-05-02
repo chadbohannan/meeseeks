@@ -6,6 +6,7 @@ import type {
   ProjectMeta, BoardSummary, BoardDetail, LaneDetail, TicketDetail,
   ListFilesResponse, ReadFileResponse, WriteFileRequest, WriteFileResponse,
   PatchFileRequest, PatchFileResponse, FileNode,
+  ListPromptsResponse, GetPromptResponse, PutPromptRequest, ListPromptLogsResponse,
 } from '@shared/api.js';
 import type { ListRuntimesResponse, SpawnRuntimeResponse, RuntimeSummary } from '@shared/runtime.js';
 
@@ -88,4 +89,18 @@ export const api = {
     request<PatchFileResponse>('PATCH', `/api/boards/${enc(boardId)}/files/${enc(namespace)}/${enc(filepath)}`, req),
   deleteFile: (boardId: string, namespace: string, filepath: string) =>
     request<{ ok: boolean }>('DELETE', `/api/boards/${enc(boardId)}/files/${enc(namespace)}/${enc(filepath)}`),
+
+  // Prompts
+  listPrompts: (boardId: string) =>
+    request<ListPromptsResponse>('GET', `/api/boards/${enc(boardId)}/prompts`),
+  getPrompt: (boardId: string, name: string) =>
+    request<GetPromptResponse>('GET', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`),
+  putPrompt: (boardId: string, name: string, req: PutPromptRequest) =>
+    request<GetPromptResponse>('PUT', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`, req),
+  deletePrompt: (boardId: string, name: string) =>
+    request<{ ok: boolean }>('DELETE', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`),
+  runPrompt: (boardId: string, name: string, model?: string) =>
+    request<SpawnRuntimeResponse>('POST', `/api/boards/${enc(boardId)}/prompts/${enc(name)}/run`, model ? { model } : undefined),
+  getPromptLogs: (boardId: string, name: string) =>
+    request<ListPromptLogsResponse>('GET', `/api/boards/${enc(boardId)}/prompts/${enc(name)}/logs`),
 };

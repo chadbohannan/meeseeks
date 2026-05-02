@@ -4,9 +4,10 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { RingBuffer } from './ring-buffer.js';
 import { StreamParser, type ParseEvent } from './stream-parser.js';
-import { buildSpawnSpec } from './claude-code.js';
-import type { RuntimeStatus, RuntimeSummary, TicketRef } from '../shared/runtime.js';
+import { buildSpawnSpec, buildPromptSpawnSpec } from './claude-code.js';
+import type { RuntimeStatus, RuntimeSummary, TicketRef, PromptRef } from '../shared/runtime.js';
 import type { BoardRuntimeConfig, PermissionsConfig } from './types.js';
+import { spawn as childSpawn } from 'node:child_process';
 
 export interface PtyLike {
   pid: number;
@@ -34,6 +35,16 @@ export interface SpawnInput {
   permissions: PermissionsConfig | null;
   model?: string;
   adapterArgsOverride?: string[];
+}
+
+export interface PromptSpawnInput {
+  runtimeId: string;
+  boardPath: string;
+  promptRef: PromptRef;
+  promptBody: string;
+  board: BoardRuntimeConfig | null;
+  permissions: PermissionsConfig | null;
+  model?: string;
 }
 
 interface Runtime {
@@ -131,6 +142,7 @@ export class RuntimeSupervisor extends EventEmitter {
       const errorMessage = err instanceof Error ? err.message : String(err);
       const summary: RuntimeSummary = {
         runtimeId: input.runtimeId,
+        kind: 'ticket',
         ticketRef: input.ticketRef,
         pid: null,
         status: 'errored',
@@ -146,6 +158,7 @@ export class RuntimeSupervisor extends EventEmitter {
     const parser = new StreamParser();
     const summary: RuntimeSummary = {
       runtimeId: input.runtimeId,
+      kind: 'ticket',
       ticketRef: input.ticketRef,
       pid: pty.pid,
       status: 'starting',
@@ -186,6 +199,98 @@ export class RuntimeSupervisor extends EventEmitter {
 
     pty.onExit(({ exitCode }) => {
       if (rt.startingTimer) { clearTimeout(rt.startingTimer); rt.startingTimer = null; }
+      const wasTerminating = rt.summary.status === 'terminating';
+      rt.summary.exitCode = exitCode;
+      const status = wasTerminating || exitCode === 0 ? 'exited' : 'errored';
+      const errorMessage = status === 'errored' ? `Process exited with code ${exitCode}` : undefined;
+      this.setStatus(rt, status, { exitCode, errorMessage });
+      void this.cleanupSettings(rt);
+      this.runtimes.delete(input.runtimeId);
+    });
+
+    return { ...summary };
+  }
+
+  async spawnPrompt(input: PromptSpawnInput): Promise<RuntimeSummary> {
+    if (this.runtimes.has(input.runtimeId)) {
+      return { ...this.runtimes.get(input.runtimeId)!.summary };
+    }
+    const spec = buildPromptSpawnSpec(input);
+    if (spec.settingsFile) {
+      await fs.mkdir(path.dirname(spec.settingsFile.path), { recursive: true });
+      await fs.writeFile(spec.settingsFile.path, spec.settingsFile.body, 'utf8');
+    }
+    const [file, ...args] = spec.argv;
+    let child: ReturnType<typeof childSpawn>;
+    try {
+      child = childSpawn(file!, args, { cwd: spec.cwd, env: spec.env, stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      const summary: RuntimeSummary = {
+        runtimeId: input.runtimeId,
+        kind: 'prompt',
+        promptRef: input.promptRef,
+        pid: null,
+        status: 'errored',
+        startedAt: new Date().toISOString(),
+        errorMessage,
+        preamble: spec.preamble,
+      };
+      this.emit('runtime-status', { runtimeId: input.runtimeId, status: 'errored', errorMessage });
+      return summary;
+    }
+
+    const ring = new RingBuffer(this.ringBytes);
+    const parser = new StreamParser();
+    const summary: RuntimeSummary = {
+      runtimeId: input.runtimeId,
+      kind: 'prompt',
+      promptRef: input.promptRef,
+      pid: child.pid ?? null,
+      status: 'starting',
+      startedAt: new Date().toISOString(),
+      preamble: spec.preamble,
+    };
+    const ptyShim: PtyLike = {
+      pid: child.pid ?? 0,
+      write: () => {},
+      resize: () => {},
+      kill: (sig) => { try { child.kill(sig as NodeJS.Signals | undefined); } catch { /* ignore */ } },
+      onData: () => ({ dispose: () => {} }),
+      onExit: (handler) => {
+        const fn = (code: number | null) => handler({ exitCode: code ?? 0 });
+        child.on('exit', fn);
+        return { dispose: () => { child.removeListener('exit', fn); } };
+      },
+    };
+    const rt: Runtime = { summary, pty: ptyShim, ring, parser, settingsPath: spec.settingsFile?.path ?? null, startingTimer: null, pendingResize: null };
+    this.runtimes.set(input.runtimeId, rt);
+    if (spec.settingsFile) {
+      console.error(`[meeseeks] settings file: ${spec.settingsFile.path}`);
+    }
+    this.emit('runtime-spawned', { ...summary });
+
+    const onChunk = (b: Buffer) => {
+      ring.append(b);
+      this.emit('runtime-stdio', { runtimeId: input.runtimeId, data: b.toString('base64') });
+      parser.feed(b);
+    };
+    child.stdout?.on('data', onChunk);
+    child.stderr?.on('data', onChunk);
+
+    parser.on('event', (e: ParseEvent) => {
+      if (e.kind === 'init' && rt.summary.status === 'starting') {
+        this.setStatus(rt, 'running');
+      } else if (e.kind === 'turn-start' && rt.summary.status === 'starting') {
+        this.setStatus(rt, 'running');
+      } else if (e.kind === 'message-text') {
+        rt.summary.lastMessage = e.text;
+        this.emit('runtime-message', { runtimeId: input.runtimeId, text: e.text });
+      }
+    });
+
+    child.on('exit', (code) => {
+      const exitCode = code ?? 0;
       const wasTerminating = rt.summary.status === 'terminating';
       rt.summary.exitCode = exitCode;
       const status = wasTerminating || exitCode === 0 ? 'exited' : 'errored';

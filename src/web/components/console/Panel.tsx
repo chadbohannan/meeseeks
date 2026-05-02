@@ -50,7 +50,7 @@ export function Panel({ runtimeId }: { runtimeId: string }) {
       >
         <div className="flex items-center gap-2">
           <RuntimeStatusDot status={runtime.status} />
-          <span className="font-mono text-xs">{runtime.ticketRef.filename}</span>
+          <span className="font-mono text-xs">{runtime.ticketRef?.filename ?? runtime.promptRef?.name}</span>
         </div>
         <div className="flex items-center gap-2">
           <button className="text-xs text-slate-300 hover:text-white" onClick={() => setMinimized(runtimeId, true)}>—</button>

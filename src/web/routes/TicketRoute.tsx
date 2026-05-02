@@ -19,7 +19,8 @@ export function TicketRoute() {
   const term = useTerminateRuntime();
   const runtime = useRuntimesStore((s) =>
     Object.values(s.byId).find(r =>
-      r.ticketRef.boardId === boardId && r.ticketRef.laneName === laneName && r.ticketRef.filename === filename));
+      r.kind === 'ticket' &&
+      r.ticketRef?.boardId === boardId && r.ticketRef?.laneName === laneName && r.ticketRef?.filename === filename));
 
   const activeRuntime =
     runtime && !['exited', 'errored', 'terminating'].includes(runtime.status)
@@ -127,57 +128,6 @@ export function TicketRoute() {
         onBlur={saveIfDirty}
         onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 's' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur(); } }}
       />
-      <div className="flex items-center gap-2 mb-3 shrink-0">
-        {activeRuntime ? (
-          <>
-            <RuntimeStatusDot status={activeRuntime.status} />
-            <span className="text-sm">{activeRuntime.status}</span>
-            <button
-              className="rounded bg-red-700 px-3 py-1 text-sm ml-auto"
-              onClick={async () => {
-                try { await term.mutateAsync(activeRuntime.runtimeId); }
-                catch (err) { toast.error((err as Error).message); }
-              }}
-            >Release</button>
-          </>
-        ) : (
-          <>
-            {runtime && (runtime.status === 'exited' || runtime.status === 'errored') && (
-              <div className="flex items-center gap-2">
-                <RuntimeStatusDot status={runtime.status} />
-                <span className="text-sm text-slate-400">
-                  {runtime.status === 'errored'
-                    ? runtime.errorMessage ?? 'Agent errored'
-                    : `Agent exited (code ${runtime.exitCode ?? '?'})`}
-                </span>
-              </div>
-            )}
-            <div className="flex items-center gap-1 ml-auto">
-              <select
-                className="bg-slate-800 rounded px-2 py-1 text-xs text-slate-300"
-                value={model}
-                onChange={(e) => setModel(e.target.value)}
-              >
-                <option value="claude-sonnet-4-6">Sonnet 4.6</option>
-                <option value="claude-opus-4-7">Opus 4.7</option>
-                <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
-              </select>
-              <button
-                className="rounded bg-emerald-700 px-3 py-1 text-sm"
-                onClick={async () => {
-                  try {
-                    const res = await spawn.mutateAsync({ boardId, laneName, filename, model });
-                    if (res.runtime.status === 'errored') {
-                      toast.error(res.runtime.errorMessage ?? 'Failed to start agent');
-                    }
-                  } catch (err) { toast.error((err as Error).message); }
-                }}
-              >Start</button>
-            </div>
-          </>
-        )}
-      </div>
-
       <MarkdownEditor
         value={body}
         onChange={debouncedSaveBody}
@@ -211,52 +161,99 @@ export function TicketRoute() {
           />
         </div>
       </div>
-      <div className="mt-2 text-xs text-slate-500 font-mono shrink-0">{filename}</div>
+      <div className="mt-2 text-xs text-slate-500 font-mono shrink-0 flex items-center gap-2">
+        <span>{filename}</span>
+        {ticket.data.ticket.absPath && (
+          <button
+            className="text-slate-500 hover:text-slate-300"
+            title={`Copy path: ${ticket.data.ticket.absPath}`}
+            onClick={async () => {
+              try {
+                await navigator.clipboard.writeText(ticket.data!.ticket.absPath);
+                toast.success('Path copied');
+              } catch (err) { toast.error((err as Error).message); }
+            }}
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+            </svg>
+          </button>
+        )}
+      </div>
     </div>
   );
 
   const consolePane = (
     <div className="flex flex-col h-full bg-black" style={{ border: `2px solid ${accent}` }}>
-      {runtime ? (
-        <>
-          <div className="flex items-center gap-2 px-3 py-1 bg-slate-800 text-sm shrink-0">
-            <RuntimeStatusDot status={runtime.status} />
-            <span className="font-mono text-xs">{runtime.ticketRef.filename}</span>
-            {(runtime.status === 'exited' || runtime.status === 'errored' || runtime.status === 'terminating') && (
-              <span className="ml-auto text-xs text-slate-500">session ended</span>
-            )}
-          </div>
-          <div className="flex gap-1 px-2 pt-1 bg-slate-900 shrink-0">
+      <div className="flex items-center gap-1 px-2 pt-1 bg-slate-900 shrink-0">
+        <button
+          className={`px-3 py-1 text-xs rounded-t inline-flex items-center gap-2 ${tab === 'console' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
+          onClick={() => setTab('console')}
+        >
+          {runtime && <RuntimeStatusDot status={runtime.status} />}
+          <span>Console</span>
+        </button>
+        <button
+          className={`px-3 py-1 text-xs rounded-t ${tab === 'context' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
+          onClick={() => setTab('context')}
+        >Context</button>
+        <div className="ml-auto flex items-center gap-2">
+          {activeRuntime ? (
             <button
-              className={`px-3 py-1 text-xs rounded-t ${tab === 'console' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
-              onClick={() => setTab('console')}
-            >Console</button>
-            <button
-              className={`px-3 py-1 text-xs rounded-t ${tab === 'context' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
-              onClick={() => setTab('context')}
-            >Context</button>
-          </div>
-          <div className="flex-1 min-h-0">
-            {tab === 'console' ? (
-              <div className="h-full p-1">
-                <XtermHost runtimeId={runtime.runtimeId} />
-              </div>
-            ) : (
-              <div className="h-full overflow-y-auto p-4">
-                {runtime.preamble ? (
-                  <pre className="text-slate-300 text-xs whitespace-pre-wrap font-mono">{runtime.preamble}</pre>
-                ) : (
-                  <span className="text-slate-500 text-sm">No context available.</span>
-                )}
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        <div className="flex items-center justify-center h-full text-slate-500 text-sm">
-          No agent running. Spawn one to see the console here.
+              className="rounded bg-red-700 px-3 py-1 text-xs"
+              onClick={async () => {
+                try { await term.mutateAsync(activeRuntime.runtimeId); }
+                catch (err) { toast.error((err as Error).message); }
+              }}
+            >Release</button>
+          ) : (
+            <>
+              <select
+                className="bg-slate-800 rounded px-2 py-1 text-xs text-slate-300"
+                value={model}
+                onChange={(e) => setModel(e.target.value)}
+              >
+                <option value="claude-sonnet-4-6">Sonnet 4.6</option>
+                <option value="claude-opus-4-7">Opus 4.7</option>
+                <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+              </select>
+              <button
+                className="rounded bg-emerald-700 px-3 py-1 text-xs"
+                onClick={async () => {
+                  try {
+                    const res = await spawn.mutateAsync({ boardId, laneName, filename, model });
+                    if (res.runtime.status === 'errored') {
+                      toast.error(res.runtime.errorMessage ?? 'Failed to start agent');
+                    }
+                  } catch (err) { toast.error((err as Error).message); }
+                }}
+              >Start</button>
+            </>
+          )}
         </div>
-      )}
+      </div>
+      <div className="flex-1 min-h-0">
+        {tab === 'console' ? (
+          runtime ? (
+            <div className="h-full p-1">
+              <XtermHost runtimeId={runtime.runtimeId} />
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full text-slate-500 text-sm">
+              No agent running.
+            </div>
+          )
+        ) : (
+          <div className="h-full overflow-y-auto p-4">
+            {runtime?.preamble ? (
+              <pre className="text-slate-300 text-xs whitespace-pre-wrap font-mono">{runtime.preamble}</pre>
+            ) : (
+              <span className="text-slate-500 text-sm">No context available.</span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 

@@ -121,7 +121,7 @@ function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane
 
   const runtimes = useRuntimesStore((s) => s.byId);
   const laneRuntimes = Object.values(runtimes).filter(
-    (r) => r.ticketRef.boardId === boardId && r.ticketRef.laneName === lane.laneName && isRuntimeActive(r),
+    (r) => r.kind === 'ticket' && r.ticketRef?.boardId === boardId && r.ticketRef?.laneName === lane.laneName && isRuntimeActive(r),
   );
   const hasActiveRuntime = laneRuntimes.length > 0;
 
@@ -161,7 +161,8 @@ function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane
             const count = lane.ticketCounts[st.dir] ?? 0;
             const isStateActive = active.stateDir === st.dir && active.laneName === lane.laneName;
             const stateRuntimes = laneRuntimes.filter((r) => {
-              const ticket = ticketsByFilename.get(r.ticketRef.filename);
+              if (!r.ticketRef) return false;
+              const ticket = ticketsByFilename.get(r.ticketRef!.filename);
               return ticket?.state === st.dir;
             });
             return (
@@ -178,8 +179,8 @@ function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane
                   <span className="text-slate-500 tabular-nums">{count}</span>
                 </div>
                 {stateRuntimes.map((r) => {
-                  const ticket = ticketsByFilename.get(r.ticketRef.filename);
-                  const isTicketActive = active.filename === r.ticketRef.filename && active.laneName === lane.laneName;
+                  const ticket = ticketsByFilename.get(r.ticketRef!.filename);
+                  const isTicketActive = active.filename === r.ticketRef!.filename && active.laneName === lane.laneName;
                   return (
                     <div
                       key={r.runtimeId}
@@ -188,10 +189,10 @@ function LaneNode({ boardId, lane, expanded, onToggle }: { boardId: string; lane
                       }`}
                       style={{ border: `2px solid ${ticket?.color || "#6b7280"}` }}
                       onClick={() =>
-                        navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}/tickets/${encodeURIComponent(r.ticketRef.filename)}`)
+                        navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}/tickets/${encodeURIComponent(r.ticketRef!.filename)}`)
                       }
                     >
-                      <span className="truncate whitespace-nowrap">{ticket?.title ?? r.ticketRef.filename}</span>
+                      <span className="truncate whitespace-nowrap">{ticket?.title ?? r.ticketRef!.filename}</span>
                       <RuntimeStatusDot status={r.status} className="shrink-0 ml-auto h-3 w-3" />
                     </div>
                   );

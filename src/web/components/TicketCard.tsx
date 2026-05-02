@@ -19,9 +19,10 @@ export function TicketCard({ boardId, laneName, ticket, draggable, onDragStart, 
   const [expanded, setExpanded] = useState(false);
   const runtime = useRuntimesStore((s) =>
     Object.values(s.byId).find(r =>
-      r.ticketRef.boardId === boardId &&
-      r.ticketRef.laneName === laneName &&
-      r.ticketRef.filename === ticket.filename));
+      r.kind === 'ticket' &&
+      r.ticketRef?.boardId === boardId &&
+      r.ticketRef?.laneName === laneName &&
+      r.ticketRef?.filename === ticket.filename));
   return (
     <Link
       to={`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}/tickets/${encodeURIComponent(ticket.filename)}`}

@@ -50,7 +50,9 @@ export interface TicketSummary {
   orphaned: boolean;
 }
 
-export type TicketDetail = TicketSummary;
+export interface TicketDetail extends TicketSummary {
+  absPath: string;
+}
 
 export interface FileNode {
   name: string;
