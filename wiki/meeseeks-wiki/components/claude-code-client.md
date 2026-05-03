@@ -116,6 +116,18 @@ Every spawned runtime gets a generated settings file at `<boardPath>/.meeseeks/s
 
 The `permissions` key is omitted when `allowedTools` and `deniedTools` are both empty.
 
+### Permission path syntax
+
+Paths inside `allow` and `deny` rules use a distinct resolution scheme that differs from sandbox filesystem paths. The prefix determines how the path is resolved:
+
+| Prefix | Resolution |
+|--------|-----------|
+| `//path` | Absolute — from filesystem root (e.g. `Read(//home/chad/src/**)`) |
+| `/path` or `./path` | Project-relative — resolved from the settings file's project root |
+| `~/path` | Home directory — expands `~` to `$HOME` |
+
+This means a settings file at `boards/meeseeks-board/.claude/settings.json` can grant cross-tree read access with an absolute `//`-prefixed path, or use `~/workspace/meeseeks/**` as a shorter equivalent to a full absolute path. Project-relative `/` paths are convenient for deny rules scoped to the current project (e.g. `Read(./.env)`). Note that sandbox filesystem paths (`sandbox.allow`, `sandbox.deny`) use standard POSIX conventions — `/tmp` is absolute there — which is the opposite of permission rule syntax where a single `/` is project-relative.
+
 ## Sandboxing and Extended Filesystem Access
 
 Claude Code supports two mechanisms for controlling filesystem access beyond basic allow/deny rules: OS-level sandboxing and `additionalDirectories`.
@@ -234,3 +246,4 @@ The earlier design assertion that both conditions should collapse into a single 
 | 2026-04-28 | `claude -h` — full flag reference |
 | 2026-04-29 | Web documentation on soft-sandboxing Claude Code instances in orchestrators |
 | 2026-04-30 | [Claude Context](../sources/Claude%20Context.md) — `.claude/` directory structure, instruction bootstrapping, and best practices |
+| 2026-05-03 | https://code.claude.com/docs/en/settings — permission path resolution: `//` absolute, `/` project-relative, `~` home; contrast with sandbox path conventions |
