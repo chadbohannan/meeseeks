@@ -183,4 +183,4 @@ The permission mode, additional directories, and sandboxing features are documen
 | Ingest Date | Source |
 | ----------- | ------ |
 | 2026-04-29 | Web documentation on soft-sandboxing Claude Code instances in orchestrators |
-| 2026-04-30 | [Claude Context](../../sources/Claude%20Context.md) — instruction bootstrapping and active reloading behaviour |
+| 2026-04-30 | [Claude Context](../sources/Claude%20Context.md) — instruction bootstrapping and active reloading behaviour |

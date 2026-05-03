@@ -1,6 +1,6 @@
 # Runtime Supervisor
 
-The runtime supervisor manages isolated Claude Code instances that execute within [Tickets](project-model.md). Each runtime is tied to a single ticket and provides a controlled execution environment with stdio transport and permission enforcement.
+The runtime supervisor manages isolated Claude Code instances. Each runtime declares a `kind`: `ticket` runtimes are bound to a single [ticket](project-model.md) and run interactively in a PTY; `prompt` runtimes are short-lived non-interactive `--print` runs of a stored [one-shot prompt](one-shot-prompts.md). Both kinds share the supervisor's stdio transport, ring buffer, stream-json parser, and termination semantics.
 
 ## Lifecycle States
 
@@ -8,11 +8,9 @@ Runtimes transition through defined states: `starting` (spawned but not yet init
 
 ## Spawning
 
-When a runtime is started for a ticket, the supervisor:
-1. Resolves configuration files (project.yaml, board.yaml, permissions.yaml)
-2. Builds a harness with appropriate flags (including `--append-system-prompt` to inject ticket context as a system-prompt addition)
-3. Spawns a pseudo-terminal (PTY)
-4. Begins streaming stdio via WebSocket
+For a ticket runtime, the supervisor resolves configuration files (project.yaml, board.yaml, permissions.yaml), builds a harness invocation with `--append-system-prompt` injecting the ticket reference and any process doc, spawns a pseudo-terminal via `node-pty`, and begins streaming stdio over the WebSocket.
+
+For a prompt runtime, the supervisor reads the prompt body from `<board>/prompts/<name>.md`, builds a `--print --output-format stream-json` invocation that passes the body as a positional argv argument, spawns a child process with piped stdio (no PTY), and accumulates `message-text` events into a JSONL run log under `<board>/prompts/.logs/<slug>/runs.jsonl`. See [One-Shot Prompts](one-shot-prompts.md) for details.
 
 ## Stdio Transport
 

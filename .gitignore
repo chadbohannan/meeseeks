@@ -9,3 +9,4 @@ coverage/
 .meeseeks/
 boards/
 project.yaml
+settings.json

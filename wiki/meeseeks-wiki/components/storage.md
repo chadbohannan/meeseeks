@@ -18,7 +18,9 @@ Tickets are stored as Markdown files within lane state directories.
 - `src/storage/board.ts` — board creation, `board.yaml` defaults, `DEFAULT_BOARD_YAML` factory
 - `src/storage/lane.ts` — lane CRUD, `lane.yaml` state management, `readLaneStates`, `updateLaneStates`
 - `src/storage/ticket.ts` — ticket creation, frontmatter parsing, state moves, `readStates`
-- `src/storage/paths.ts` — `resolveWithin` for path traversal safety, `slugifyBoardPath`, `buildTicketFilename`
+- `src/storage/paths.ts` — `resolveWithin` for path traversal safety, `slugifyBoardPath`, `buildTicketFilename`, `buildPromptFilename`
+- `src/storage/prompts.ts` — board-scoped one-shot prompt files under `<board>/prompts/*.md` plus an append-only JSONL run log under `<board>/prompts/.logs/<slug>/runs.jsonl`. See [One-Shot Prompts](../concepts/one-shot-prompts.md) for the lifecycle this storage backs.
+- `src/storage/files.ts` — generic namespaced file CRUD used by the [generic file routes](server.md) for `.claude/skills` and `.claude/bin` content. Supports nested file paths under each namespace with traversal safety.
 
 ## Error Handling
 
@@ -45,3 +47,4 @@ The only mandatory files are `project.yaml`, `lane.yaml`, and lane state folders
 | 2026-04-26 | Storage and Server Implementation Plan (`docs/superpowers/plans/2026-04-26-storage-and-server.md`) |
 | 2026-04-26 | First Slice Design §4 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |
 | 2026-04-26 | `src/storage` |
+| 2026-05-03 | `src/storage/prompts.ts`, `src/storage/files.ts`, `src/storage/paths.ts` |

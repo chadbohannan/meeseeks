@@ -205,12 +205,13 @@ The server port is read from `MEESEEKS_PORT` (default `5174`) at adapter build t
 
 Used in non-interactive (`--print`) mode, parsed by `StreamParser` in `src/runtime/stream-parser.ts`.
 
-| Event | `type` | `subtype` | Supervisor transition |
-|-------|--------|-----------|----------------------|
-| Session init | `system` | `init` | `starting → idle` |
-| Assistant message | `assistant` | — | `idle/starting → running` (turn start) |
-| User message | `user` | — | marks turn start if not already in turn |
-| Turn complete | `result` | `success` / `error` | `running → idle` |
+| Event | `type` | `subtype` | Supervisor transition (prompt runtime) |
+|-------|--------|-----------|----------------------------------------|
+| Session init | `system` | `init` | `starting → running` |
+| Turn start | `assistant` or `user` | — | `starting → running` (if still starting) |
+| Message text | `result` | — | captured as `lastMessage`; no state change |
+
+Note: these transitions apply to prompt (non-interactive) runtimes. For ticket (interactive) runtimes, `init` transitions `starting → idle` instead, and `result` is not handled — idle/awaiting-user transitions come exclusively from hooks. Process exit drives the terminal `exited`/`errored` transition in both kinds.
 
 The parser is line-delimited: it splits on `\n`, skips blank lines, and emits `parse-error` for any line that is not valid JSON. In interactive mode, every line is TUI noise, producing a stream of `parse-error` events that the supervisor ignores.
 
@@ -232,4 +233,4 @@ The earlier design assertion that both conditions should collapse into a single 
 | 2026-04-28 | Debugging session: removed stream-json flags from interactive mode, FORCE_COLOR stripping |
 | 2026-04-28 | `claude -h` — full flag reference |
 | 2026-04-29 | Web documentation on soft-sandboxing Claude Code instances in orchestrators |
-| 2026-04-30 | [Claude Context](../../sources/Claude%20Context.md) — `.claude/` directory structure, instruction bootstrapping, and best practices |
+| 2026-04-30 | [Claude Context](../sources/Claude%20Context.md) — `.claude/` directory structure, instruction bootstrapping, and best practices |

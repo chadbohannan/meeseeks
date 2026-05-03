@@ -148,7 +148,7 @@ npm run test:watch
 
 ## tsx watch exclusions
 
-The `dev:server` script uses `tsx watch` with `--exclude 'boards/**' --exclude 'wiki/**'` to prevent runtime artifacts (settings files written to `boards/<board>/.meeseeks/`, wiki edits) from triggering server restarts. The same exclusions appear in the Makefile's `DEV_SERVER` variable. See [Platform Constraints](../concepts/platform-constraints.md#tsx-watch-scope) for why this matters.
+The `dev:server` script uses `tsx watch` with `--exclude 'boards/**' --exclude 'wiki/**' --exclude '**/.claude/**'` to prevent runtime artifacts (settings files written to `boards/<board>/.meeseeks/`, wiki edits, and `.claude/` contents) from triggering server restarts. The same exclusions appear in the Makefile's `DEV_SERVER` variable. See [Platform Constraints](../concepts/platform-constraints.md#tsx-watch-scope) for why this matters.
 
 ## Development Workflow
 
