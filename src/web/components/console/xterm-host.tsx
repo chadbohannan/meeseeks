@@ -49,6 +49,7 @@ export function XtermHost({ runtimeId }: { runtimeId: string }) {
       lastCols = term.cols;
       lastRows = term.rows;
       sendRuntimeResize(runtimeId, term.cols, term.rows);
+      term.focus();
 
       unsub = onRuntimeStdio((id, bytes) => {
         if (id === runtimeId) term!.write(bytes);

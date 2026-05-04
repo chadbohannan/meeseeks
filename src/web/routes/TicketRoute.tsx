@@ -97,7 +97,7 @@ export function TicketRoute() {
   const accent = color ?? '#6b7280';
 
   const ticketEditor = (
-    <div className="p-6 max-w-3xl h-full flex flex-col" style={{ border: `2px solid ${accent}` }}>
+    <div className="p-6 h-full flex flex-col" style={{ border: `2px solid ${accent}` }}>
       <nav className="text-sm text-slate-400 mb-3 shrink-0 flex items-center justify-between">
         <span className="flex items-center gap-1">
           <button className="hover:text-white" onClick={() => navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}`)}>{lane.data?.lane.displayName ?? laneName}</button>
