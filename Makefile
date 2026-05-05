@@ -5,7 +5,8 @@
 SERVER_SRC := $(shell find src/server src/storage src/shared -name '*.ts' 2>/dev/null)
 WEB_SRC    := $(shell find src/web -name '*.ts' -o -name '*.tsx' -o -name '*.css' 2>/dev/null)
 
-DEV_SERVER := npx tsx watch --exclude 'boards/**' --exclude 'wiki/**' src/server/index.ts
+PROJECT    ?=
+DEV_SERVER := npx tsx watch --exclude 'boards/**' --exclude 'wiki/**' src/server/index.ts $(PROJECT)
 DEV_WEB    := npx vite
 
 help: ## Show this help

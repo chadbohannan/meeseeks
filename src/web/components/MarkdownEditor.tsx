@@ -34,8 +34,8 @@ export function MarkdownEditor({ value, onChange, className = '', placeholder }:
         [CrepeFeature.Latex]: false,
         [CrepeFeature.ImageBlock]: false,
         [CrepeFeature.BlockEdit]: false,
-        [CrepeFeature.Toolbar]: false,
-        [CrepeFeature.LinkTooltip]: false,
+        [CrepeFeature.Toolbar]: true,
+        [CrepeFeature.LinkTooltip]: true,
         [CrepeFeature.TopBar]: false,
       },
       featureConfigs: {

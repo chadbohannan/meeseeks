@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useBoards, useBoard, useTickets } from '../hooks/queries.js';
 import { useRuntimesStore } from '../store/runtimes.js';
@@ -6,6 +6,20 @@ import { RuntimeStatusDot } from './RuntimeStatusDot.js';
 import { NewBoardModal } from './NewBoardModal.js';
 import type { BoardSummary, LaneSummary } from '@shared/types.js';
 import type { RuntimeSummary } from '@shared/runtime.js';
+
+function useCollapsed(key: string): [boolean, () => void] {
+  const storageKey = `sidebar:${key}`;
+  const [collapsed, setCollapsed] = useState(() => sessionStorage.getItem(storageKey) === '1');
+  const toggle = useCallback(() => {
+    setCollapsed((prev) => {
+      const next = !prev;
+      if (next) sessionStorage.setItem(storageKey, '1');
+      else sessionStorage.removeItem(storageKey);
+      return next;
+    });
+  }, [storageKey]);
+  return [collapsed, toggle];
+}
 
 export function Sidebar() {
   const boards = useBoards();
@@ -42,6 +56,14 @@ function BoardNode({ board }: { board: BoardSummary }) {
   const isBoardOnly = isActive && !laneActive;
 
   const boardDetail = useBoard(board.boardId);
+  const [userCollapsed, toggleCollapsed] = useCollapsed(`board:${board.boardId}`);
+
+  const runtimes = useRuntimesStore((s) => s.byId);
+  const hasActiveRuntime = Object.values(runtimes).some(
+    (r) => r.kind === 'ticket' && r.ticketRef?.boardId === board.boardId && isRuntimeActive(r),
+  );
+
+  const expanded = hasActiveRuntime || !userCollapsed;
 
   return (
     <div>
@@ -51,11 +73,17 @@ function BoardNode({ board }: { board: BoardSummary }) {
         }`}
         onClick={() => navigate(`/boards/${encodeURIComponent(board.boardId)}`)}
       >
+        <button
+          className="w-4 text-slate-500 hover:text-slate-300 shrink-0"
+          onClick={(e) => { e.stopPropagation(); toggleCollapsed(); }}
+        >
+          <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>{expanded ? '▾' : '▸'}</span>
+        </button>
         <span className={`truncate flex-1 ${!board.available ? 'opacity-50' : ''}`}>
           {board.name}
         </span>
       </div>
-      {boardDetail.data && (
+      {expanded && boardDetail.data && (
         <div className="ml-3">
           {boardDetail.data.board.lanes.map((lane) => (
             <LaneNode
@@ -103,12 +131,16 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
   );
   const hasActiveRuntime = laneRuntimes.length > 0;
 
-  const tickets = useTickets(hasActiveRuntime ? boardId : undefined, hasActiveRuntime ? lane.laneName : undefined);
+  const viewingTicketInLane = active.boardId === boardId && active.laneName === lane.laneName && !!active.filename;
+  const needTickets = hasActiveRuntime || viewingTicketInLane;
+  const tickets = useTickets(needTickets ? boardId : undefined, needTickets ? lane.laneName : undefined);
   const ticketsByFilename = new Map(
     (tickets.data?.tickets ?? []).map((t) => [t.filename, t]),
   );
 
   const totalTickets = Object.values(lane.ticketCounts).reduce((a, b) => a + b, 0);
+  const [userCollapsed, toggleCollapsed] = useCollapsed(`lane:${boardId}:${lane.laneName}`);
+  const expanded = hasActiveRuntime || !userCollapsed;
 
   return (
     <div>
@@ -118,19 +150,28 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
         }`}
         onClick={() => navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}`)}
       >
+        <button
+          className="w-4 text-slate-500 hover:text-slate-300 shrink-0"
+          onClick={(e) => { e.stopPropagation(); toggleCollapsed(); }}
+        >
+          <span style={{ fontSize: '1.25rem', lineHeight: 1 }}>{expanded ? '▾' : '▸'}</span>
+        </button>
         <span className="truncate flex-1">
           {lane.displayName}
         </span>
       </div>
-      <div className="ml-5">
+      {expanded && <div className="ml-5">
         {lane.states.map((st) => {
           const count = lane.ticketCounts[st.dir] ?? 0;
-          const isStateActive = active.stateDir === st.dir && active.laneName === lane.laneName;
           const stateRuntimes = laneRuntimes.filter((r) => {
             if (!r.ticketRef) return false;
             const ticket = ticketsByFilename.get(r.ticketRef!.filename);
             return ticket?.state === st.dir;
           });
+          const activeTicketInState = active.boardId === boardId && active.laneName === lane.laneName &&
+            active.filename && ticketsByFilename.get(active.filename)?.state === st.dir;
+          const isStateActive = active.boardId === boardId && active.laneName === lane.laneName &&
+            (active.stateDir === st.dir || !!activeTicketInState);
           return (
             <div key={st.dir}>
               <div
@@ -146,7 +187,7 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
               </div>
               {stateRuntimes.map((r) => {
                 const ticket = ticketsByFilename.get(r.ticketRef!.filename);
-                const isTicketActive = active.filename === r.ticketRef!.filename && active.laneName === lane.laneName;
+                const isTicketActive = active.boardId === boardId && active.filename === r.ticketRef!.filename && active.laneName === lane.laneName;
                 return (
                   <div
                     key={r.runtimeId}
@@ -166,7 +207,7 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
             </div>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 }

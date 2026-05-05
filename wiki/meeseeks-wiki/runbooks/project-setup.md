@@ -50,11 +50,16 @@ Open http://localhost:5173 — the app lands on the boards list for the current 
 ### Start with an explicit project path
 
 ```bash
-# Start only the server with a specific project path
+# Full dev stack (server + web UI) pointed at another project
+make dev PROJECT=/path/to/my-project
+
+# Server only with a specific project path
 npm run dev:server -- ./my-project
 ```
 
-If `./my-project` does not exist, the server exits with an error. If it exists but has no `project.yaml`, one is created automatically.
+The `PROJECT` variable is optional — when omitted, `make dev` uses the current working directory as before. The variable is passed through to the underlying `tsx watch` invocation as a positional argument to `src/server/index.ts`.
+
+If the target directory does not exist, the server exits with an error. If it exists but has no `project.yaml`, one is created automatically.
 
 ## Environment Variables
 

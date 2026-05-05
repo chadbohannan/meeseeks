@@ -1,9 +1,18 @@
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import type { TicketSummary } from '@shared/types.js';
 import { useRuntimesStore } from '../store/runtimes.js';
 import { RuntimeStatusDot } from './RuntimeStatusDot.js';
 import { Markdown } from './Markdown.js';
+import { create } from 'zustand';
+
+const useCardExpanded = create<{
+  expanded: Record<string, boolean>;
+  toggle: (key: string) => void;
+}>((set) => ({
+  expanded: {},
+  toggle: (key) => set((s) => ({ expanded: { ...s.expanded, [key]: !s.expanded[key] } })),
+}));
 
 interface Props {
   boardId: string;
@@ -16,7 +25,9 @@ interface Props {
 
 export function TicketCard({ boardId, laneName, ticket, draggable, onDragStart, onDragEnd }: Props) {
   const didDrag = useRef(false);
-  const [expanded, setExpanded] = useState(false);
+  const cardKey = `${boardId}:${laneName}:${ticket.filename}`;
+  const expanded = useCardExpanded((s) => !!s.expanded[cardKey]);
+  const toggleExpanded = useCardExpanded((s) => s.toggle);
   const runtime = useRuntimesStore((s) =>
     Object.values(s.byId).find(r =>
       r.kind === 'ticket' &&
@@ -42,7 +53,7 @@ export function TicketCard({ boardId, laneName, ticket, draggable, onDragStart, 
       {ticket.body && (
         <button
           className="absolute top-2 right-2 flex flex-col items-center leading-none text-slate-500 hover:text-slate-300"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); setExpanded(x => !x); }}
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); toggleExpanded(cardKey); }}
         >
           <span className="text-[8px]">{expanded ? '▼' : '▲'}</span>
           <span className="text-[8px]">{expanded ? '▲' : '▼'}</span>
