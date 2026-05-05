@@ -4,17 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "6d428a8fd1603282",
+        "id": "afde6af8351f6c63",
         "type": "tabs",
         "children": [
           {
-            "id": "0e8cbac38d9eb57f",
+            "id": "440904c5208ef520",
             "type": "leaf",
             "state": {
-              "type": "graph",
+              "type": "empty",
               "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "icon": "lucide-file",
+              "title": "New tab"
             }
           }
         ]
@@ -179,8 +179,10 @@
       "bases:Create new base": false
     }
   },
-  "active": "0e8cbac38d9eb57f",
+  "active": "440904c5208ef520",
   "lastOpenFiles": [
+    "sources/Claude Context.md",
+    "sources",
     "runbooks/project-setup.md",
     "systems/meeseeks.md",
     "concepts/runtime.md",

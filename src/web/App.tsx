@@ -8,7 +8,7 @@ import { LaneRoute } from './routes/LaneRoute.js';
 import { StateRoute } from './routes/StateRoute.js';
 import { TicketRoute } from './routes/TicketRoute.js';
 import { Mdi } from './components/console/Mdi.js';
-import { Dock } from './components/console/Dock.js';
+import { PromptRunModals } from './components/console/PromptRunModal.js';
 
 export default function App() {
   useWsInvalidation();
@@ -26,7 +26,7 @@ export default function App() {
         </Route>
       </Routes>
       <Mdi />
-      <Dock />
+      <PromptRunModals />
     </ErrorBoundary>
   );
 }

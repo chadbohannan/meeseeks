@@ -6,11 +6,25 @@ interface Props {
   defaultSplit?: number;
   minLeft?: number;
   minRight?: number;
+  storageKey?: string;
 }
 
-export function ResizableSplit({ left, right, defaultSplit = 0.5, minLeft = 200, minRight = 200 }: Props) {
+function readStored(key: string | undefined, fallback: number): number {
+  if (!key) return fallback;
+  const v = sessionStorage.getItem(key);
+  if (v == null) return fallback;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+export function ResizableSplit({ left, right, defaultSplit = 0.5, minLeft = 200, minRight = 200, storageKey }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [split, setSplit] = useState(defaultSplit);
+  const [split, setSplitRaw] = useState(() => readStored(storageKey, defaultSplit));
+
+  const setSplit = useCallback((v: number) => {
+    setSplitRaw(v);
+    if (storageKey) sessionStorage.setItem(storageKey, String(v));
+  }, [storageKey]);
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -33,18 +47,17 @@ export function ResizableSplit({ left, right, defaultSplit = 0.5, minLeft = 200,
   }, [minLeft, minRight]);
 
   const leftPct = `${split * 100}%`;
-  const rightPct = `${(1 - split) * 100}%`;
 
   return (
     <div ref={containerRef} className="flex h-full w-full overflow-hidden">
-      <div className="overflow-auto" style={{ width: leftPct, minWidth: minLeft }}>
+      <div className="overflow-auto shrink-0" style={{ width: leftPct, minWidth: minLeft }}>
         {left}
       </div>
       <div
         className="w-1 shrink-0 cursor-col-resize bg-slate-700 hover:bg-blue-500 transition-colors"
         onMouseDown={onMouseDown}
       />
-      <div className="overflow-auto" style={{ width: rightPct, minWidth: minRight }}>
+      <div className="overflow-auto flex-1" style={{ minWidth: minRight }}>
         {right}
       </div>
     </div>

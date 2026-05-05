@@ -46,7 +46,7 @@ export async function registerTicketRoutes(
 
   app.patch<{
     Params: { boardId: string; laneName: string; filename: string };
-    Body: { title?: string; body?: string; state?: string };
+    Body: { title?: string; body?: string; state?: string; color?: string };
   }>(`${BASE}/:filename`, async (req) => {
     const open = state.require();
     const board = await getBoard(open.meta.path, req.params.boardId);

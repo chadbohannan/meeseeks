@@ -56,6 +56,22 @@ async function setup() {
   return { srv, boardId: board.board.boardId, filename: ticket.ticket.filename };
 }
 
+async function waitForStatus(
+  srv: { url: string },
+  runtimeId: string,
+  target: string,
+  timeoutMs = 2000,
+): Promise<string> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const r = await (await fetch(`${srv.url}/api/runtimes/${runtimeId}`)).json() as { runtime?: { status: string } };
+    if (!r.runtime) return 'gone';
+    if (r.runtime.status === target || r.runtime.status === 'exited' || r.runtime.status === 'errored') return r.runtime.status;
+    await new Promise(res => setTimeout(res, 25));
+  }
+  throw new Error(`timed out waiting for status ${target}`);
+}
+
 describe('runtime routes', () => {
   it('spawns a runtime for a ticket and lists it', async () => {
     const { srv, boardId, filename } = await setup();
@@ -80,5 +96,39 @@ describe('runtime routes', () => {
     const a = await (await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
     const b = await (await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
     expect(b.runtime.runtimeId).toBe(a.runtime.runtimeId);
+  });
+
+  it('notify route: drives supervisor state from idle to awaiting-user', async () => {
+    const { srv, boardId, filename } = await setup();
+    const spawn = await (await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
+    const { runtimeId } = spawn.runtime;
+    // stub default (init,assistant,result) drives runtime to idle
+    await waitForStatus(srv, runtimeId, 'idle');
+    const res = await fetch(`${srv.url}/internal/runtime/${runtimeId}/notify?state=awaiting-user`);
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({});
+    const after = await (await fetch(`${srv.url}/api/runtimes/${runtimeId}`)).json() as { runtime: { status: string } };
+    expect(after.runtime.status).toBe('awaiting-user');
+  });
+
+  it('notify route: drives supervisor state from idle to idle (no-op re-assertion)', async () => {
+    const { srv, boardId, filename } = await setup();
+    const spawn = await (await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
+    const { runtimeId } = spawn.runtime;
+    await waitForStatus(srv, runtimeId, 'idle');
+    const res = await fetch(`${srv.url}/internal/runtime/${runtimeId}/notify?state=idle`);
+    expect(res.status).toBe(200);
+  });
+
+  it('notify route: returns 400 for invalid state', async () => {
+    const { srv } = await setup();
+    const res = await fetch(`${srv.url}/internal/runtime/any-id/notify?state=running`);
+    expect(res.status).toBe(400);
+  });
+
+  it('notify route: returns 404 for unknown runtime id', async () => {
+    const { srv } = await setup();
+    const res = await fetch(`${srv.url}/internal/runtime/bogus/notify?state=idle`);
+    expect(res.status).toBe(404);
   });
 });

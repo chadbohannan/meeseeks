@@ -14,7 +14,7 @@ The system is structured around three primary layers:
 
 ## Data Model
 
-Projects are organized hierarchically: a [Project](../concepts/project-model.md) contains multiple Boards, each Board contains multiple Lanes, and each Lane contains multiple Tickets. The filesystem layout reflects this structure with `project.meeseeks` at the root, `board.yaml` files in board directories, and `lane.yaml` files defining lane states and their ordering.
+Projects are organized hierarchically: a [Project](../concepts/project-model.md) contains multiple Boards, each Board contains multiple Lanes, and each Lane contains multiple Tickets. The filesystem layout reflects this structure with `project.yaml` at the root, `board.yaml` files in board directories, and `lane.yaml` files defining lane states and their ordering.
 
 ## Concurrency Model
 

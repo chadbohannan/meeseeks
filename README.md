@@ -1,6 +1,16 @@
 # Meeseeks
 
-Locally-hosted platform for supervising multiple AI agents (like Claude Code) on development work. Agents run in detachable console windows; closing a console dismisses your attention but the agent keeps running.
+Locally-hosted platform for supervising multiple AI agents on development work. You control attention — agents run in detachable console windows that you can open and dismiss without interrupting the agent. One person, many agents running in parallel.
+
+## Key features
+
+- **Multi-agent supervision** — spawn Claude Code agents on tickets, watch them run, dismiss consoles without killing the process
+- **Kanban board** — Project → Board → Lane → Ticket hierarchy; move tickets through states as work progresses
+- **Board context (CLAUDE.md editor)** — each board has a `CLAUDE.md` that governs agent behavior; edit it directly in the UI via the **Context** tab in the board editor
+- **File-based storage** — everything is YAML + Markdown on disk; no database, fully inspectable and version-controllable
+- **Live updates** — WebSocket-driven; board and ticket state reflect filesystem changes in real time
+
+> **Context management:** When you open a board's editor and click **Context**, you're editing the `CLAUDE.md` that Claude Code reads as its system-level instructions for every agent on that board. Use it to set conventions, restrict scope, or inject project knowledge. Changes take effect on the next agent spawn.
 
 ## Quick start
 

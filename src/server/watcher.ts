@@ -21,9 +21,11 @@ const DEBOUNCE_MS = 50;
 export function startWatcher(meta: ProjectMeta, hub: WsHub): WatcherHandle {
   const projectRoot = meta.path;
   const watcher = chokidar.watch(projectRoot, {
-    ignored: ['**/node_modules/**', '**/.git/**', '**/.meeseeks/**'],
+    ignored: ['**/node_modules/**', '**/.git/**', '**/.meeseeks/**', '**/.claude/**'],
     ignoreInitial: true,
-    awaitWriteFinish: { stabilityThreshold: 30, pollInterval: 20 },
+    usePolling: true,
+    interval: 2000,
+    awaitWriteFinish: { stabilityThreshold: 200, pollInterval: 100 },
   });
 
   const pending = new Map<string, PendingChange>();
@@ -43,6 +45,21 @@ export function startWatcher(meta: ProjectMeta, hub: WsHub): WatcherHandle {
     if (!rel || rel.startsWith('..')) return;
     const parts = rel.split(path.sep);
     const lanesIdx = parts.indexOf('lanes');
+    const promptsIdx = parts.indexOf('prompts');
+    if (lanesIdx === -1 && promptsIdx !== -1) {
+      // <boardEntry>/prompts/<file>.md
+      if (parts.length === promptsIdx + 2) {
+        const boardEntry = parts.slice(0, promptsIdx).join('/');
+        const boardId = slugifyBoardPath(boardEntry);
+        const filename = parts[promptsIdx + 1]!;
+        if (!boardId || !filename.endsWith('.md')) return;
+        emit(`prompt:${boardId}:${filename}`, {
+          type: 'prompts-changed',
+          payload: { boardId, name: filename, kind },
+        });
+      }
+      return;
+    }
     if (lanesIdx === -1) {
       // Skip top-level project files (e.g. project.meeseeks itself).
       // Board-level changes need at least <boardEntry>/<file>.

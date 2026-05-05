@@ -1,8 +1,12 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams, Navigate } from 'react-router-dom';
 import { useBoard, useLane, useCreateLane, usePatchLane, useDeleteLane, usePatchBoard } from '../hooks/queries.js';
 import type { LaneSummary, LaneState } from '@shared/types.js';
 import { toast } from 'sonner';
+import { MarkdownEditor } from '../components/MarkdownEditor.js';
+import { SkillsEditor } from '../components/SkillsEditor.js';
+import { BinEditor } from '../components/BinEditor.js';
+import { PromptsEditor } from '../components/PromptsEditor.js';
 
 const NEW_LANE_KEY = '__new__';
 
@@ -17,6 +21,9 @@ export function BoardEditorRoute() {
   const board = useBoard(boardId);
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedLane = searchParams.get('lane');
+  const hasSelection = searchParams.get('context') === 'true' || searchParams.get('skills') === 'true' || searchParams.get('bin') === 'true' || searchParams.get('prompts') === 'true' || !!selectedLane;
+  const isContext = !hasSelection || searchParams.get('context') === 'true';
+  const isPrompts = searchParams.get('prompts') === 'true';
   const [editingName, setEditingName] = useState(false);
   const [boardName, setBoardName] = useState('');
   const patchBoard = usePatchBoard(boardId!);
@@ -62,7 +69,39 @@ export function BoardEditorRoute() {
       </div>
 
       <div className="flex flex-1 min-h-0">
-        <div className="w-72 shrink-0 border-r border-slate-800 overflow-y-auto">
+        <div className="w-44 shrink-0 border-r border-slate-800 overflow-y-auto">
+          <div
+            className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
+              isPrompts ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-300'
+            }`}
+            onClick={() => setSearchParams({ prompts: 'true' })}
+          >
+            <span className="text-sm font-medium">One-Shot Prompts</span>
+          </div>
+          <div
+            className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
+              isContext ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-300'
+            }`}
+            onClick={() => setSearchParams({ context: 'true' })}
+          >
+            <span className="text-sm font-medium">CLAUDE.md</span>
+          </div>
+          <div
+            className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
+              searchParams.get('skills') === 'true' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-300'
+            }`}
+            onClick={() => setSearchParams({ skills: 'true' })}
+          >
+            <span className="text-sm font-medium">.claude/skills</span>
+          </div>
+          <div
+            className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
+              searchParams.get('bin') === 'true' ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-300'
+            }`}
+            onClick={() => setSearchParams({ bin: 'true' })}
+          >
+            <span className="text-sm font-medium">.claude/bin</span>
+          </div>
           {lanes.map((lane) => (
             <LaneListItem
               key={lane.laneName}
@@ -82,7 +121,15 @@ export function BoardEditorRoute() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {selectedLane === NEW_LANE_KEY ? (
+          {isPrompts ? (
+            <PromptsEditor boardId={boardId} />
+          ) : isContext ? (
+            <ContextEditor boardId={boardId} />
+          ) : searchParams.get('skills') === 'true' ? (
+            <SkillsEditor boardId={boardId} />
+          ) : searchParams.get('bin') === 'true' ? (
+            <BinEditor boardId={boardId} />
+          ) : selectedLane === NEW_LANE_KEY ? (
             <NewLaneEditor boardId={boardId} onCreated={(name) => setSearchParams({ lane: name })} />
           ) : selectedLane ? (
             <LaneEditor boardId={boardId} laneName={selectedLane} />
@@ -96,7 +143,6 @@ export function BoardEditorRoute() {
 }
 
 function LaneListItem({ lane, selected, onClick }: { lane: LaneSummary; selected: boolean; onClick: () => void }) {
-  const total = Object.values(lane.ticketCounts).reduce((a, b) => a + b, 0);
   return (
     <div
       className={`flex items-center gap-2 px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
@@ -110,7 +156,6 @@ function LaneListItem({ lane, selected, onClick }: { lane: LaneSummary; selected
           {lane.states.map((s) => s.name).join(' → ')}
         </div>
       </div>
-      <span className="text-xs text-slate-500 tabular-nums">{total} tickets</span>
       {lane.orphanedCount > 0 && <span className="text-amber-400 text-xs">⚠ {lane.orphanedCount}</span>}
     </div>
   );
@@ -188,6 +233,7 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
   const [states, setStates] = useState<LaneState[] | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
+  const processTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   if (lane.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
   if (!lane.data) return <div className="p-6 text-red-400">Lane not found.</div>;
@@ -304,7 +350,20 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
       {lane.data.lane.hasProcessDoc && (
         <section className="mt-8 pt-6 border-t border-slate-800">
           <h3 className="text-sm font-semibold text-slate-400 mb-2">PROCESS.md</h3>
-          <p className="text-xs text-slate-500">Process document editing coming soon.</p>
+          <MarkdownEditor
+            value={lane.data.lane.processDoc ?? ''}
+            onChange={(md) => {
+              if (processTimerRef.current) clearTimeout(processTimerRef.current);
+              processTimerRef.current = setTimeout(async () => {
+                try {
+                  await patchLane.mutateAsync({ processDoc: md });
+                  toast.success('PROCESS.md saved');
+                } catch (err) { toast.error((err as Error).message); }
+              }, 1000);
+            }}
+            className="w-full bg-slate-800 rounded min-h-48"
+            placeholder="Write process documentation…"
+          />
         </section>
       )}
     </div>
@@ -373,5 +432,37 @@ function StatesEditor({ states, ticketCounts, onUpdate, onAdd, onRemove, onMove 
       </div>
       <button className="mt-2 text-sm text-blue-400 hover:text-blue-300" onClick={onAdd}>+ Add state</button>
     </>
+  );
+}
+
+function ContextEditor({ boardId }: { boardId: string }) {
+  const board = useBoard(boardId);
+  const patchBoard = usePatchBoard(boardId);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+
+  useEffect(() => {
+    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+  }, []);
+
+  if (board.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
+  if (!board.data) return <div className="p-6 text-red-400">Board not found.</div>;
+
+  return (
+    <div className="p-6 max-w-2xl">
+      <MarkdownEditor
+        value={board.data.board.claudeContent ?? ''}
+        onChange={(md) => {
+          if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+          saveTimerRef.current = setTimeout(async () => {
+            try {
+              await patchBoard.mutateAsync({ claudeContent: md });
+              toast.success('Context saved');
+            } catch (err) { toast.error((err as Error).message); }
+          }, 1000);
+        }}
+        className="w-full bg-slate-800 rounded min-h-96"
+        placeholder="Write CLAUDE.md context…"
+      />
+    </div>
   );
 }

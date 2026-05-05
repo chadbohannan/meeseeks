@@ -17,6 +17,7 @@ export interface BoardSummary {
 
 export interface BoardDetail extends BoardSummary {
   lanes: LaneSummary[];
+  claudeContent?: string;
 }
 
 export interface LaneState {
@@ -35,6 +36,7 @@ export interface LaneSummary {
 export interface LaneDetail extends LaneSummary {
   hasProcessDoc: boolean;
   hasPermissions: boolean;
+  processDoc: string | null;
 }
 
 export interface TicketSummary {
@@ -42,12 +44,22 @@ export interface TicketSummary {
   state: string;         // state.dir, or '__orphaned__' for tickets in unknown folders
   title: string;
   body: string;
+  color?: string;        // hex color for border/accent, stored in front-matter
   created: string;       // ISO
   updated: string;       // ISO
   orphaned: boolean;
 }
 
-export type TicketDetail = TicketSummary;
+export interface TicketDetail extends TicketSummary {
+  absPath: string;
+}
+
+export interface FileNode {
+  name: string;
+  isDirectory: boolean;
+  size?: number;
+  modified?: string; // ISO timestamp
+}
 
 export interface RecentEntry {
   path: string;

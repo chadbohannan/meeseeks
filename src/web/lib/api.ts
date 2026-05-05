@@ -4,6 +4,9 @@ import type {
   CreateTicketRequest, PatchTicketRequest, ListTicketsResponse,
   ApiErrorBody,
   ProjectMeta, BoardSummary, BoardDetail, LaneDetail, TicketDetail,
+  ListFilesResponse, ReadFileResponse, WriteFileRequest, WriteFileResponse,
+  PatchFileRequest, PatchFileResponse, FileNode,
+  ListPromptsResponse, GetPromptResponse, PutPromptRequest, ListPromptLogsResponse,
 } from '@shared/api.js';
 import type { ListRuntimesResponse, SpawnRuntimeResponse, RuntimeSummary } from '@shared/runtime.js';
 
@@ -71,7 +74,33 @@ export const api = {
   listRuntimes: () => request<ListRuntimesResponse>('GET', '/api/runtimes'),
   getRuntime: (id: string) => request<{ runtime: RuntimeSummary }>('GET', `/api/runtimes/${enc(id)}`),
   getRuntimeSnapshot: (id: string) => request<{ data: string }>('GET', `/api/runtimes/${enc(id)}/snapshot`),
-  spawnRuntime: (boardId: string, laneName: string, filename: string) =>
-    request<SpawnRuntimeResponse>('POST', `/api/tickets/${enc(boardId)}/${enc(laneName)}/${enc(filename)}/runtime`),
+  spawnRuntime: (boardId: string, laneName: string, filename: string, model?: string) =>
+    request<SpawnRuntimeResponse>('POST', `/api/tickets/${enc(boardId)}/${enc(laneName)}/${enc(filename)}/runtime`, model ? { model } : undefined),
   terminateRuntime: (id: string) => request<Record<string, never>>('DELETE', `/api/runtimes/${enc(id)}`),
+
+  // Files
+  listFiles: (boardId: string, namespace: string) =>
+    request<ListFilesResponse>('GET', `/api/boards/${enc(boardId)}/files/${enc(namespace)}`),
+  readFile: (boardId: string, namespace: string, filepath: string) =>
+    request<ReadFileResponse>('GET', `/api/boards/${enc(boardId)}/files/${enc(namespace)}/${enc(filepath)}`),
+  createFile: (boardId: string, namespace: string, filepath: string, req: WriteFileRequest) =>
+    request<WriteFileResponse>('POST', `/api/boards/${enc(boardId)}/files/${enc(namespace)}/${enc(filepath)}`, req),
+  patchFile: (boardId: string, namespace: string, filepath: string, req: PatchFileRequest) =>
+    request<PatchFileResponse>('PATCH', `/api/boards/${enc(boardId)}/files/${enc(namespace)}/${enc(filepath)}`, req),
+  deleteFile: (boardId: string, namespace: string, filepath: string) =>
+    request<{ ok: boolean }>('DELETE', `/api/boards/${enc(boardId)}/files/${enc(namespace)}/${enc(filepath)}`),
+
+  // Prompts
+  listPrompts: (boardId: string) =>
+    request<ListPromptsResponse>('GET', `/api/boards/${enc(boardId)}/prompts`),
+  getPrompt: (boardId: string, name: string) =>
+    request<GetPromptResponse>('GET', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`),
+  putPrompt: (boardId: string, name: string, req: PutPromptRequest) =>
+    request<GetPromptResponse>('PUT', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`, req),
+  deletePrompt: (boardId: string, name: string) =>
+    request<{ ok: boolean }>('DELETE', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`),
+  runPrompt: (boardId: string, name: string, model?: string) =>
+    request<SpawnRuntimeResponse>('POST', `/api/boards/${enc(boardId)}/prompts/${enc(name)}/run`, model ? { model } : undefined),
+  getPromptLogs: (boardId: string, name: string) =>
+    request<ListPromptLogsResponse>('GET', `/api/boards/${enc(boardId)}/prompts/${enc(name)}/logs`),
 };

@@ -47,7 +47,7 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
     return {};
   });
 
-  app.post<{ Params: { boardId: string; laneName: string; filename: string } }>(
+  app.post<{ Params: { boardId: string; laneName: string; filename: string }; Body: { model?: string } }>(
     '/api/tickets/:boardId/:laneName/:filename/runtime',
     async (req) => {
       const open = state.require();
@@ -59,11 +59,13 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
       const boardCfg = await readYaml<BoardRuntimeConfig>(path.join(board.path, 'board.yaml'));
       const permissions = await readYaml<PermissionsConfig>(path.join(lanePath, 'permissions.yaml'));
       const processDocPath = path.join(lanePath, 'PROCESS.md');
+      const processDocContent = await readFile(processDocPath, 'utf8').catch(() => null);
 
       const existing = state.supervisor.list().find(r =>
-        r.ticketRef.boardId === boardId &&
-        r.ticketRef.laneName === laneName &&
-        r.ticketRef.filename === filename &&
+        r.kind === 'ticket' &&
+        r.ticketRef?.boardId === boardId &&
+        r.ticketRef?.laneName === laneName &&
+        r.ticketRef?.filename === filename &&
         r.status !== 'exited' && r.status !== 'errored');
       if (existing) return { runtime: existing };
 
@@ -73,12 +75,29 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
         boardPath: board.path,
         lanePath,
         ticketAbsPath: found.abs,
-        processDocPath,
+        processDocContent,
         ticketRef: { boardId, laneName, filename },
         board: boardCfg,
         permissions,
+        model: req.body?.model,
       });
       return { runtime: summary };
+    },
+  );
+
+  app.get<{ Params: { id: string }; Querystring: { state?: string } }>(
+    '/internal/runtime/:id/notify',
+    async (req, reply) => {
+      const notifyStatus = req.query.state;
+      if (notifyStatus !== 'idle' && notifyStatus !== 'awaiting-user') {
+        return reply.code(400).send({ error: { code: 'BAD_REQUEST', message: 'state must be idle or awaiting-user' } });
+      }
+      console.error(`[meeseeks] notify ${req.params.id} → ${notifyStatus}`);
+      const found = state.supervisor.notifyState(req.params.id, notifyStatus);
+      if (!found) {
+        return reply.code(404).send({ error: { code: 'NOT_FOUND', message: 'runtime not found' } });
+      }
+      return {};
     },
   );
 

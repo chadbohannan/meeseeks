@@ -36,11 +36,11 @@ The [Meeseeks](../systems/meeseeks.md) system follows a three-layer architecture
 ## Deferred Features
 
 The current scope excludes:
-- Autonomous triggers and synchronization
+- Autonomous triggers and scheduling (the non-interactive `--print` plumbing exists — [one-shot prompts](../concepts/one-shot-prompts.md) are the first consumer — but no scheduler drives it)
 - Multi-user access
 - Runtime persistence across server restarts
 
-The [Web UI](../components/web.md) and [Console panels](../components/console.md) are implemented; see their component pages for scope and known limitations.
+The [Web UI](../components/web.md), [Console panels](../components/console.md), and [one-shot prompts](../concepts/one-shot-prompts.md) are implemented; see their pages for scope and known limitations.
 
 | Ingest Date | Source |
 | ----------- | ------ |

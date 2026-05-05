@@ -19,6 +19,23 @@ const DEFAULT_BOARD_YAML = (name: string) => yaml.dump({
 
 const DEFAULT_CLAUDE_MD = (name: string) => `# ${name}\n\nBoard-level instructions for agents go here.\n`;
 
+export async function readBoardClaudeContent(boardPath: string): Promise<string> {
+  const claudePath = path.join(boardPath, 'CLAUDE.md');
+  try {
+    return await readFile(claudePath, 'utf8');
+  } catch {
+    return DEFAULT_CLAUDE_MD('');
+  }
+}
+
+export async function writeBoardClaudeContent(boardPath: string, content: string): Promise<void> {
+  if (!(await exists(boardPath))) {
+    throw new NotFoundError(`board not found: ${boardPath}`);
+  }
+  const claudePath = path.join(boardPath, 'CLAUDE.md');
+  await writeFile(claudePath, content, 'utf8');
+}
+
 async function exists(p: string): Promise<boolean> {
   try { await access(p); return true; } catch { return false; }
 }
@@ -61,12 +78,14 @@ export async function readBoardDetail(
     throw new NotFoundError(`board not found: ${boardPath}`);
   }
   const lanes = await listLanes(boardPath);
+  const claudeContent = await readBoardClaudeContent(boardPath);
   return {
     boardId: identity.boardId,
     name: identity.name,
     path: boardPath,
     available: true,
     lanes,
+    claudeContent,
   };
 }
 

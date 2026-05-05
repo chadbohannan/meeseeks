@@ -9,6 +9,8 @@ import { registerBoardRoutes } from './routes/boards.js';
 import { registerLaneRoutes } from './routes/lanes.js';
 import { registerTicketRoutes } from './routes/tickets.js';
 import { registerRuntimeRoutes } from './routes/runtimes.js';
+import { registerFileRoutes } from './routes/files.js';
+import { registerPromptRoutes } from './routes/prompts.js';
 import { readProject } from '../storage/project.js';
 import { startWatcher } from './watcher.js';
 import path from 'node:path';
@@ -35,8 +37,9 @@ async function main(): Promise<void> {
   state.supervisor.on('runtime-spawned', (s) => hub.broadcast({ type: 'runtime-spawned', payload: s }));
   state.supervisor.on('runtime-status', (s) => hub.broadcast({ type: 'runtime-status', payload: s }));
   state.supervisor.on('runtime-stdio', (s) => hub.broadcast({ type: 'runtime-stdio', payload: s }));
+  state.supervisor.on('runtime-message', (s) => hub.broadcast({ type: 'runtime-message', payload: s }));
 
-  const app = Fastify({ logger: true });
+  const app = Fastify({ logger: { level: 'warn' } });
   await app.register(websocket);
   app.setErrorHandler(mapErrorToResponse);
   await registerProjectRoutes(app, { state, hub });
@@ -44,6 +47,8 @@ async function main(): Promise<void> {
   await registerLaneRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });
   await registerRuntimeRoutes(app, { state, hub });
+  await registerFileRoutes(app, { state, hub });
+  await registerPromptRoutes(app, { state, hub });
   await registerWs(app, state, hub);
 
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -60,8 +65,8 @@ async function main(): Promise<void> {
   }
 
   await app.listen({ port: PORT, host: HOST });
-  app.log.info({ project: meta.path }, `meeseeks open: ${meta.config.name}`);
-  app.log.info(`meeseeks server on http://${HOST}:${PORT}`);
+  console.error(`meeseeks open: ${meta.config.name} (${meta.path})`);
+  console.error(`meeseeks server on http://${HOST}:${PORT}`);
 }
 
 main().catch(err => {

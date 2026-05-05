@@ -22,6 +22,7 @@ The project uses the following npm scripts defined in `package.json`:
 
 | Command | Description |
 |---------|-------------|
+| `make dev` | Preferred way to run both server and web UI concurrently (wraps npm scripts) |
 | `npm run dev` | Runs both server and web UI concurrently in development mode |
 | `npm run dev:server` | Runs only the Fastify server with hot reload via `tsx watch` |
 | `npm run dev:web` | Runs only the Vite dev server for the React SPA |
@@ -145,10 +146,14 @@ npm test -- tests/storage/project.test.ts
 npm run test:watch
 ```
 
+## tsx watch exclusions
+
+The `dev:server` script uses `tsx watch` with `--exclude 'boards/**' --exclude 'wiki/**' --exclude '**/.claude/**'` to prevent runtime artifacts (settings files written to `boards/<board>/.meeseeks/`, wiki edits, and `.claude/` contents) from triggering server restarts. The same exclusions appear in the Makefile's `DEV_SERVER` variable. See [Platform Constraints](../concepts/platform-constraints.md#tsx-watch-scope) for why this matters.
+
 ## Development Workflow
 
 1. **Initial setup**: `npm install`
-2. **Start development**: `npm run dev` (runs both server and web)
+2. **Start development**: `make dev` or `npm run dev` (runs both server and web)
 3. **Type checking**: `npm run typecheck` (run before committing)
 4. **Testing**: `npm test` (run before committing)
 5. **Production build**: `npm run build && npm start`
@@ -158,3 +163,4 @@ npm run test:watch
 | 2026-04-26 | `package.json` |
 | 2026-04-26 | `src/server/index.ts` |
 | 2026-04-26 | First Slice Design §4.1 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |
+| 2026-04-28 | Debugging session: tsx watch exclusions, make dev, platform constraints |

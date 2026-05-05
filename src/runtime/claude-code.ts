@@ -1,8 +1,17 @@
 import path from 'node:path';
 import os from 'node:os';
-import type { SpawnContext, SpawnSpec } from './types.js';
+import { execSync } from 'node:child_process';
+import type { SpawnContext, SpawnSpec, PromptSpawnContext } from './types.js';
 
-const HARNESS_BIN = 'claude';
+function resolveHarnessBin(): string {
+  try {
+    return execSync('which claude', { encoding: 'utf8' }).trim();
+  } catch {
+    return 'claude';
+  }
+}
+
+const HARNESS_BIN = resolveHarnessBin();
 
 function expandHome(p: string): string {
   if (p === '~') return os.homedir();
@@ -17,35 +26,65 @@ function resolveAllowedPath(p: string, lanePath: string): string {
 
 export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   const argv: string[] = [HARNESS_BIN];
-  argv.push('--output-format', 'stream-json');
-  argv.push('--input-format', 'stream-json');
   argv.push('--verbose');
 
-  const model = ctx.board?.runtime?.model;
+  const model = ctx.model ?? ctx.board?.runtime?.model;
   if (model) argv.push('--model', model);
 
   for (const p of ctx.permissions?.allowedPaths ?? []) {
     argv.push('--add-dir', resolveAllowedPath(p, ctx.lanePath));
   }
 
-  let settingsFile: SpawnSpec['settingsFile'] = null;
   const allowedTools = ctx.permissions?.allowedTools ?? [];
   const deniedTools = ctx.permissions?.deniedTools ?? [];
+
+  const serverPort = Number(process.env.MEESEEKS_PORT ?? 5174);
+  const notifyBase = `http://127.0.0.1:${serverPort}/internal/runtime/${ctx.runtimeId}/notify`;
+  const settingsObj: Record<string, unknown> = {
+    hooks: {
+      Stop: [
+        {
+          hooks: [{ type: 'command', command: `curl -sf "${notifyBase}?state=idle"` }],
+        },
+      ],
+      Notification: [
+        {
+          matcher: 'idle_prompt',
+          hooks: [{ type: 'command', command: `curl -sf "${notifyBase}?state=idle"` }],
+        },
+        {
+          matcher: 'permission_prompt',
+          hooks: [{ type: 'command', command: `curl -sf "${notifyBase}?state=awaiting-user"` }],
+        },
+      ],
+    },
+  };
   if (allowedTools.length > 0 || deniedTools.length > 0) {
-    const filePath = path.join(ctx.boardPath, '.meeseeks', `session-${ctx.runtimeId}.json`);
-    const body = JSON.stringify(
-      { permissions: { allow: allowedTools, deny: deniedTools } },
-      null,
-      2,
-    );
-    settingsFile = { path: filePath, body };
-    argv.push('--settings', filePath);
+    settingsObj.permissions = { allow: allowedTools, deny: deniedTools };
   }
+  const filePath = path.join(ctx.boardPath, '.meeseeks', `session-${ctx.runtimeId}.json`);
+  const settingsFile: SpawnSpec['settingsFile'] = {
+    path: filePath,
+    body: JSON.stringify(settingsObj, null, 2),
+  };
+  argv.push('--settings', filePath);
 
   for (const a of ctx.board?.runtime?.args ?? []) argv.push(a);
 
+  const boardName = path.basename(ctx.boardPath);
+  const ticketContext =
+    `You are working on ticket \`${ctx.ticketRef.filename}\` in lane \`${ctx.ticketRef.laneName}\` of board \`${boardName}\`. ` +
+    `Ticket file: \`${ctx.ticketAbsPath}\`.`;
+  const preamble = ctx.processDocContent
+    ? `${ctx.processDocContent}\n\n${ticketContext}`
+    : ticketContext;
+
+  argv.push('--append-system-prompt', preamble);
+
+  const inherited = { ...(process.env as Record<string, string>) };
+  delete inherited.FORCE_COLOR;
   const env: Record<string, string> = {
-    ...(process.env as Record<string, string>),
+    ...inherited,
     MEESEEKS_TICKET_PATH: ctx.ticketAbsPath,
     MEESEEKS_BOARD_PATH: ctx.boardPath,
     MEESEEKS_LANE_PATH: ctx.lanePath,
@@ -53,13 +92,50 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   };
   if (ctx.board?.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.board.runtime.provider;
 
-  const boardName = path.basename(ctx.boardPath);
-  const processLine = ctx.processDocPath
-    ? ` Lane process doc: \`${ctx.processDocPath}\`.`
-    : '';
-  const preamble =
-    `You are working on ticket \`${ctx.ticketRef.filename}\` in lane \`${ctx.ticketRef.laneName}\` of board \`${boardName}\`. ` +
-    `Ticket file: \`${ctx.ticketAbsPath}\`.${processLine}`;
+  return { argv, env, cwd: ctx.boardPath, preamble, settingsFile };
+}
 
+export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
+  const argv: string[] = [HARNESS_BIN];
+  argv.push('--print');
+  argv.push('--output-format', 'stream-json');
+  argv.push('--verbose');
+
+  const model = ctx.model ?? ctx.board?.runtime?.model;
+  if (model) argv.push('--model', model);
+
+  for (const p of ctx.permissions?.allowedPaths ?? []) {
+    argv.push('--add-dir', resolveAllowedPath(p, ctx.boardPath));
+  }
+
+  const allowedTools = ctx.permissions?.allowedTools ?? [];
+  const deniedTools = ctx.permissions?.deniedTools ?? [];
+  const settingsObj: Record<string, unknown> = {};
+  if (allowedTools.length > 0 || deniedTools.length > 0) {
+    settingsObj.permissions = { allow: allowedTools, deny: deniedTools };
+  }
+  let settingsFile: SpawnSpec['settingsFile'] = null;
+  if (Object.keys(settingsObj).length > 0) {
+    const filePath = path.join(ctx.boardPath, '.meeseeks', `prompt-${ctx.runtimeId}.json`);
+    settingsFile = { path: filePath, body: JSON.stringify(settingsObj, null, 2) };
+    argv.push('--settings', filePath);
+  }
+
+  for (const a of ctx.board?.runtime?.args ?? []) argv.push(a);
+
+  // Pass the prompt body as the positional argv argument (standard --print invocation).
+  argv.push(ctx.promptBody);
+
+  const inherited = { ...(process.env as Record<string, string>) };
+  delete inherited.FORCE_COLOR;
+  const env: Record<string, string> = {
+    ...inherited,
+    MEESEEKS_BOARD_PATH: ctx.boardPath,
+    MEESEEKS_PROMPT_NAME: ctx.promptRef.name,
+    ...(ctx.board?.runtime?.env ?? {}),
+  };
+  if (ctx.board?.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.board.runtime.provider;
+
+  const preamble = `Prompt: ${ctx.promptRef.name}`;
   return { argv, env, cwd: ctx.boardPath, preamble, settingsFile };
 }
