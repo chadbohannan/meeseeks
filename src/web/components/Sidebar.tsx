@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { useBoards, useBoard, useTickets } from '../hooks/queries.js';
 import { useRuntimesStore } from '../store/runtimes.js';
+import { useUi, boardCollapseKey, laneCollapseKey } from '../store/ui.js';
 import { RuntimeStatusDot } from './RuntimeStatusDot.js';
 import { NewBoardModal } from './NewBoardModal.js';
 import type { BoardSummary, LaneSummary } from '@shared/types.js';
@@ -43,6 +44,15 @@ function BoardNode({ board }: { board: BoardSummary }) {
 
   const boardDetail = useBoard(board.boardId);
 
+  const userCollapsed = useUi((s) => !!s.collapsed[boardCollapseKey(board.boardId)]);
+  const toggleCollapsed = useUi((s) => s.toggleCollapsed);
+  const runtimes = useRuntimesStore((s) => s.byId);
+  const hasActiveRuntime = Object.values(runtimes).some(
+    (r) => r.kind === 'ticket' && r.ticketRef?.boardId === board.boardId && isRuntimeActive(r),
+  );
+  const effectiveCollapsed = userCollapsed && !hasActiveRuntime;
+  const lanes = boardDetail.data?.board.lanes ?? [];
+
   return (
     <div>
       <div
@@ -51,13 +61,18 @@ function BoardNode({ board }: { board: BoardSummary }) {
         }`}
         onClick={() => navigate(`/boards/${encodeURIComponent(board.boardId)}`)}
       >
+        <CollapseToggle
+          collapsed={effectiveCollapsed}
+          visible={lanes.length > 0}
+          onToggle={() => toggleCollapsed(boardCollapseKey(board.boardId))}
+        />
         <span className={`truncate flex-1 ${!board.available ? 'opacity-50' : ''}`}>
           {board.name}
         </span>
       </div>
-      {boardDetail.data && (
+      {boardDetail.data && !effectiveCollapsed && (
         <div className="ml-3">
-          {boardDetail.data.board.lanes.map((lane) => (
+          {lanes.map((lane) => (
             <LaneNode
               key={lane.laneName}
               boardId={board.boardId}
@@ -67,6 +82,33 @@ function BoardNode({ board }: { board: BoardSummary }) {
         </div>
       )}
     </div>
+  );
+}
+
+function CollapseToggle({
+  collapsed,
+  visible,
+  onToggle,
+}: {
+  collapsed: boolean;
+  visible: boolean;
+  onToggle: () => void;
+}) {
+  if (!visible) {
+    return <span className="inline-block w-5 shrink-0" aria-hidden />;
+  }
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        onToggle();
+      }}
+      className="inline-flex h-5 w-5 shrink-0 items-center justify-center text-slate-400 hover:text-slate-100"
+      aria-label={collapsed ? 'Expand' : 'Collapse'}
+    >
+      <span className="text-base leading-none">{collapsed ? '▸' : '▾'}</span>
+    </button>
   );
 }
 
@@ -108,7 +150,9 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
     (tickets.data?.tickets ?? []).map((t) => [t.filename, t]),
   );
 
-  const totalTickets = Object.values(lane.ticketCounts).reduce((a, b) => a + b, 0);
+  const userCollapsed = useUi((s) => !!s.collapsed[laneCollapseKey(boardId, lane.laneName)]);
+  const toggleCollapsed = useUi((s) => s.toggleCollapsed);
+  const effectiveCollapsed = userCollapsed && !hasActiveRuntime;
 
   return (
     <div>
@@ -118,10 +162,16 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
         }`}
         onClick={() => navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}`)}
       >
+        <CollapseToggle
+          collapsed={effectiveCollapsed}
+          visible={lane.states.length > 0}
+          onToggle={() => toggleCollapsed(laneCollapseKey(boardId, lane.laneName))}
+        />
         <span className="truncate flex-1">
           {lane.displayName}
         </span>
       </div>
+      {!effectiveCollapsed && (
       <div className="ml-5">
         {lane.states.map((st) => {
           const count = lane.ticketCounts[st.dir] ?? 0;
@@ -167,6 +217,7 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
           );
         })}
       </div>
+      )}
     </div>
   );
 }
