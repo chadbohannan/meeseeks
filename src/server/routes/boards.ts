@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
 import { listBoards, addBoardToProject, removeBoardFromProject, getBoard, readProject } from '../../storage/project.js';
-import { createBoard, readBoardDetail, renameBoard, deleteBoardFolder, updateBoardName, writeBoardClaudeContent } from '../../storage/board.js';
+import { createBoard, readBoardDetail, renameBoard, deleteBoardFolder, updateBoardName, writeBoardContextContent } from '../../storage/board.js';
 import { InvalidInputError } from '../../storage/errors.js';
 import { slugifyBoardPath } from '../../storage/paths.js';
 
@@ -37,7 +37,7 @@ export async function registerBoardRoutes(
     return { board: await readBoardDetail(board.path, { boardId: board.boardId, name: board.name }) };
   });
 
-  app.patch<{ Params: { boardId: string }; Body: { name?: string; claudeContent?: string } }>('/api/boards/:boardId', async (req) => {
+  app.patch<{ Params: { boardId: string }; Body: { name?: string; contextContent?: string } }>('/api/boards/:boardId', async (req) => {
     const open = state.require();
     const board = await getBoard(open.meta.path, req.params.boardId);
     if (req.body?.name) {
@@ -53,8 +53,8 @@ export async function registerBoardRoutes(
         await updateBoardName(newAbs, req.body.name);
       }
     }
-    if (req.body?.claudeContent !== undefined) {
-      await writeBoardClaudeContent(board.path, req.body.claudeContent);
+    if (req.body?.contextContent !== undefined) {
+      await writeBoardContextContent(board.path, req.body.contextContent);
     }
     hub.broadcast({ type: 'board-changed', payload: { boardId: board.boardId, kind: 'updated' } });
     return { ok: true };

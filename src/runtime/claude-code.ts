@@ -75,9 +75,9 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   const ticketContext =
     `You are working on ticket \`${ctx.ticketRef.filename}\` in lane \`${ctx.ticketRef.laneName}\` of board \`${boardName}\`. ` +
     `Ticket file: \`${ctx.ticketAbsPath}\`.`;
-  const preamble = ctx.processDocContent
-    ? `${ctx.processDocContent}\n\n${ticketContext}`
-    : ticketContext;
+  const preamble = [ctx.boardContextContent, ctx.processDocContent, ticketContext]
+    .filter((p): p is string => Boolean(p && p.length > 0))
+    .join('\n\n');
 
   argv.push('--append-system-prompt', preamble);
 

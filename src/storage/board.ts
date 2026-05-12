@@ -17,23 +17,28 @@ const DEFAULT_BOARD_YAML = (name: string) => yaml.dump({
   },
 });
 
-const DEFAULT_CLAUDE_MD = (name: string) => `# ${name}\n\nBoard-level instructions for agents go here.\n`;
+const DEFAULT_CONTEXT_MD = (name: string) => `# ${name}\n\nBoard-level instructions for agents go here.\n`;
 
-export async function readBoardClaudeContent(boardPath: string): Promise<string> {
-  const claudePath = path.join(boardPath, 'CLAUDE.md');
+export async function readBoardContextContent(boardPath: string): Promise<string> {
+  const contextPath = path.join(boardPath, 'CONTEXT.md');
   try {
-    return await readFile(claudePath, 'utf8');
+    return await readFile(contextPath, 'utf8');
   } catch {
-    return DEFAULT_CLAUDE_MD('');
+    const legacyPath = path.join(boardPath, 'CLAUDE.md');
+    if (await exists(legacyPath)) {
+      await rename(legacyPath, contextPath);
+      return await readFile(contextPath, 'utf8');
+    }
+    return DEFAULT_CONTEXT_MD('');
   }
 }
 
-export async function writeBoardClaudeContent(boardPath: string, content: string): Promise<void> {
+export async function writeBoardContextContent(boardPath: string, content: string): Promise<void> {
   if (!(await exists(boardPath))) {
     throw new NotFoundError(`board not found: ${boardPath}`);
   }
-  const claudePath = path.join(boardPath, 'CLAUDE.md');
-  await writeFile(claudePath, content, 'utf8');
+  const contextPath = path.join(boardPath, 'CONTEXT.md');
+  await writeFile(contextPath, content, 'utf8');
 }
 
 async function exists(p: string): Promise<boolean> {
@@ -65,7 +70,7 @@ export async function createBoard(boardPath: string, name: string): Promise<void
   if (!name || typeof name !== 'string') throw new InvalidInputError('board name required');
   if (await exists(boardPath)) throw new ConflictError(`board folder already exists: ${boardPath}`);
   await mkdir(path.join(boardPath, 'lanes'), { recursive: true });
-  await writeFile(path.join(boardPath, 'CLAUDE.md'), DEFAULT_CLAUDE_MD(name), 'utf8');
+  await writeFile(path.join(boardPath, 'CONTEXT.md'), DEFAULT_CONTEXT_MD(name), 'utf8');
   await writeFile(path.join(boardPath, 'board.yaml'), DEFAULT_BOARD_YAML(name), 'utf8');
   await writeFile(path.join(boardPath, '.gitignore'), '.meeseeks/\n', 'utf8');
 }
@@ -78,14 +83,14 @@ export async function readBoardDetail(
     throw new NotFoundError(`board not found: ${boardPath}`);
   }
   const lanes = await listLanes(boardPath);
-  const claudeContent = await readBoardClaudeContent(boardPath);
+  const contextContent = await readBoardContextContent(boardPath);
   return {
     boardId: identity.boardId,
     name: identity.name,
     path: boardPath,
     available: true,
     lanes,
-    claudeContent,
+    contextContent,
   };
 }
 
