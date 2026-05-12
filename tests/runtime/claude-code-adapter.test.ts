@@ -114,4 +114,40 @@ describe('buildSpawnSpec', () => {
     expect(spec.preamble).toContain('my-board');
     expect(spec.preamble).toContain('Follow TDD methodology');
   });
+
+  it('orders preamble parts: board context, then process doc, then ticket context', () => {
+    const spec = buildSpawnSpec({
+      runtimeId: 'rt-2',
+      boardPath: '/tmp/p/boards/my-board',
+      lanePath: '/tmp/p/boards/my-board/lanes/dev',
+      ticketAbsPath: '/tmp/p/boards/my-board/lanes/dev/todo/t.md',
+      boardContextContent: '# Board Context\n\nBOARD_MARKER',
+      processDocContent: '# Process\n\nPROCESS_MARKER',
+      ticketRef: { boardId: 'my-board', laneName: 'dev', filename: 't.md' },
+      board: null,
+      permissions: null,
+    });
+    const boardIdx = spec.preamble.indexOf('BOARD_MARKER');
+    const processIdx = spec.preamble.indexOf('PROCESS_MARKER');
+    const ticketIdx = spec.preamble.indexOf('You are working on ticket');
+    expect(boardIdx).toBeGreaterThanOrEqual(0);
+    expect(processIdx).toBeGreaterThan(boardIdx);
+    expect(ticketIdx).toBeGreaterThan(processIdx);
+  });
+
+  it('omits empty parts when only board context is present', () => {
+    const spec = buildSpawnSpec({
+      runtimeId: 'rt-3',
+      boardPath: '/tmp/p/boards/my-board',
+      lanePath: '/tmp/p/boards/my-board/lanes/dev',
+      ticketAbsPath: '/tmp/p/boards/my-board/lanes/dev/todo/t.md',
+      boardContextContent: 'BOARD_ONLY',
+      processDocContent: null,
+      ticketRef: { boardId: 'my-board', laneName: 'dev', filename: 't.md' },
+      board: null,
+      permissions: null,
+    });
+    expect(spec.preamble.startsWith('BOARD_ONLY')).toBe(true);
+    expect(spec.preamble).not.toContain('\n\n\n');
+  });
 });

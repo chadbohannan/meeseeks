@@ -72,8 +72,8 @@ describe('board routes', () => {
   });
 });
 
-describe('PATCH /api/boards/:boardId with claudeContent', () => {
-  it('updates CLAUDE.md content', async () => {
+describe('PATCH /api/boards/:boardId with contextContent', () => {
+  it('updates CONTEXT.md content', async () => {
     const { srv } = await setup();
     const createRes = await (await fetch(`${srv.url}/api/boards`, {
       method: 'POST',
@@ -86,16 +86,16 @@ describe('PATCH /api/boards/:boardId with claudeContent', () => {
     const patchRes = await fetch(`${srv.url}/api/boards/${boardId}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ claudeContent: newContent }),
+      body: JSON.stringify({ contextContent: newContent }),
     });
 
     expect(patchRes.status).toBe(200);
 
-    const getRes = await fetch(`${srv.url}/api/boards/${boardId}`).then(r => r.json()) as { board: { claudeContent: string } };
-    expect(getRes.board.claudeContent).toBe(newContent);
+    const getRes = await fetch(`${srv.url}/api/boards/${boardId}`).then(r => r.json()) as { board: { contextContent: string } };
+    expect(getRes.board.contextContent).toBe(newContent);
   });
 
-  it('persists claudeContent to disk', async () => {
+  it('persists contextContent to disk', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const srv = await bootTestServer(tp.root);
@@ -112,13 +112,13 @@ describe('PATCH /api/boards/:boardId with claudeContent', () => {
     await fetch(`${srv.url}/api/boards/${boardId}`, {
       method: 'PATCH',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ claudeContent: newContent }),
+      body: JSON.stringify({ contextContent: newContent }),
     });
 
     // Read directly from filesystem to verify persistence
     const boardPath = path.join(tp.root, 'boards/test-board');
-    const claudePath = path.join(boardPath, 'CLAUDE.md');
-    const diskContent = await readFile(claudePath, 'utf8');
+    const contextPath = path.join(boardPath, 'CONTEXT.md');
+    const diskContent = await readFile(contextPath, 'utf8');
 
     expect(diskContent).toBe(newContent);
   });

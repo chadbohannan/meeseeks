@@ -7,6 +7,7 @@ import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
 import { NotFoundError } from '../../storage/errors.js';
 import { getBoard } from '../../storage/project.js';
+import { readBoardContextContent } from '../../storage/board.js';
 import { findTicketFile } from '../../storage/ticket.js';
 import type { BoardRuntimeConfig, PermissionsConfig } from '../../runtime/types.js';
 
@@ -60,6 +61,7 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
       const permissions = await readYaml<PermissionsConfig>(path.join(lanePath, 'permissions.yaml'));
       const processDocPath = path.join(lanePath, 'PROCESS.md');
       const processDocContent = await readFile(processDocPath, 'utf8').catch(() => null);
+      const boardContextContent = await readBoardContextContent(board.path).catch(() => null);
 
       const existing = state.supervisor.list().find(r =>
         r.kind === 'ticket' &&
@@ -75,6 +77,7 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
         boardPath: board.path,
         lanePath,
         ticketAbsPath: found.abs,
+        boardContextContent,
         processDocContent,
         ticketRef: { boardId, laneName, filename },
         board: boardCfg,

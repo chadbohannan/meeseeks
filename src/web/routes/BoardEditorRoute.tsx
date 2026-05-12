@@ -84,7 +84,7 @@ export function BoardEditorRoute() {
             }`}
             onClick={() => setSearchParams({ context: 'true' })}
           >
-            <span className="text-sm font-medium">CLAUDE.md</span>
+            <span className="text-sm font-medium">CONTEXT.md</span>
           </div>
           <div
             className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
@@ -450,18 +450,18 @@ function ContextEditor({ boardId }: { boardId: string }) {
   return (
     <div className="p-6 max-w-2xl">
       <MarkdownEditor
-        value={board.data.board.claudeContent ?? ''}
+        value={board.data.board.contextContent ?? ''}
         onChange={(md) => {
           if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
           saveTimerRef.current = setTimeout(async () => {
             try {
-              await patchBoard.mutateAsync({ claudeContent: md });
+              await patchBoard.mutateAsync({ contextContent: md });
               toast.success('Context saved');
             } catch (err) { toast.error((err as Error).message); }
           }, 1000);
         }}
         className="w-full bg-slate-800 rounded min-h-96"
-        placeholder="Write CLAUDE.md context…"
+        placeholder="Write CONTEXT.md…"
       />
     </div>
   );

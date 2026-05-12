@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
-import { readFile, access } from 'node:fs/promises';
+import { readFile, writeFile, access } from 'node:fs/promises';
 import { createBoard, renameBoard, deleteBoardFolder, readBoardDetail } from '../../src/storage/board.js';
 import { addBoardToProject, listBoards } from '../../src/storage/project.js';
 import { ConflictError, NotFoundError } from '../../src/storage/errors.js';
@@ -12,18 +12,18 @@ afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
 const exists = async (p: string) => { try { await access(p); return true; } catch { return false; } };
 
 describe('createBoard', () => {
-  it('creates folder, CLAUDE.md, board.yaml, lanes/', async () => {
+  it('creates folder, CONTEXT.md, board.yaml, lanes/', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/my-board');
 
     await createBoard(boardPath, 'My Board');
-    expect(await exists(path.join(boardPath, 'CLAUDE.md'))).toBe(true);
+    expect(await exists(path.join(boardPath, 'CONTEXT.md'))).toBe(true);
     expect(await exists(path.join(boardPath, 'board.yaml'))).toBe(true);
     expect(await exists(path.join(boardPath, 'lanes'))).toBe(true);
 
-    const claudeMd = await readFile(path.join(boardPath, 'CLAUDE.md'), 'utf8');
-    expect(claudeMd).toContain('My Board');
+    const contextMd = await readFile(path.join(boardPath, 'CONTEXT.md'), 'utf8');
+    expect(contextMd).toContain('My Board');
   });
 
   it('rejects existing folder', async () => {
@@ -36,15 +36,15 @@ describe('createBoard', () => {
 });
 
 describe('readBoardDetail', () => {
-  it('returns lane summaries and claudeContent for an existing board', async () => {
+  it('returns lane summaries and contextContent for an existing board', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/b');
     await createBoard(boardPath, 'B');
     const detail = await readBoardDetail(boardPath, { boardId: 'b', name: 'B' });
     expect(detail.lanes).toEqual([]);
-    expect(detail.claudeContent).toBeTruthy();
-    expect(detail.claudeContent).toContain('B');
+    expect(detail.contextContent).toBeTruthy();
+    expect(detail.contextContent).toContain('B');
   });
 });
 
@@ -84,62 +84,84 @@ describe('deleteBoardFolder', () => {
   });
 });
 
-describe('readBoardClaudeContent', () => {
-  it('returns CLAUDE.md content for an existing board', async () => {
+describe('readBoardContextContent', () => {
+  it('returns CONTEXT.md content for an existing board', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/my-board');
     await createBoard(boardPath, 'My Board');
 
-    const { readBoardClaudeContent } = await import('../../src/storage/board.js');
-    const content = await readBoardClaudeContent(boardPath);
+    const { readBoardContextContent } = await import('../../src/storage/board.js');
+    const content = await readBoardContextContent(boardPath);
 
     expect(content).toContain('My Board');
     expect(content).toContain('Board-level instructions');
   });
 
-  it('returns default content when CLAUDE.md is missing', async () => {
+  it('returns default content when CONTEXT.md is missing', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/missing');
 
-    const { readBoardClaudeContent } = await import('../../src/storage/board.js');
-    const content = await readBoardClaudeContent(boardPath);
+    const { readBoardContextContent } = await import('../../src/storage/board.js');
+    const content = await readBoardContextContent(boardPath);
 
     expect(content).toBeTruthy();
     expect(content.length).toBeGreaterThan(0);
   });
+
+  it('auto-migrates legacy CLAUDE.md to CONTEXT.md on read', async () => {
+    const tp = await makeBareProject();
+    cleanups.push(tp.cleanup);
+    const boardPath = path.join(tp.root, 'boards/legacy');
+    await createBoard(boardPath, 'Legacy');
+
+    // Simulate a board created before the rename: move CONTEXT.md back to CLAUDE.md.
+    const contextPath = path.join(boardPath, 'CONTEXT.md');
+    const legacyPath = path.join(boardPath, 'CLAUDE.md');
+    const original = await readFile(contextPath, 'utf8');
+    await writeFile(legacyPath, original, 'utf8');
+    const { rm } = await import('node:fs/promises');
+    await rm(contextPath);
+
+    const { readBoardContextContent } = await import('../../src/storage/board.js');
+    const content = await readBoardContextContent(boardPath);
+
+    expect(content).toBe(original);
+    expect(await exists(contextPath)).toBe(true);
+    expect(await exists(legacyPath)).toBe(false);
+  });
 });
 
-describe('writeBoardClaudeContent', () => {
-  it('writes content to CLAUDE.md', async () => {
+describe('writeBoardContextContent', () => {
+  it('writes content to CONTEXT.md', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/my-board');
     await createBoard(boardPath, 'My Board');
 
-    const { writeBoardClaudeContent, readBoardClaudeContent } = await import('../../src/storage/board.js');
+    const { writeBoardContextContent, readBoardContextContent } = await import('../../src/storage/board.js');
     const newContent = '# Custom Instructions\n\nTest content';
-    await writeBoardClaudeContent(boardPath, newContent);
+    await writeBoardContextContent(boardPath, newContent);
 
-    const readBack = await readBoardClaudeContent(boardPath);
+    const readBack = await readBoardContextContent(boardPath);
     expect(readBack).toBe(newContent);
   });
 
-  it('overwrites existing CLAUDE.md content', async () => {
+  it('overwrites existing CONTEXT.md content', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/my-board');
     await createBoard(boardPath, 'My Board');
 
-    const { writeBoardClaudeContent, readBoardClaudeContent } = await import('../../src/storage/board.js');
+    const { writeBoardContextContent, readBoardContextContent } = await import('../../src/storage/board.js');
 
-    await writeBoardClaudeContent(boardPath, 'First version');
-    const first = await readBoardClaudeContent(boardPath);
+    await writeBoardContextContent(boardPath, 'First version');
+    const first = await readBoardContextContent(boardPath);
     expect(first).toBe('First version');
 
-    await writeBoardClaudeContent(boardPath, 'Second version');
-    const second = await readBoardClaudeContent(boardPath);
+    await writeBoardContextContent(boardPath, 'Second version');
+    const second = await readBoardContextContent(boardPath);
     expect(second).toBe('Second version');
   });
 
@@ -148,10 +170,10 @@ describe('writeBoardClaudeContent', () => {
     cleanups.push(tp.cleanup);
     const invalidPath = path.join(tp.root, 'boards/nonexistent');
 
-    const { writeBoardClaudeContent } = await import('../../src/storage/board.js');
+    const { writeBoardContextContent } = await import('../../src/storage/board.js');
 
     await expect(
-      writeBoardClaudeContent(invalidPath, 'content')
+      writeBoardContextContent(invalidPath, 'content')
     ).rejects.toThrow(NotFoundError);
   });
 });

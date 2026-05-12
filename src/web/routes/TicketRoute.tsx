@@ -34,25 +34,29 @@ export function TicketRoute() {
   const [dirty, setDirty] = useState(false);
   const [tab, setTab] = useState<'console' | 'context'>('console');
   const [model, setModel] = useState('claude-sonnet-4-6');
-  const bodyInitializedRef = useRef(false);
-
-  useEffect(() => {
-    bodyInitializedRef.current = false;
-  }, [filename]);
+  const lastSyncedBodyRef = useRef<string | null>(null);
+  const conflictNotifiedRef = useRef(false);
 
   useEffect(() => {
     if (!ticket.data) return;
-    // Body is owned by the editor once initialized. Server refetches (from WS
-    // ticket-changed or explicit invalidation) must not overwrite what the user
-    // is typing — that's what causes the focus jitter.
-    if (!bodyInitializedRef.current) {
-      bodyInitializedRef.current = true;
-      setBody(ticket.data.ticket.body);
+    const serverBody = ticket.data.ticket.body;
+    if (dirty) {
+      if (
+        lastSyncedBodyRef.current !== null &&
+        serverBody !== lastSyncedBodyRef.current &&
+        !conflictNotifiedRef.current
+      ) {
+        conflictNotifiedRef.current = true;
+        toast.warning('Ticket changed on disk while you were editing — your next save will overwrite it.');
+      }
+      return;
     }
-    if (dirty) return;
     setTitle(ticket.data.ticket.title);
     setState(ticket.data.ticket.state);
     setColor(ticket.data.ticket.color);
+    setBody(serverBody);
+    lastSyncedBodyRef.current = serverBody;
+    conflictNotifiedRef.current = false;
   }, [ticket.data, dirty]);
 
   useEffect(() => {
@@ -68,6 +72,8 @@ export function TicketRoute() {
     saveTimerRef.current = setTimeout(async () => {
       try {
         await patch.mutateAsync({ title, body: newBody, state, color });
+        lastSyncedBodyRef.current = newBody;
+        conflictNotifiedRef.current = false;
         setDirty(false);
       } catch (err) { toast.error((err as Error).message); }
     }, 1000);
@@ -81,6 +87,8 @@ export function TicketRoute() {
     if (!dirty) return;
     try {
       await patch.mutateAsync({ title, body, state, color });
+      lastSyncedBodyRef.current = body;
+      conflictNotifiedRef.current = false;
       setDirty(false);
     } catch (err) { toast.error((err as Error).message); }
   };

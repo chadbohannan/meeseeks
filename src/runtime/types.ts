@@ -21,6 +21,7 @@ export interface SpawnContext {
   boardPath: string;
   lanePath: string;
   ticketAbsPath: string;
+  boardContextContent?: string | null;
   processDocContent?: string | null;
   ticketRef: TicketRef;
   board: BoardRuntimeConfig | null;
