@@ -26,10 +26,11 @@ The Kanban view groups tickets into columns by `state.dir` in the order given by
 
 ## Scope and deferrals
 
-The Kanban now supports drag-and-drop between state columns — `TicketCard` is `draggable` and each column registers `onDragOver`/`onDrop` handlers in `Kanban.tsx`, with the active drop target highlighted. The plain-textarea ticket body has been replaced by `MarkdownEditor`, used by ticket bodies, board CONTEXT.md, lane PROCESS.md, skills files, and one-shot prompts. The editor uses a `bodyInitializedRef` focus-stability pattern: once mounted, refetches do not overwrite in-progress edits, so external filesystem changes to an open document only appear on remount. UI tests remain deferred.
+The Kanban now supports drag-and-drop between state columns — `TicketCard` is `draggable` and each column registers `onDragOver`/`onDrop` handlers in `Kanban.tsx`, with the active drop target highlighted. The plain-textarea ticket body has been replaced by `MarkdownEditor`, used by ticket bodies, board CONTEXT.md, lane PROCESS.md, skills files, and one-shot prompts. To stop server-driven refetches from clobbering in-progress typing, the ticket body editor and the `FocusGatedMarkdownEditor` wrapper used for CONTEXT.md and PROCESS.md follow the [focus-gated editor pattern](../concepts/focus-gated-editor.md): local state is authoritative while focused or dirty, external edits are adopted on the next clean snapshot rather than blocked permanently, and `MarkdownEditor` exposes the contenteditable's focus transitions through native `focusin`/`focusout` listeners since React's synthetic focus events don't track Milkdown's Crepe surface reliably. UI tests remain deferred.
 
 | Ingest Date | Source |
 | ----------- | ------ |
 | 2026-04-26 | `docs/superpowers/plans/2026-04-26-web-ui.md` |
 | 2026-04-26 | `src/web/` |
 | 2026-05-03 | `src/web/components/{PromptsEditor,SkillsEditor,BinEditor,MarkdownEditor,Kanban}.tsx`, `routes/BoardEditorRoute.tsx`, `store/prompts.ts` |
+| 2026-05-19 | `src/web/components/MarkdownEditor.tsx`, `src/web/routes/{TicketRoute,BoardEditorRoute}.tsx` |

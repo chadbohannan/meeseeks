@@ -8,6 +8,13 @@ import { XtermHost } from '../components/console/xterm-host.js';
 import { toast } from 'sonner';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 
+// Treat bodies as equivalent if they only differ in trailing whitespace —
+// gray-matter normalization on the server adds/removes a trailing newline on
+// round-trip, which would otherwise look like an external edit.
+function bodiesEquivalent(a: string, b: string): boolean {
+  return a.trimEnd() === b.trimEnd();
+}
+
 export function TicketRoute() {
   const { boardId, laneName, filename } = useParams<{ boardId: string; laneName: string; filename: string }>();
   const lane = useLane(boardId, laneName);
@@ -34,16 +41,43 @@ export function TicketRoute() {
   const [dirty, setDirty] = useState(false);
   const [tab, setTab] = useState<'console' | 'context'>('console');
   const [model, setModel] = useState('claude-sonnet-4-6');
-  const lastSyncedBodyRef = useRef<string | null>(null);
+  // Body the server most recently persisted (whether we wrote it or it came in
+  // from a fresh load). Used to distinguish echoes of our own saves from genuine
+  // external edits.
+  const lastPersistedBodyRef = useRef<string | null>(null);
+  // ISO timestamp of the server snapshot that lastPersistedBodyRef came from.
+  // Used to discard stale watcher-driven refetches that resolve after a newer
+  // save has already updated lastPersistedBodyRef.
+  const lastPersistedUpdatedRef = useRef<string | null>(null);
+  const bodyFocusedRef = useRef(false);
   const conflictNotifiedRef = useRef(false);
+  const bodyRef = useRef('');
+  bodyRef.current = body;
+  // Counts saves that have been dispatched but not yet resolved. The filesystem
+  // watcher often fires (and the WS-driven refetch completes) before our own
+  // PATCH response returns, leaving lastPersistedBodyRef stale and producing a
+  // false external-change toast. Suppress notifications while any save is open.
+  const savesInFlightRef = useRef(0);
 
   useEffect(() => {
     if (!ticket.data) return;
     const serverBody = ticket.data.ticket.body;
-    if (dirty) {
+    const serverUpdated = ticket.data.ticket.updated;
+    if (bodyFocusedRef.current || dirty) {
+      // Editor is active or has unsaved work — never overwrite. Only flag genuine
+      // external writes (server diverging from what we last persisted). Trailing
+      // whitespace differences come from markdown round-trips and aren't conflicts.
+      // Also ignore snapshots older than our last persisted state — when typing
+      // fast, an early refetch can resolve after a later save and would look like
+      // a divergence even though it's just a stale echo.
+      const isStale =
+        lastPersistedUpdatedRef.current !== null &&
+        serverUpdated < lastPersistedUpdatedRef.current;
       if (
-        lastSyncedBodyRef.current !== null &&
-        serverBody !== lastSyncedBodyRef.current &&
+        !isStale &&
+        savesInFlightRef.current === 0 &&
+        lastPersistedBodyRef.current !== null &&
+        !bodiesEquivalent(serverBody, lastPersistedBodyRef.current) &&
         !conflictNotifiedRef.current
       ) {
         conflictNotifiedRef.current = true;
@@ -55,8 +89,10 @@ export function TicketRoute() {
     setState(ticket.data.ticket.state);
     setColor(ticket.data.ticket.color);
     setBody(serverBody);
-    lastSyncedBodyRef.current = serverBody;
+    lastPersistedBodyRef.current = serverBody;
+    lastPersistedUpdatedRef.current = serverUpdated;
     conflictNotifiedRef.current = false;
+    setDirty(false);
   }, [ticket.data, dirty]);
 
   useEffect(() => {
@@ -64,33 +100,56 @@ export function TicketRoute() {
   }, [runtime?.runtimeId]);
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  // Holds the body the pending debounced save would write. Used so blur/unmount
+  // can flush exactly that pending write instead of relying on React state.
+  const pendingBodyRef = useRef<string | null>(null);
+
+  const performSave = useCallback(async (newBody: string) => {
+    savesInFlightRef.current++;
+    try {
+      const res = await patch.mutateAsync({ title, body: newBody, state, color });
+      lastPersistedBodyRef.current = res.ticket.body;
+      lastPersistedUpdatedRef.current = res.ticket.updated;
+      conflictNotifiedRef.current = false;
+      if (bodyRef.current === newBody) setDirty(false);
+    } catch (err) { toast.error((err as Error).message); }
+    finally { savesInFlightRef.current--; }
+  }, [patch, title, state, color]);
+
+  const flushPendingSave = useCallback(() => {
+    if (!saveTimerRef.current) return;
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = null;
+    const pending = pendingBodyRef.current;
+    pendingBodyRef.current = null;
+    if (pending !== null) void performSave(pending);
+  }, [performSave]);
 
   const debouncedSaveBody = useCallback((newBody: string) => {
     setBody(newBody);
     setDirty(true);
+    pendingBodyRef.current = newBody;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(async () => {
-      try {
-        await patch.mutateAsync({ title, body: newBody, state, color });
-        lastSyncedBodyRef.current = newBody;
-        conflictNotifiedRef.current = false;
-        setDirty(false);
-      } catch (err) { toast.error((err as Error).message); }
-    }, 1000);
-  }, [patch, title, state, color]);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      const pending = pendingBodyRef.current;
+      pendingBodyRef.current = null;
+      if (pending !== null) void performSave(pending);
+    }, 3000);
+  }, [performSave]);
 
+  // Flush on unmount so navigating away mid-debounce doesn't drop the write.
+  // Use a ref so the cleanup always sees the latest flushPendingSave.
+  const flushRef = useRef(flushPendingSave);
+  flushRef.current = flushPendingSave;
   useEffect(() => {
-    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
+    return () => { flushRef.current(); };
   }, []);
 
   const saveIfDirty = async () => {
     if (!dirty) return;
-    try {
-      await patch.mutateAsync({ title, body, state, color });
-      lastSyncedBodyRef.current = body;
-      conflictNotifiedRef.current = false;
-      setDirty(false);
-    } catch (err) { toast.error((err as Error).message); }
+    const snapshot = body;
+    await performSave(snapshot);
   };
 
   if (!boardId || !laneName || !filename) return null;
@@ -139,6 +198,8 @@ export function TicketRoute() {
       <MarkdownEditor
         value={body}
         onChange={debouncedSaveBody}
+        onFocus={() => { bodyFocusedRef.current = true; }}
+        onBlur={() => { bodyFocusedRef.current = false; flushPendingSave(); }}
         className="flex-1 min-h-0 w-full bg-slate-800 rounded overflow-y-auto"
         placeholder="Write ticket description…"
       />

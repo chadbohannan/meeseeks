@@ -16,6 +16,7 @@
 - [Runtime Supervisor](concepts/runtime.md) — Claude Code runtime lifecycle management (ticket and prompt kinds)
 - [One-Shot Prompts](concepts/one-shot-prompts.md) — board-scoped reusable prompts run non-interactively with JSONL run logs
 - [Platform Constraints](concepts/platform-constraints.md) — macOS-specific incompatibilities: chokidar/node-pty, node-pty version, tsx watch scope, env leakage
+- [Focus-Gated Editor](concepts/focus-gated-editor.md) — coexisting with the filesystem watcher when editing Markdown that agents may also rewrite
 
 ## Runbooks
 - [Project Setup](runbooks/project-setup.md) — installation, development commands, environment variables, and production deployment

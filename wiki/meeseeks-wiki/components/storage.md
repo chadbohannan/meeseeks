@@ -38,6 +38,12 @@ The `StorageErrorCode` discriminated union (`'NOT_FOUND' | 'CONFLICT' | 'INVALID
 
 Tickets follow the pattern `YYYY-MM-DDTHHmm-<slug>.md` with a base36 suffix appended on collision. Stable references use `<boardId>/<laneName>/filename` format, omitting the state folder.
 
+## Frontmatter Tolerance and Folder-Authoritative State
+
+Tickets are co-edited by Meeseeks, by the user's text editor, and by supervised agents that may rewrite frontmatter aggressively. `parse` in `ticket.ts` tolerates malformed or missing frontmatter rather than throwing: an unparseable YAML block, or one missing `title`, falls back to a title derived from the filename (stripping the `YYYY-MM-DDTHHmm-` prefix) and synthetic `created`/`updated` timestamps. `listTickets` consequently surfaces every `.md` file in a state directory regardless of its frontmatter shape, and folder placement — not a `status:` field — is the sole authority for which lane state a ticket belongs to.
+
+Unknown frontmatter keys are preserved across updates. `parse` partitions data into the known fields (`title`, `created`, `updated`, `color`) and an `extra` map; `serialize` writes `extra` back ahead of the known keys, so JIRA URLs, assignees, priorities, or any other fields an external agent has added survive an in-app edit. `updateTicket` additionally re-parses its own serialized output and returns the normalized body in the response so callers can compare it against subsequent reads — see the [focus-gated editor pattern](../concepts/focus-gated-editor.md) for why this matters when the same file is being rewritten by the [filesystem watcher](server.md).
+
 ## Required vs Optional Files
 
 The only mandatory files are `project.yaml`, `lane.yaml`, and lane state folders. Missing optional files like `board.yaml` or `permissions.yaml` cause the system to fall back to defined defaults.
@@ -48,3 +54,4 @@ The only mandatory files are `project.yaml`, `lane.yaml`, and lane state folders
 | 2026-04-26 | First Slice Design §4 (`docs/superpowers/specs/2026-04-26-storage-server-runtime-design.md`) |
 | 2026-04-26 | `src/storage` |
 | 2026-05-03 | `src/storage/prompts.ts`, `src/storage/files.ts`, `src/storage/paths.ts` |
+| 2026-05-19 | `src/storage/ticket.ts`, `tests/storage/ticket.test.ts` |

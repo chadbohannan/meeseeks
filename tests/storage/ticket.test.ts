@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
-import { readFile, access } from 'node:fs/promises';
+import { readFile, writeFile, access } from 'node:fs/promises';
 import {
   createTicket, listTickets, readTicket, updateTicket, deleteTicket,
 } from '../../src/storage/ticket.js';
@@ -56,6 +56,21 @@ describe('listTickets', () => {
     const list = await listTickets(boardPath, 'work');
     expect(list).toHaveLength(2);
   });
+
+  it('treats folder placement as authoritative regardless of frontmatter', async () => {
+    const { boardPath, lanePath } = await setup();
+    const c = await createTicket(boardPath, 'work', { title: 'real title', state: 'todo' });
+    // Simulate an external agent rewriting frontmatter: drops title, adds status
+    await writeFile(
+      path.join(lanePath, 'todo', c.filename),
+      '---\nstatus: in-progress\n---\nbody\n',
+      'utf8',
+    );
+    const list = await listTickets(boardPath, 'work');
+    expect(list).toHaveLength(1);
+    expect(list[0]?.state).toBe('todo');
+    expect(list[0]?.orphaned).toBe(false);
+  });
 });
 
 describe('readTicket', () => {
@@ -80,6 +95,24 @@ describe('updateTicket', () => {
     const u = await updateTicket(boardPath, 'work', c.filename, { title: 'new', body: 'new body' });
     expect(u.title).toBe('new');
     const text = await readFile(path.join(boardPath, 'lanes/work/todo', c.filename), 'utf8');
+    expect(text).toContain('new body');
+  });
+
+  it('preserves unknown frontmatter fields across updates', async () => {
+    const { boardPath, lanePath } = await setup();
+    const c = await createTicket(boardPath, 'work', { title: 'orig', state: 'todo', body: 'old' });
+    const filePath = path.join(lanePath, 'todo', c.filename);
+    await writeFile(
+      filePath,
+      '---\ntitle: orig\ncreated: \'2026-01-01T00:00:00.000Z\'\nupdated: \'2026-01-01T00:00:00.000Z\'\njira: https://example.com/JIRA-1\njira_status: In Progress\nassignee: bohannan\npriority: High\n---\nold\n',
+      'utf8',
+    );
+    await updateTicket(boardPath, 'work', c.filename, { body: 'new body' });
+    const text = await readFile(filePath, 'utf8');
+    expect(text).toMatch(/jira: ['"]?https:\/\/example\.com\/JIRA-1['"]?/);
+    expect(text).toContain('jira_status: In Progress');
+    expect(text).toContain('assignee: bohannan');
+    expect(text).toContain('priority: High');
     expect(text).toContain('new body');
   });
 

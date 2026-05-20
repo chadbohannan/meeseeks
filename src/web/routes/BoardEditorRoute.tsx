@@ -10,6 +10,13 @@ import { PromptsEditor } from '../components/PromptsEditor.js';
 
 const NEW_LANE_KEY = '__new__';
 
+// Treat bodies as equivalent if they only differ in trailing whitespace —
+// server round-trips through markdown serializers can add/remove a trailing
+// newline, which would otherwise look like an external edit.
+function bodiesEquivalent(a: string, b: string): boolean {
+  return a.trimEnd() === b.trimEnd();
+}
+
 const DEFAULT_STATES: LaneState[] = [
   { dir: 'todo', name: 'Todo' },
   { dir: 'in-progress', name: 'In progress' },
@@ -233,7 +240,6 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
   const [states, setStates] = useState<LaneState[] | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
-  const processTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   if (lane.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
   if (!lane.data) return <div className="p-6 text-red-400">Lane not found.</div>;
@@ -350,17 +356,11 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
       {lane.data.lane.hasProcessDoc && (
         <section className="mt-8 pt-6 border-t border-slate-800">
           <h3 className="text-sm font-semibold text-slate-400 mb-2">PROCESS.md</h3>
-          <MarkdownEditor
-            value={lane.data.lane.processDoc ?? ''}
-            onChange={(md) => {
-              if (processTimerRef.current) clearTimeout(processTimerRef.current);
-              processTimerRef.current = setTimeout(async () => {
-                try {
-                  await patchLane.mutateAsync({ processDoc: md });
-                  toast.success('PROCESS.md saved');
-                } catch (err) { toast.error((err as Error).message); }
-              }, 1000);
-            }}
+          <FocusGatedMarkdownEditor
+            serverValue={lane.data.lane.processDoc ?? ''}
+            save={(content) => patchLane.mutateAsync({ processDoc: content })}
+            externalLabel="PROCESS.md changed on disk while you were editing — your next save will overwrite it."
+            savedToast="PROCESS.md saved"
             className="w-full bg-slate-800 rounded min-h-48"
             placeholder="Write process documentation…"
           />
@@ -438,31 +438,124 @@ function StatesEditor({ states, ticketCounts, onUpdate, onAdd, onRemove, onMove 
 function ContextEditor({ boardId }: { boardId: string }) {
   const board = useBoard(boardId);
   const patchBoard = usePatchBoard(boardId);
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
-
-  useEffect(() => {
-    return () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current); };
-  }, []);
-
-  if (board.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
-  if (!board.data) return <div className="p-6 text-red-400">Board not found.</div>;
-
   return (
     <div className="p-6 max-w-2xl">
-      <MarkdownEditor
-        value={board.data.board.contextContent ?? ''}
-        onChange={(md) => {
-          if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-          saveTimerRef.current = setTimeout(async () => {
-            try {
-              await patchBoard.mutateAsync({ contextContent: md });
-              toast.success('Context saved');
-            } catch (err) { toast.error((err as Error).message); }
-          }, 1000);
-        }}
+      <FocusGatedMarkdownEditor
+        serverValue={board.data?.board.contextContent ?? null}
+        save={(content) => patchBoard.mutateAsync({ contextContent: content })}
+        loading={board.isLoading}
+        notFound={!board.isLoading && !board.data}
+        notFoundLabel="Board not found."
+        externalLabel="CONTEXT.md changed on disk while you were editing — your next save will overwrite it."
+        savedToast="Context saved"
         className="w-full bg-slate-800 rounded min-h-96"
         placeholder="Write CONTEXT.md…"
       />
     </div>
+  );
+}
+
+interface FocusGatedMarkdownEditorProps {
+  serverValue: string | null;
+  save: (content: string) => Promise<unknown>;
+  loading?: boolean;
+  notFound?: boolean;
+  notFoundLabel?: string;
+  externalLabel: string;
+  savedToast?: string;
+  className?: string;
+  placeholder?: string;
+}
+
+// Editor whose local state is the source of truth while focused or dirty.
+// Server values are only adopted when both unfocused and clean. External writes
+// during an active edit produce a one-shot toast rather than overwriting.
+function FocusGatedMarkdownEditor({
+  serverValue, save, loading, notFound, notFoundLabel,
+  externalLabel, savedToast, className, placeholder,
+}: FocusGatedMarkdownEditorProps) {
+  const [body, setBody] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const focusedRef = useRef(false);
+  const lastPersistedRef = useRef<string | null>(null);
+  const conflictNotifiedRef = useRef(false);
+  const bodyRef = useRef('');
+  bodyRef.current = body;
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
+  const pendingBodyRef = useRef<string | null>(null);
+  // See TicketRoute: the filesystem watcher often delivers a refetch before our
+  // own PATCH resolves, so lastPersistedRef can be stale at the moment the
+  // server snapshot arrives. Suppress conflict toasts while any save is open.
+  const savesInFlightRef = useRef(0);
+
+  useEffect(() => {
+    if (serverValue === null) return;
+    if (focusedRef.current || dirty) {
+      if (
+        savesInFlightRef.current === 0 &&
+        lastPersistedRef.current !== null &&
+        !bodiesEquivalent(serverValue, lastPersistedRef.current) &&
+        !conflictNotifiedRef.current
+      ) {
+        conflictNotifiedRef.current = true;
+        toast.warning(externalLabel);
+      }
+      return;
+    }
+    setBody(serverValue);
+    lastPersistedRef.current = serverValue;
+    conflictNotifiedRef.current = false;
+  }, [serverValue, dirty, externalLabel]);
+
+  const performSave = useCallback(async (md: string) => {
+    savesInFlightRef.current++;
+    try {
+      await save(md);
+      lastPersistedRef.current = md;
+      conflictNotifiedRef.current = false;
+      if (bodyRef.current === md) setDirty(false);
+      if (savedToast) toast.success(savedToast);
+    } catch (err) { toast.error((err as Error).message); }
+    finally { savesInFlightRef.current--; }
+  }, [save, savedToast]);
+
+  const flushPendingSave = useCallback(() => {
+    if (!saveTimerRef.current) return;
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = null;
+    const pending = pendingBodyRef.current;
+    pendingBodyRef.current = null;
+    if (pending !== null) void performSave(pending);
+  }, [performSave]);
+
+  const flushRef = useRef(flushPendingSave);
+  flushRef.current = flushPendingSave;
+  useEffect(() => {
+    return () => { flushRef.current(); };
+  }, []);
+
+  if (loading) return <div className="p-6 text-slate-500">Loading…</div>;
+  if (notFound) return <div className="p-6 text-red-400">{notFoundLabel ?? 'Not found.'}</div>;
+
+  return (
+    <MarkdownEditor
+      value={body}
+      onFocus={() => { focusedRef.current = true; }}
+      onBlur={() => { focusedRef.current = false; flushPendingSave(); }}
+      onChange={(md) => {
+        setBody(md);
+        setDirty(true);
+        pendingBodyRef.current = md;
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = setTimeout(() => {
+          saveTimerRef.current = null;
+          const pending = pendingBodyRef.current;
+          pendingBodyRef.current = null;
+          if (pending !== null) void performSave(pending);
+        }, 3000);
+      }}
+      className={className}
+      placeholder={placeholder}
+    />
   );
 }

@@ -26,7 +26,10 @@ interface FrontMatter {
   created: string;
   updated: string;
   color?: string;
+  extra: Record<string, unknown>;
 }
+
+const KNOWN_FM_KEYS = new Set(['title', 'created', 'updated', 'color']);
 
 export async function findTicketFile(lp: string, filename: string): Promise<{ state: string; abs: string } | null> {
   const entries = await readdir(lp, { withFileTypes: true });
@@ -38,27 +41,50 @@ export async function findTicketFile(lp: string, filename: string): Promise<{ st
   return null;
 }
 
-function parse(content: string): { fm: FrontMatter; body: string } {
-  const parsed = matter(content);
-  const data = parsed.data as Partial<FrontMatter>;
-  if (typeof data.title !== 'string') throw new InvalidInputError('ticket frontmatter missing title');
+function titleFromFilename(filename: string): string {
+  const base = filename.replace(/\.md$/i, '');
+  // Strip the YYYY-MM-DDTHHMM- prefix produced by buildTicketFilename, if present.
+  const stripped = base.replace(/^\d{4}-\d{2}-\d{2}T\d{4}-/, '');
+  return stripped || base || filename;
+}
+
+function parse(content: string, filename: string): { fm: FrontMatter; body: string } {
+  let parsed: matter.GrayMatterFile<string>;
+  try {
+    parsed = matter(content);
+  } catch {
+    return {
+      fm: {
+        title: titleFromFilename(filename),
+        created: new Date().toISOString(),
+        updated: new Date().toISOString(),
+      },
+      body: content,
+    };
+  }
+  const data = { ...(parsed.data as Record<string, unknown>) };
+  const title = typeof data.title === 'string' && data.title.length > 0
+    ? data.title
+    : titleFromFilename(filename);
+  const created = typeof data.created === 'string' ? data.created : new Date().toISOString();
+  const updated = typeof data.updated === 'string' ? data.updated : new Date().toISOString();
   const color = typeof data.color === 'string' ? data.color : undefined;
+  const extra: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(data)) {
+    if (!KNOWN_FM_KEYS.has(k)) extra[k] = v;
+  }
   return {
-    fm: {
-      title: data.title,
-      created: typeof data.created === 'string' ? data.created : new Date().toISOString(),
-      updated: typeof data.updated === 'string' ? data.updated : new Date().toISOString(),
-      color,
-    },
+    fm: { title, created, updated, color, extra },
     body: parsed.content,
   };
 }
 
 function serialize(fm: FrontMatter, body: string): string {
-  const cleaned: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(fm)) {
-    if (v !== undefined) cleaned[k] = v;
-  }
+  const cleaned: Record<string, unknown> = { ...fm.extra };
+  cleaned.title = fm.title;
+  cleaned.created = fm.created;
+  cleaned.updated = fm.updated;
+  if (fm.color !== undefined) cleaned.color = fm.color;
   return matter.stringify(body, cleaned);
 }
 
@@ -82,7 +108,7 @@ export async function createTicket(
     target = path.join(lp, input.state, filename);
   }
   const now = new Date().toISOString();
-  const fm: FrontMatter = { title: input.title, created: now, updated: now };
+  const fm: FrontMatter = { title: input.title, created: now, updated: now, extra: {} };
   await mkdir(path.dirname(target), { recursive: true });
   await writeFile(target, serialize(fm, input.body ?? ''), 'utf8');
   return {
@@ -110,20 +136,19 @@ export async function listTickets(boardPath: string, laneName: string): Promise<
     const dirAbs = path.join(lp, dirEntry.name);
     const files = (await readdir(dirAbs)).filter(f => f.endsWith('.md'));
     for (const f of files) {
-      try {
-        const text = await readFile(path.join(dirAbs, f), 'utf8');
-        const { fm, body } = parse(text);
-        out.push({
-          filename: f,
-          state: isKnown ? dirEntry.name : '__orphaned__',
-          title: fm.title,
-          body,
-          color: fm.color,
-          created: fm.created,
-          updated: fm.updated,
-          orphaned: !isKnown,
-        });
-      } catch { /* skip unparseable */ }
+      const text = await readFile(path.join(dirAbs, f), 'utf8').catch(() => null);
+      if (text === null) continue;
+      const { fm, body } = parse(text, f);
+      out.push({
+        filename: f,
+        state: isKnown ? dirEntry.name : '__orphaned__',
+        title: fm.title,
+        body,
+        color: fm.color,
+        created: fm.created,
+        updated: fm.updated,
+        orphaned: !isKnown,
+      });
     }
   }
   return out;
@@ -138,7 +163,7 @@ export async function readTicket(
   const found = await findTicketFile(lp, filename);
   if (!found) throw new NotFoundError(`ticket not found: ${filename}`);
   const text = await readFile(found.abs, 'utf8');
-  const { fm, body } = parse(text);
+  const { fm, body } = parse(text, filename);
   const states = await readStates(lp);
   const known = new Set(states.map(s => s.dir));
   const orphaned = !known.has(found.state);
@@ -165,7 +190,7 @@ export async function updateTicket(
   const found = await findTicketFile(lp, filename);
   if (!found) throw new NotFoundError(`ticket not found: ${filename}`);
   const text = await readFile(found.abs, 'utf8');
-  const { fm, body } = parse(text);
+  const { fm, body } = parse(text, filename);
   const states = await readStates(lp);
   const newState = patch.state ?? found.state;
   if (patch.state !== undefined && !states.find(s => s.dir === patch.state)) {
@@ -176,22 +201,28 @@ export async function updateTicket(
     created: fm.created,
     updated: new Date().toISOString(),
     color: patch.color !== undefined ? patch.color : fm.color,
+    extra: fm.extra,
   };
   const newBody = patch.body ?? body;
+  const serialized = serialize(newFm, newBody);
+  // Re-parse our own output so the returned body matches what subsequent reads
+  // produce (gray-matter normalizes trailing whitespace on the body). Clients
+  // use this to recognize the echo of their own write via the file watcher.
+  const persistedBody = parse(serialized, filename).body;
   const newAbs = path.join(lp, newState, filename);
   if (newAbs !== found.abs) {
     await mkdir(path.dirname(newAbs), { recursive: true });
     if (await exists(newAbs)) throw new ConflictError(`destination exists: ${filename} in ${newState}`);
-    await writeFile(found.abs, serialize(newFm, newBody), 'utf8');
+    await writeFile(found.abs, serialized, 'utf8');
     await rename(found.abs, newAbs);
   } else {
-    await writeFile(found.abs, serialize(newFm, newBody), 'utf8');
+    await writeFile(found.abs, serialized, 'utf8');
   }
   return {
     filename,
     state: newState,
     title: newFm.title,
-    body: newBody,
+    body: persistedBody,
     color: newFm.color,
     created: newFm.created,
     updated: newFm.updated,
