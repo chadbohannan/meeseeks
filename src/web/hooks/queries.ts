@@ -88,20 +88,6 @@ export function useCreateTicket(boardId: string, laneName: string) {
     },
   });
 }
-export function usePatchTicket(boardId: string, laneName: string, filename: string) {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (req: PatchTicketRequest) => api.patchTicket(boardId, laneName, filename, req),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] });
-      // Don't invalidate the individual ticket — we just wrote it, and the filesystem
-      // watcher will emit ticket-changed which already handles external changes.
-      // Invalidating here causes a refetch that races with setDirty(false) and resets
-      // the editor body mid-typing.
-      qc.invalidateQueries({ queryKey: ['board', boardId] });
-    },
-  });
-}
 export function useMoveTicket(boardId: string, laneName: string) {
   const qc = useQueryClient();
   return useMutation({

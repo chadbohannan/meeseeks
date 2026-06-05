@@ -41,7 +41,7 @@ export function MarkdownEditor({ value, onChange, onFocus, onBlur, className = '
         [CrepeFeature.ImageBlock]: false,
         [CrepeFeature.BlockEdit]: false,
         [CrepeFeature.Toolbar]: false,
-        [CrepeFeature.LinkTooltip]: false,
+        [CrepeFeature.LinkTooltip]: true,
         [CrepeFeature.TopBar]: false,
       },
       featureConfigs: {

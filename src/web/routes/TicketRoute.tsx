@@ -1,12 +1,15 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useLane, useTicket, usePatchTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime } from '../hooks/queries.js';
+import { useQueryClient } from '@tanstack/react-query';
+import { useLane, useTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime } from '../hooks/queries.js';
 import { useRuntimesStore } from '../store/runtimes.js';
 import { RuntimeStatusDot } from '../components/RuntimeStatusDot.js';
 import { ResizableSplit } from '../components/ResizableSplit.js';
 import { XtermHost } from '../components/console/xterm-host.js';
 import { toast } from 'sonner';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
+import { api } from '../lib/api.js';
+import type { PatchTicketRequest } from '@shared/api.js';
 
 // Treat bodies as equivalent if they only differ in trailing whitespace —
 // gray-matter normalization on the server adds/removes a trailing newline on
@@ -15,12 +18,21 @@ function bodiesEquivalent(a: string, b: string): boolean {
   return a.trimEnd() === b.trimEnd();
 }
 
+// The persistent identity of a ticket (board + lane + filename). Saves are
+// authored against an Identity captured at edit time, so an in-flight or
+// debounced save always lands at the file the user was editing — even if the
+// route has since navigated to a different ticket.
+type Identity = { boardId: string; laneName: string; filename: string };
+function sameIdentity(a: Identity, b: Identity): boolean {
+  return a.boardId === b.boardId && a.laneName === b.laneName && a.filename === b.filename;
+}
+
 export function TicketRoute() {
   const { boardId, laneName, filename } = useParams<{ boardId: string; laneName: string; filename: string }>();
   const lane = useLane(boardId, laneName);
   const ticket = useTicket(boardId, laneName, filename);
-  const patch = usePatchTicket(boardId!, laneName!, filename!);
   const del = useDeleteTicket(boardId!, laneName!, filename!);
+  const qc = useQueryClient();
   const navigate = useNavigate();
   const spawn = useSpawnRuntime();
   const term = useTerminateRuntime();
@@ -58,6 +70,101 @@ export function TicketRoute() {
   // PATCH response returns, leaving lastPersistedBodyRef stale and producing a
   // false external-change toast. Suppress notifications while any save is open.
   const savesInFlightRef = useRef(0);
+
+  // The identity (board+lane+filename) currently displayed. Updated by the
+  // identity-change effect below after it flushes pending writes against the
+  // outgoing identity. Read via ref so save handlers can snapshot the correct
+  // target at the moment of edit, without depending on React render timing.
+  const identityRef = useRef<Identity | null>(null);
+
+  // Pending debounced save: a snapshot of {identity, fields}. The identity is
+  // baked in at edit time so the eventual PATCH always lands at the file the
+  // user was editing, even if the route has since shifted to another ticket.
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSaveRef = useRef<{ identity: Identity; fields: PatchTicketRequest } | null>(null);
+
+  const performSave = useCallback(async (identity: Identity, fields: PatchTicketRequest) => {
+    savesInFlightRef.current++;
+    try {
+      const res = await api.patchTicket(identity.boardId, identity.laneName, identity.filename, fields);
+      // Only update the echo-tracking refs if the save was for the currently
+      // displayed ticket. A late-arriving response for the previous ticket must
+      // not poison the new ticket's conflict-detection state.
+      const current = identityRef.current;
+      if (current && sameIdentity(current, identity)) {
+        lastPersistedBodyRef.current = res.ticket.body;
+        lastPersistedUpdatedRef.current = res.ticket.updated;
+        conflictNotifiedRef.current = false;
+        if (fields.body !== undefined && bodyRef.current === fields.body) setDirty(false);
+      }
+      qc.invalidateQueries({ queryKey: ['tickets', identity.boardId, identity.laneName] });
+      qc.invalidateQueries({ queryKey: ['board', identity.boardId] });
+    } catch (err) { toast.error((err as Error).message); }
+    finally { savesInFlightRef.current--; }
+  }, [qc]);
+
+  const flushPendingSave = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const pending = pendingSaveRef.current;
+    pendingSaveRef.current = null;
+    if (pending) await performSave(pending.identity, pending.fields);
+  }, [performSave]);
+
+  const debouncedSaveBody = useCallback((newBody: string) => {
+    const id = identityRef.current;
+    if (!id) return;
+    setBody(newBody);
+    setDirty(true);
+    // Snapshot identity and the full field set into the pending save. If the
+    // user navigates away before the timer fires, this snapshot still routes
+    // the write to the original file.
+    pendingSaveRef.current = { identity: id, fields: { title, body: newBody, state, color } };
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      const pending = pendingSaveRef.current;
+      pendingSaveRef.current = null;
+      if (pending) void performSave(pending.identity, pending.fields);
+    }, 3000);
+  }, [performSave, title, state, color]);
+
+  // Identity-change handler. When the route's (boardId, laneName, filename)
+  // tuple shifts — e.g. user clicks a different ticket — flush any pending
+  // save against the outgoing identity, then reset local state so the load
+  // effect below can populate the new ticket fresh. This replaces both the
+  // unmount-only flush (which never fired on in-route navigation) and the
+  // dirty-bail in the load effect (which used to strand the old body under
+  // the new ticket's header).
+  useEffect(() => {
+    if (!boardId || !laneName || !filename) return;
+    const next: Identity = { boardId, laneName, filename };
+    const prev = identityRef.current;
+    if (prev && !sameIdentity(prev, next)) {
+      // Don't await: the pending snapshot already carries the old identity, so
+      // the flush lands correctly while the new ticket mounts immediately.
+      void flushPendingSave();
+      setTitle('');
+      setBody('');
+      setState('');
+      setColor(undefined);
+      setDirty(false);
+      bodyFocusedRef.current = false;
+      lastPersistedBodyRef.current = null;
+      lastPersistedUpdatedRef.current = null;
+      conflictNotifiedRef.current = false;
+    }
+    identityRef.current = next;
+  }, [boardId, laneName, filename, flushPendingSave]);
+
+  // Final-chance flush on real unmount (route exit, not in-route navigation).
+  const flushRef = useRef(flushPendingSave);
+  flushRef.current = flushPendingSave;
+  useEffect(() => {
+    return () => { void flushRef.current(); };
+  }, []);
 
   useEffect(() => {
     if (!ticket.data) return;
@@ -99,58 +206,13 @@ export function TicketRoute() {
     setTab('console');
   }, [runtime?.runtimeId]);
 
-  const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(null);
-  // Holds the body the pending debounced save would write. Used so blur/unmount
-  // can flush exactly that pending write instead of relying on React state.
-  const pendingBodyRef = useRef<string | null>(null);
-
-  const performSave = useCallback(async (newBody: string) => {
-    savesInFlightRef.current++;
-    try {
-      const res = await patch.mutateAsync({ title, body: newBody, state, color });
-      lastPersistedBodyRef.current = res.ticket.body;
-      lastPersistedUpdatedRef.current = res.ticket.updated;
-      conflictNotifiedRef.current = false;
-      if (bodyRef.current === newBody) setDirty(false);
-    } catch (err) { toast.error((err as Error).message); }
-    finally { savesInFlightRef.current--; }
-  }, [patch, title, state, color]);
-
-  const flushPendingSave = useCallback(() => {
-    if (!saveTimerRef.current) return;
-    clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = null;
-    const pending = pendingBodyRef.current;
-    pendingBodyRef.current = null;
-    if (pending !== null) void performSave(pending);
-  }, [performSave]);
-
-  const debouncedSaveBody = useCallback((newBody: string) => {
-    setBody(newBody);
-    setDirty(true);
-    pendingBodyRef.current = newBody;
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    saveTimerRef.current = setTimeout(() => {
-      saveTimerRef.current = null;
-      const pending = pendingBodyRef.current;
-      pendingBodyRef.current = null;
-      if (pending !== null) void performSave(pending);
-    }, 3000);
-  }, [performSave]);
-
-  // Flush on unmount so navigating away mid-debounce doesn't drop the write.
-  // Use a ref so the cleanup always sees the latest flushPendingSave.
-  const flushRef = useRef(flushPendingSave);
-  flushRef.current = flushPendingSave;
-  useEffect(() => {
-    return () => { flushRef.current(); };
-  }, []);
-
-  const saveIfDirty = async () => {
+  const saveIfDirty = useCallback(async () => {
     if (!dirty) return;
-    const snapshot = body;
-    await performSave(snapshot);
-  };
+    const id = identityRef.current;
+    if (!id) return;
+    await flushPendingSave();
+    await performSave(id, { title, body, state, color });
+  }, [dirty, flushPendingSave, performSave, title, body, state, color]);
 
   if (!boardId || !laneName || !filename) return null;
   if (ticket.isLoading) return <div className="p-8 text-slate-500">Loading ticket…</div>;
@@ -178,10 +240,14 @@ export function TicketRoute() {
             value={state}
             onChange={async (e) => {
               const newState = e.target.value;
+              const id = identityRef.current;
+              if (!id) return;
               setState(newState);
-              try {
-                await patch.mutateAsync({ title, body, state: newState, color });
-              } catch (err) { toast.error((err as Error).message); }
+              // Flush any pending body save first so the two writes don't race
+              // for the same file — flush carries the old state, then we send
+              // the state change explicitly.
+              await flushPendingSave();
+              await performSave(id, { title, body, state: newState, color });
             }}
           >
             {states.map((s) => <option key={s.dir} value={s.dir}>{s.name}</option>)}
@@ -199,7 +265,7 @@ export function TicketRoute() {
         value={body}
         onChange={debouncedSaveBody}
         onFocus={() => { bodyFocusedRef.current = true; }}
-        onBlur={() => { bodyFocusedRef.current = false; flushPendingSave(); }}
+        onBlur={() => { bodyFocusedRef.current = false; void flushPendingSave(); }}
         className="flex-1 min-h-0 w-full bg-slate-800 rounded overflow-y-auto"
         placeholder="Write ticket description…"
       />
@@ -218,8 +284,11 @@ export function TicketRoute() {
             type="color"
             value={color ?? '#6b7280'}
             onChange={(e) => {
-              setColor(e.target.value);
-              patch.mutate({ title, body, state, color: e.target.value }).catch(() => {});
+              const newColor = e.target.value;
+              const id = identityRef.current;
+              if (!id) return;
+              setColor(newColor);
+              void performSave(id, { title, body, state, color: newColor });
             }}
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             title="Ticket accent color"
