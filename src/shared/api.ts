@@ -1,4 +1,7 @@
-import type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, TicketSummary, TicketDetail, FileNode } from './types.js';
+import type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, TicketSummary, TicketDetail, FileNode, ModelOption } from './types.js';
+
+// Models
+export interface ListModelsResponse { models: ModelOption[] }
 
 // Boards
 export interface CreateBoardRequest { name: string; path?: string }

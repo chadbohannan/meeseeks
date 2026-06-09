@@ -57,7 +57,7 @@ describe('RuntimeSupervisor', () => {
       boardPath: tmp,
       lanePath: path.join(tmp, 'lane'),
       ticketAbsPath: path.join(tmp, 'lane', 'todo', 't.md'),
-      processDocPath: null,
+      processDocContent: null,
       ticketRef: { boardId: 'b', laneName: 'lane', filename: 't.md' },
       board: null,
       permissions: null,
@@ -77,7 +77,7 @@ describe('RuntimeSupervisor', () => {
     await sup.spawn({
       runtimeId: 'rt-2',
       boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocPath: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
       board: null, permissions: null,
       adapterArgsOverride: ['--scripted=init,result'],
     });
@@ -95,7 +95,7 @@ describe('RuntimeSupervisor', () => {
     await sup.spawn({
       runtimeId: 'rt-3',
       boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocPath: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
       board: null, permissions: null,
       adapterArgsOverride: ['--scripted=init'],
     });
@@ -109,7 +109,7 @@ describe('RuntimeSupervisor', () => {
     await sup.spawn({
       runtimeId: 'rt-4',
       boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocPath: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
       board: null,
       permissions: { allowedPaths: [], allowedTools: ['Bash'], deniedTools: [] },
       adapterArgsOverride: ['--scripted=init'],
@@ -143,7 +143,7 @@ describe('RuntimeSupervisor', () => {
     await silentSup.spawn({
       runtimeId: 'rt-debounce',
       boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocPath: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
       board: null, permissions: null,
     });
     expect(silentSup.get('rt-debounce')?.status).toBe('starting');
@@ -162,7 +162,7 @@ describe('RuntimeSupervisor', () => {
     await sup.spawn({
       runtimeId: 'rt-notify',
       boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocPath: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
       board: null, permissions: null,
       adapterArgsOverride: ['--scripted=init'],
     });
@@ -188,7 +188,7 @@ describe('RuntimeSupervisor', () => {
       boardPath: tmp,
       lanePath: path.join(tmp, 'lane'),
       ticketAbsPath: path.join(tmp, 'lane', 'todo', 'my-ticket.md'),
-      processDocPath: null,
+      processDocContent: null,
       ticketRef: { boardId: 'b', laneName: 'lane', filename: 'my-ticket.md' },
       board: null,
       permissions: null,

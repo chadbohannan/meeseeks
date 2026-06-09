@@ -17,4 +17,16 @@ describe('project routes', () => {
     const body = await res.json() as { project: { config: { name: string } } };
     expect(body.project.config.name).toBe('Hello');
   });
+
+  it('GET /api/models returns the default model aliases', async () => {
+    const tp = await makeBareProject('Models');
+    cleanups.push(tp.cleanup);
+    const srv = await bootTestServer(tp.root);
+    cleanups.push(srv.cleanup);
+
+    const res = await fetch(`${srv.url}/api/models`);
+    expect(res.status).toBe(200);
+    const body = await res.json() as { models: Array<{ value: string; label: string }> };
+    expect(body.models.map(m => m.value)).toEqual(['opus', 'sonnet', 'haiku']);
+  });
 });

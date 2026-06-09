@@ -1,6 +1,12 @@
+export interface ModelOption {
+  value: string;   // passed to claude-code --model (alias like 'opus' or a pinned id)
+  label: string;   // shown in the picker
+}
+
 export interface ProjectConfig {
   name: string;
   boards: string[];
+  models?: ModelOption[];
 }
 
 export interface ProjectMeta {

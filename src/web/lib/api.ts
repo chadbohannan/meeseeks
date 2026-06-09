@@ -7,6 +7,7 @@ import type {
   ListFilesResponse, ReadFileResponse, WriteFileRequest, WriteFileResponse,
   PatchFileRequest, PatchFileResponse, FileNode,
   ListPromptsResponse, GetPromptResponse, PutPromptRequest, ListPromptLogsResponse,
+  ListModelsResponse,
 } from '@shared/api.js';
 import type { ListRuntimesResponse, SpawnRuntimeResponse, RuntimeSummary } from '@shared/runtime.js';
 
@@ -40,6 +41,9 @@ const enc = encodeURIComponent;
 export const api = {
   // Projects
   current: () => request<{ project: ProjectMeta | null }>('GET', '/api/projects/current'),
+
+  // Models
+  listModels: () => request<ListModelsResponse>('GET', '/api/models'),
 
   // Boards
   listBoards: () => request<{ boards: BoardSummary[] }>('GET', '/api/boards'),

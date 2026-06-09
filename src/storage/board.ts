@@ -11,7 +11,7 @@ const DEFAULT_BOARD_YAML = (name: string) => yaml.dump({
   runtime: {
     harness: 'claude-code',
     provider: 'anthropic',
-    model: 'claude-opus-4-7',
+    model: 'opus',
     args: [],
     env: {},
   },

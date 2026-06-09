@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useLane, useTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime } from '../hooks/queries.js';
+import { useLane, useTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime, useModels } from '../hooks/queries.js';
 import { useRuntimesStore } from '../store/runtimes.js';
 import { RuntimeStatusDot } from '../components/RuntimeStatusDot.js';
 import { ResizableSplit } from '../components/ResizableSplit.js';
@@ -52,7 +52,16 @@ export function TicketRoute() {
   const [color, setColor] = useState<string | undefined>(undefined);
   const [dirty, setDirty] = useState(false);
   const [tab, setTab] = useState<'console' | 'context'>('console');
-  const [model, setModel] = useState('claude-sonnet-4-6');
+  const { data: modelsData } = useModels();
+  const models = modelsData?.models ?? [];
+  const [model, setModel] = useState('');
+  // Default to the first available model once the list loads (or if the current
+  // selection is no longer offered).
+  useEffect(() => {
+    if (models.length > 0 && !models.some(m => m.value === model)) {
+      setModel(models[0]!.value);
+    }
+  }, [models, model]);
   // Body the server most recently persisted (whether we wrote it or it came in
   // from a fresh load). Used to distinguish echoes of our own saves from genuine
   // external edits.
@@ -352,9 +361,7 @@ export function TicketRoute() {
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
               >
-                <option value="claude-sonnet-4-6">Sonnet 4.6</option>
-                <option value="claude-opus-4-7">Opus 4.7</option>
-                <option value="claude-haiku-4-5-20251001">Haiku 4.5</option>
+                {models.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
               <button
                 className="rounded bg-emerald-700 px-3 py-1 text-xs"

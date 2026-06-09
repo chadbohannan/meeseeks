@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
-import { readProject, listBoards, addBoardToProject } from '../../src/storage/project.js';
+import { readProject, listBoards, addBoardToProject, getModels, DEFAULT_MODELS } from '../../src/storage/project.js';
 import { ConflictError } from '../../src/storage/errors.js';
 import { makeTmpProject, makeBareProject } from '../helpers/tmp-project.js';
 
@@ -41,6 +41,39 @@ describe('readProject', () => {
     // file was created on disk
     const text = await readFile(path.join(tp.root, 'project.yaml'), 'utf8');
     expect(text).toContain(`name: ${path.basename(tp.root)}`);
+  });
+});
+
+describe('getModels', () => {
+  it('returns the default model aliases when project.yaml has no models key', async () => {
+    const tp = await makeBareProject();
+    cleanups.push(tp.cleanup);
+    expect(await getModels(tp.root)).toEqual(DEFAULT_MODELS);
+  });
+
+  it('returns the configured models when project.yaml defines them', async () => {
+    const tp = await makeTmpProject();
+    cleanups.push(tp.cleanup);
+    await writeFile(
+      path.join(tp.root, 'project.yaml'),
+      'name: P\nboards: []\nmodels:\n  - value: opus\n    label: Big Opus\n  - value: claude-haiku-4-5-20251001\n    label: Pinned Haiku\n',
+      'utf8',
+    );
+    expect(await getModels(tp.root)).toEqual([
+      { value: 'opus', label: 'Big Opus' },
+      { value: 'claude-haiku-4-5-20251001', label: 'Pinned Haiku' },
+    ]);
+  });
+
+  it('ignores malformed model entries and falls back to defaults when none are valid', async () => {
+    const tp = await makeTmpProject();
+    cleanups.push(tp.cleanup);
+    await writeFile(
+      path.join(tp.root, 'project.yaml'),
+      'name: P\nboards: []\nmodels:\n  - value: 123\n  - label: no-value\n',
+      'utf8',
+    );
+    expect(await getModels(tp.root)).toEqual(DEFAULT_MODELS);
   });
 });
 

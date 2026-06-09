@@ -58,6 +58,7 @@ function parse(content: string, filename: string): { fm: FrontMatter; body: stri
         title: titleFromFilename(filename),
         created: new Date().toISOString(),
         updated: new Date().toISOString(),
+        extra: {},
       },
       body: content,
     };

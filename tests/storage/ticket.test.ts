@@ -86,6 +86,26 @@ describe('readTicket', () => {
     const { boardPath } = await setup();
     await expect(readTicket(boardPath, 'work', '2026-01-01T0000-nope.md')).rejects.toThrow(NotFoundError);
   });
+
+  it('falls back gracefully when frontmatter is invalid YAML', async () => {
+    const { boardPath, lanePath } = await setup();
+    const filename = '2026-06-08T0000-broken.md';
+    // `title: [unterminated` is invalid YAML — gray-matter throws, exercising parse()'s catch path.
+    await writeFile(
+      path.join(lanePath, 'todo', filename),
+      '---\ntitle: [unterminated\n---\nthe body survives\n',
+      'utf8',
+    );
+    const read = await readTicket(boardPath, 'work', filename);
+    expect(read.title).toBe('broken');                 // derived from filename
+    expect(read.body).toContain('the body survives');
+    // updateTicket reads the fallback frontmatter then re-serializes — must not throw,
+    // and must preserve the body. Relies on the fallback having a well-formed `extra`.
+    const updated = await updateTicket(boardPath, 'work', filename, { title: 'fixed' });
+    expect(updated.title).toBe('fixed');
+    const text = await readFile(path.join(lanePath, 'todo', filename), 'utf8');
+    expect(text).toContain('the body survives');
+  });
 });
 
 describe('updateTicket', () => {

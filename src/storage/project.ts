@@ -3,7 +3,29 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 import { ConflictError, InvalidInputError, NotFoundError } from './errors.js';
 import { resolveWithin, slugifyBoardPath } from './paths.js';
-import type { ProjectConfig, ProjectMeta, BoardSummary } from '../shared/types.js';
+import type { ProjectConfig, ProjectMeta, BoardSummary, ModelOption } from '../shared/types.js';
+
+// Model aliases resolve to whatever Anthropic currently ships, so a new release
+// is picked up by claude-code without editing source. Override per-project by
+// adding a `models:` list to project.yaml (e.g. to pin a specific version id).
+export const DEFAULT_MODELS: ModelOption[] = [
+  { value: 'opus', label: 'Opus' },
+  { value: 'sonnet', label: 'Sonnet' },
+  { value: 'haiku', label: 'Haiku' },
+];
+
+function parseModels(raw: unknown): ModelOption[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: ModelOption[] = [];
+  for (const entry of raw) {
+    if (entry && typeof entry === 'object'
+      && typeof (entry as ModelOption).value === 'string'
+      && typeof (entry as ModelOption).label === 'string') {
+      out.push({ value: (entry as ModelOption).value, label: (entry as ModelOption).label });
+    }
+  }
+  return out.length > 0 ? out : undefined;
+}
 
 async function readBoardNameFromYaml(boardPath: string): Promise<string | null> {
   try {
@@ -44,6 +66,7 @@ function parseConfig(text: string, projectRoot: string): ProjectConfig {
     boards: Array.isArray(parsed.boards)
       ? parsed.boards.filter((b): b is string => typeof b === 'string')
       : [],
+    models: parseModels((parsed as { models?: unknown }).models),
   };
 }
 
@@ -102,6 +125,11 @@ export async function listBoards(projectRoot: string): Promise<BoardSummary[]> {
     out.push({ boardId: id, name, path: abs, available });
   }
   return out;
+}
+
+export async function getModels(projectRoot: string): Promise<ModelOption[]> {
+  const meta = await readProject(projectRoot);
+  return meta.config.models ?? DEFAULT_MODELS;
 }
 
 export async function getBoard(projectRoot: string, boardId: string): Promise<BoardSummary> {

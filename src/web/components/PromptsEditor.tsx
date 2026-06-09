@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
-  usePrompts, usePrompt, usePutPrompt, useDeletePrompt, useRunPrompt, usePromptLogs,
+  usePrompts, usePrompt, usePutPrompt, useDeletePrompt, useRunPrompt, usePromptLogs, useModels,
 } from '../hooks/queries.js';
 import type { PromptRunLog } from '@shared/api.js';
 import { api } from '../lib/api.js';
@@ -9,12 +9,6 @@ import { useRuntimesStore } from '../store/runtimes.js';
 import { usePromptsStore } from '../store/prompts.js';
 import { MarkdownEditor } from './MarkdownEditor.js';
 import { RuntimeStatusDot } from './RuntimeStatusDot.js';
-
-const MODELS = [
-  { value: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
-  { value: 'claude-opus-4-7', label: 'Opus 4.7' },
-  { value: 'claude-haiku-4-5-20251001', label: 'Haiku 4.5' },
-];
 
 function slugify(name: string): string {
   const trimmed = name.trim().replace(/\.md$/i, '');
@@ -125,12 +119,22 @@ function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: str
   const run = useRunPrompt(boardId);
   const openModal = usePromptsStore((s) => s.openModal);
   const runtimes = useRuntimesStore((s) => s.byId);
+  const { data: modelsData } = useModels();
+  const models = modelsData?.models ?? [];
   const [body, setBody] = useState('');
   const [dirty, setDirty] = useState(false);
-  const [model, setModel] = useState('claude-sonnet-4-6');
+  const [model, setModel] = useState('');
   const [tab, setTab] = useState<'editor' | 'log'>('editor');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bodyInitializedRef = useRef(false);
+
+  // Default to the first available model once the list loads (or if the current
+  // selection is no longer offered).
+  useEffect(() => {
+    if (models.length > 0 && !models.some(m => m.value === model)) {
+      setModel(models[0]!.value);
+    }
+  }, [models, model]);
 
   const liveRuntime = useMemo(() => Object.values(runtimes).find(r =>
     r.kind === 'prompt' && r.promptRef?.boardId === boardId && r.promptRef?.name === name &&
@@ -205,7 +209,7 @@ function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: str
             onChange={(e) => setModel(e.target.value)}
             disabled={!!liveRuntime}
           >
-            {MODELS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            {models.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>
           {liveRuntime ? (
             <button

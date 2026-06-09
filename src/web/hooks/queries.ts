@@ -8,6 +8,7 @@ import type {
 } from '@shared/api.js';
 
 export const useCurrentProject = () => useQuery({ queryKey: ['current'], queryFn: () => api.current() });
+export const useModels = () => useQuery({ queryKey: ['models'], queryFn: () => api.listModels(), staleTime: Infinity });
 export const useBoards = () => useQuery({ queryKey: ['boards'], queryFn: () => api.listBoards() });
 export const useBoard = (boardId: string | undefined) => useQuery({
   queryKey: ['board', boardId],
