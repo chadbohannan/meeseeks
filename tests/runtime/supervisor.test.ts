@@ -155,6 +155,64 @@ describe('RuntimeSupervisor', () => {
     void sup.terminateAll();
   });
 
+  it('applies resize to the pty immediately, even while still starting', async () => {
+    // Interactive ticket runtimes render a TUI sized to the pty columns. They emit
+    // ANSI escape sequences rather than stream-json, so they never produce an `init`
+    // event and only leave 'starting' via the output-idle debounce — which keeps
+    // resetting while the TUI animates. A resize requested on mount must reach the
+    // pty right away, not be deferred until the runtime happens to settle.
+    const resizes: Array<{ cols: number; rows: number }> = [];
+    const captureSpawn: typeof stubSpawn = () => ({
+      pid: 4242,
+      write: () => {},
+      resize: (cols: number, rows: number) => { resizes.push({ cols, rows }); },
+      kill: () => {},
+      onData: () => ({ dispose: () => {} }),
+      onExit: () => ({ dispose: () => {} }),
+    });
+    // Long debounce so the runtime stays 'starting' for the duration of the test.
+    const sup = new RuntimeSupervisor({ spawnFn: captureSpawn, ringBytes: 8192, startingDebounceMs: 60_000 });
+    await sup.spawn({
+      runtimeId: 'rt-resize',
+      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      board: null, permissions: null,
+    });
+    expect(sup.get('rt-resize')?.status).toBe('starting');
+    const ok = sup.resize('rt-resize', 96, 24);
+    expect(ok).toBe(true);
+    expect(resizes).toEqual([{ cols: 96, rows: 24 }]);
+  });
+
+  it('re-applies the last starting-phase resize when the runtime leaves starting', async () => {
+    // Backstop for an interactive child that had not yet installed its SIGWINCH
+    // handler when the on-mount resize arrived: the recorded size is replayed once
+    // the runtime settles out of 'starting'.
+    const resizes: Array<{ cols: number; rows: number }> = [];
+    let dataHandler: ((d: string) => void) | null = null;
+    const captureSpawn: typeof stubSpawn = () => ({
+      pid: 4243,
+      write: () => {},
+      resize: (cols: number, rows: number) => { resizes.push({ cols, rows }); },
+      kill: () => {},
+      onData: (h) => { dataHandler = h; return { dispose: () => {} }; },
+      onExit: () => ({ dispose: () => {} }),
+    });
+    const sup = new RuntimeSupervisor({ spawnFn: captureSpawn, ringBytes: 8192, startingDebounceMs: 50 });
+    await sup.spawn({
+      runtimeId: 'rt-reflush',
+      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      board: null, permissions: null,
+    });
+    sup.resize('rt-reflush', 110, 40);
+    expect(resizes).toEqual([{ cols: 110, rows: 40 }]);
+    // Non-JSON TUI output arms the debounce; when it fires, status leaves 'starting'.
+    dataHandler!('\x1b[2J\x1b[H> ');
+    await waitFor(() => sup.get('rt-reflush')?.status === 'running', 500);
+    expect(resizes).toEqual([{ cols: 110, rows: 40 }, { cols: 110, rows: 40 }]);
+  });
+
   it('notifyState drives status; hooks are the sole authority for idle and awaiting-user', async () => {
     const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192 });
     const statuses: string[] = [];

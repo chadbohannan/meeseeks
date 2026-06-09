@@ -115,10 +115,12 @@ export class RuntimeSupervisor extends EventEmitter {
     if (!r) return false;
     const s = r.summary.status;
     if (s === 'exited' || s === 'errored' || s === 'terminating') return false;
-    if (s === 'starting') {
-      r.pendingResize = { cols, rows };
-      return true;
-    }
+    // Apply immediately so an interactive TUI (which sizes itself to the pty columns
+    // and emits no stream-json `init` event to leave 'starting') picks up the real
+    // width on mount. While still starting, also remember the latest size so it is
+    // re-applied once the runtime settles, in case the child had not yet installed
+    // its SIGWINCH handler when this early resize arrived.
+    if (s === 'starting') r.pendingResize = { cols, rows };
     try { r.pty.resize(cols, rows); } catch { return false; }
     return true;
   }
