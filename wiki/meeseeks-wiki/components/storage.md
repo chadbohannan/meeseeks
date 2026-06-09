@@ -17,6 +17,7 @@ Tickets are stored as Markdown files within lane state directories.
 - `src/storage/project.ts` — project metadata read/write, `project.yaml` serialization
 - `src/storage/board.ts` — board creation, `board.yaml` defaults, `DEFAULT_BOARD_YAML` factory
 - `src/storage/lane.ts` — lane CRUD, `lane.yaml` state management, `readLaneStates`, `updateLaneStates`
+- `src/storage/templates.ts` — onboarding scaffolding (see [Onboarding Defaults](#onboarding-defaults)): the board CONTEXT.md skeleton, the seeded Development lane definition, and the state-aware PROCESS.md generator
 - `src/storage/ticket.ts` — ticket creation, frontmatter parsing, state moves, `readStates`
 - `src/storage/paths.ts` — `resolveWithin` for path traversal safety, `slugifyBoardPath`, `buildTicketFilename`, `buildPromptFilename`
 - `src/storage/prompts.ts` — board-scoped one-shot prompt files under `<board>/prompts/*.md` plus an append-only JSONL run log under `<board>/prompts/.logs/<slug>/runs.jsonl`. See [One-Shot Prompts](../concepts/one-shot-prompts.md) for the lifecycle this storage backs.
@@ -48,6 +49,10 @@ Unknown frontmatter keys are preserved across updates. `parse` partitions data i
 
 The only mandatory files are `project.yaml`, `lane.yaml`, and lane state folders. Missing optional files like `board.yaml` or `permissions.yaml` cause the system to fall back to defined defaults.
 
+## Onboarding Defaults
+
+A freshly created board no longer arrives blank. `createBoard` writes a structured CONTEXT.md (from `boardContextTemplate` in `templates.ts`) that explains the file-as-state model and prompts the user for the context worth supplying, then seeds a ready-to-use **Development** lane (states `todo → in-progress → review → done`) through the normal `createLane` path. The seeded lane carries a filled-in PROCESS.md; `createLane` accepts an optional `processDoc` override for exactly this purpose. When a user adds their own lane, `createLane` falls back to `laneProcessTemplate`, which generates a "first action" preamble plus one fill-in section per state the user defined — replacing the former single-line stub. The templates are deliberately generic: org-specific machinery (JIRA proxy frontmatter, `.claude/bin` discipline, code-rag globs) seen on the mature boards in this repo is left for users to add rather than baked in. See the [design spec](../../../docs/superpowers/specs/2026-06-09-onboarding-defaults-design.md) for the rationale and the conventions it was extrapolated from.
+
 | Ingest Date | Source |
 | ----------- | ------ |
 | 2026-04-26 | Storage and Server Implementation Plan (`docs/superpowers/plans/2026-04-26-storage-and-server.md`) |
@@ -55,3 +60,4 @@ The only mandatory files are `project.yaml`, `lane.yaml`, and lane state folders
 | 2026-04-26 | `src/storage` |
 | 2026-05-03 | `src/storage/prompts.ts`, `src/storage/files.ts`, `src/storage/paths.ts` |
 | 2026-05-19 | `src/storage/ticket.ts`, `tests/storage/ticket.test.ts` |
+| 2026-06-09 | `src/storage/templates.ts`, `src/storage/board.ts`, `src/storage/lane.ts` (onboarding defaults) |

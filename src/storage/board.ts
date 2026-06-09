@@ -3,7 +3,8 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 import { ConflictError, NotFoundError, InvalidInputError } from './errors.js';
 import { readProject, writeProject } from './project.js';
-import { listLanes } from './lane.js';
+import { listLanes, createLane } from './lane.js';
+import { boardContextTemplate, STARTER_LANE, STARTER_LANE_PROCESS } from './templates.js';
 import type { BoardDetail } from '../shared/types.js';
 
 const DEFAULT_BOARD_YAML = (name: string) => yaml.dump({
@@ -17,7 +18,7 @@ const DEFAULT_BOARD_YAML = (name: string) => yaml.dump({
   },
 });
 
-const DEFAULT_CONTEXT_MD = (name: string) => `# ${name}\n\nBoard-level instructions for agents go here.\n`;
+const DEFAULT_CONTEXT_MD = (name: string) => boardContextTemplate(name);
 
 export async function readBoardContextContent(boardPath: string): Promise<string> {
   const contextPath = path.join(boardPath, 'CONTEXT.md');
@@ -73,6 +74,7 @@ export async function createBoard(boardPath: string, name: string): Promise<void
   await writeFile(path.join(boardPath, 'CONTEXT.md'), DEFAULT_CONTEXT_MD(name), 'utf8');
   await writeFile(path.join(boardPath, 'board.yaml'), DEFAULT_BOARD_YAML(name), 'utf8');
   await writeFile(path.join(boardPath, '.gitignore'), '.meeseeks/\n', 'utf8');
+  await createLane(boardPath, STARTER_LANE.name, STARTER_LANE.states, { processDoc: STARTER_LANE_PROCESS });
 }
 
 export async function readBoardDetail(

@@ -439,7 +439,7 @@ function ContextEditor({ boardId }: { boardId: string }) {
   const board = useBoard(boardId);
   const patchBoard = usePatchBoard(boardId);
   return (
-    <div className="p-6 max-w-2xl">
+    <div className="p-6">
       <FocusGatedMarkdownEditor
         serverValue={board.data?.board.contextContent ?? null}
         save={(content) => patchBoard.mutateAsync({ contextContent: content })}

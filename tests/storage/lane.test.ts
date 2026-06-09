@@ -42,6 +42,16 @@ describe('createLane', () => {
     expect(yaml).toContain('todo');
   });
 
+  it('generates a PROCESS.md with one section per state', async () => {
+    const { boardPath } = await setupBoard();
+    await createLane(boardPath, 'work', STATES);
+    const process = await readFile(path.join(boardPath, 'lanes/work/PROCESS.md'), 'utf8');
+    expect(process).toContain('work Process');
+    for (const s of STATES) {
+      expect(process).toContain(`## ${s.name}`);
+    }
+  });
+
   it('rejects duplicate lane name', async () => {
     const { boardPath } = await setupBoard();
     await createLane(boardPath, 'work', STATES);
@@ -54,8 +64,9 @@ describe('listLanes / readLaneDetail', () => {
     const { boardPath } = await setupBoard();
     await createLane(boardPath, 'work', STATES);
     const lanes = await listLanes(boardPath);
-    expect(lanes).toHaveLength(1);
-    expect(lanes[0]!.ticketCounts).toEqual({ todo: 0, doing: 0, done: 0 });
+    const work = lanes.find(l => l.laneName === 'work');
+    expect(work).toBeDefined();
+    expect(work!.ticketCounts).toEqual({ todo: 0, doing: 0, done: 0 });
   });
 
   it('throws InvalidLaneError when lane.yaml missing', async () => {

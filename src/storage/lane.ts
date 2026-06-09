@@ -3,6 +3,7 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 import { ConflictError, NotFoundError, InvalidInputError, InvalidLaneError } from './errors.js';
 import { resolveWithin } from './paths.js';
+import { laneProcessTemplate } from './templates.js';
 import type { LaneSummary, LaneDetail, LaneState } from '../shared/types.js';
 
 const LANE_YAML = 'lane.yaml';
@@ -43,7 +44,12 @@ function slugifyLaneName(name: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
-export async function createLane(boardPath: string, laneName: string, states: LaneState[]): Promise<string> {
+export async function createLane(
+  boardPath: string,
+  laneName: string,
+  states: LaneState[],
+  opts: { processDoc?: string } = {},
+): Promise<string> {
   if (!laneName || !laneName.trim()) {
     throw new InvalidInputError('lane name required');
   }
@@ -55,7 +61,7 @@ export async function createLane(boardPath: string, laneName: string, states: La
   await mkdir(lp, { recursive: true });
   for (const s of states) await mkdir(path.join(lp, s.dir), { recursive: true });
   await writeFile(path.join(lp, LANE_YAML), yaml.dump({ name: laneName, states }), 'utf8');
-  await writeFile(path.join(lp, PROCESS_MD), `# Process for ${laneName}\n\nDescribe stages and transition rules here.\n`, 'utf8');
+  await writeFile(path.join(lp, PROCESS_MD), opts.processDoc ?? laneProcessTemplate(laneName, states), 'utf8');
   await writeFile(path.join(lp, PERMISSIONS), yaml.dump({ allowedPaths: [], allowedTools: [], deniedTools: [] }), 'utf8');
   return slug;
 }

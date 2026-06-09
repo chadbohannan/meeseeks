@@ -26,6 +26,21 @@ describe('createBoard', () => {
     expect(contextMd).toContain('My Board');
   });
 
+  it('seeds a ready-to-use Development lane', async () => {
+    const tp = await makeBareProject();
+    cleanups.push(tp.cleanup);
+    const boardPath = path.join(tp.root, 'boards/my-board');
+    await createBoard(boardPath, 'My Board');
+
+    const lanePath = path.join(boardPath, 'lanes/development');
+    expect(await exists(path.join(lanePath, 'lane.yaml'))).toBe(true);
+    for (const dir of ['todo', 'in-progress', 'review', 'done']) {
+      expect(await exists(path.join(lanePath, dir))).toBe(true);
+    }
+    const process = await readFile(path.join(lanePath, 'PROCESS.md'), 'utf8');
+    expect(process).toContain('Development Process');
+  });
+
   it('rejects existing folder', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
@@ -42,7 +57,8 @@ describe('readBoardDetail', () => {
     const boardPath = path.join(tp.root, 'boards/b');
     await createBoard(boardPath, 'B');
     const detail = await readBoardDetail(boardPath, { boardId: 'b', name: 'B' });
-    expect(detail.lanes).toEqual([]);
+    expect(detail.lanes).toHaveLength(1);
+    expect(detail.lanes[0]!.displayName).toBe('Development');
     expect(detail.contextContent).toBeTruthy();
     expect(detail.contextContent).toContain('B');
   });
@@ -95,7 +111,7 @@ describe('readBoardContextContent', () => {
     const content = await readBoardContextContent(boardPath);
 
     expect(content).toContain('My Board');
-    expect(content).toContain('Board-level instructions');
+    expect(content).toContain('Context for agents');
   });
 
   it('returns default content when CONTEXT.md is missing', async () => {
