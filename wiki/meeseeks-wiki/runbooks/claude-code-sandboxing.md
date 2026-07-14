@@ -16,7 +16,7 @@ The other modes (`auto`, `default`, `plan`) are interactive or adaptive modes th
 
 ## Settings File Precedence
 
-Claude Code loads settings from multiple sources. This precedence chain governs permissions and hooks; the parallel instruction bootstrapping chain (CLAUDE.md, rules, nested instructions) is documented in the [Claude Code Client](../components/claude-code-client.md#instruction-bootstrapping) component page. Settings are evaluated in this order:
+Claude Code loads settings from multiple sources. This precedence chain governs permissions and hooks; the parallel instruction bootstrapping chain (CLAUDE.md, rules, nested instructions) is documented in [Claude Code instruction bootstrapping](../concepts/claude-code-instruction-bootstrapping.md). Settings are evaluated in this order:
 
 1. **Managed settings** — Admin-deployed via MDM or OS-level policies, cannot be overridden. Located at `/etc/claude/managed-settings.json` (Linux) or `/Library/Application Support/Claude/managed-settings.json` (macOS).
 2. **Command line arguments** — Per-invocation flags like `--allowedTools`, `--permission-mode`, `--settings`.
@@ -25,6 +25,18 @@ Claude Code loads settings from multiple sources. This precedence chain governs 
 5. **User settings** — `~/.claude/settings.json`, global to the user.
 
 If a tool is denied at any level, no lower level can allow it. This precedence model enables orchestrators to enforce floor policies via managed settings while still allowing per-board customization through project-level settings files.
+
+## Ephemeral Session Settings vs. Durable Grants
+
+A subtle but important consequence of this precedence chain: the file Meeseeks passes via `--settings` (level 2) is **not** where a user's interactive permission grants are stored. This matters because the Meeseeks [Runtime Supervisor](../components/runtime.md) writes its `--settings` file per session at `<board>/.meeseeks/session-<runtimeId>.json` and `fs.rm`'s it on runtime exit (`buildSpawnSpec` in `src/runtime/claude-code.ts`; `cleanupSettings` in `src/runtime/supervisor.ts`). If interactive grants lived in that file, cleaning it up would silently discard them on every session — but they do not.
+
+The behaviour, confirmed against the Claude Code documentation, splits three ways:
+
+- **The `--settings` file is read-only input.** Claude Code loads it for hooks and any pre-seeded `allow`/`deny` rules but never writes back to it. Meeseeks' cleanup therefore only discards its own lifecycle hooks and any board/lane-derived allow/deny rules — both regenerated from config on the next spawn — never a user's grant.
+- **Session-scoped approvals ("Yes, once") are purely in memory** for the life of the process and are lost on exit regardless of any file. Cleanup is irrelevant to them.
+- **Persistent approvals ("Yes, and don't ask again") are written to `.claude/settings.local.json`** (level 3) in the working directory — a *different* file that Meeseeks never touches. Claude Code auto-gitignores it on first write and reuses it across future sessions in that directory.
+
+Because the supervisor spawns with `cwd` set to the board path, that durable `.claude/settings.local.json` lands at `<boardPath>/.claude/settings.local.json`, and since every session for a board shares that cwd, **persistent grants accumulate per board and survive across sessions** even as the ephemeral `session-<id>.json` files churn. (Claude Code additionally records higher-level trust state and MCP-server approvals per project in `~/.claude.json`, distinct from the permission *rules* in `settings.local.json`.) The practical takeaway for an orchestrator: never rely on the `--settings` file to carry a user's approvals forward, and treat `<boardPath>/.claude/settings.local.json` as the durable per-board permission store.
 
 ## Folder-Scoped Permissions
 
@@ -61,6 +73,18 @@ A typical per-folder sandbox configuration:
 ```
 
 Rules are evaluated by category: all deny rules are checked first, then ask rules, then allow rules. A deny rule always beats an allow rule, regardless of order in the JSON array or which settings file it lives in.
+
+## Permission path syntax
+
+Paths inside `allow` and `deny` rules use a distinct resolution scheme that differs from sandbox filesystem paths. The prefix determines how the path is resolved:
+
+| Prefix | Resolution |
+|--------|-----------|
+| `//path` | Absolute — from filesystem root (e.g. `Read(//home/chad/src/**)`) |
+| `/path` or `./path` | Project-relative — resolved from the settings file's project root |
+| `~/path` | Home directory — expands `~` to `$HOME` |
+
+This means a settings file at `boards/meeseeks-board/.claude/settings.json` can grant cross-tree read access with an absolute `//`-prefixed path, or use `~/workspace/meeseeks/**` as a shorter equivalent to a full absolute path. Project-relative `/` paths are convenient for deny rules scoped to the current project (e.g. `Read(./.env)`). Note that sandbox filesystem paths (`sandbox.allow`, `sandbox.deny`) use standard POSIX conventions — `/tmp` is absolute there — which is the opposite of permission rule syntax where a single `/` is project-relative.
 
 ## The Deny-Rule Gap
 
@@ -184,3 +208,6 @@ The permission mode, additional directories, and sandboxing features are documen
 | ----------- | ------ |
 | 2026-04-29 | Web documentation on soft-sandboxing Claude Code instances in orchestrators |
 | 2026-04-30 | [Claude Context](../sources/Claude%20Context.md) — instruction bootstrapping and active reloading behaviour |
+| 2026-07-11 | `src/runtime/claude-code.ts` (`buildSpawnSpec` settings file), `src/runtime/supervisor.ts` (`cleanupSettings`) |
+| 2026-07-11 | https://code.claude.com/docs/en/settings — permission-grant persistence to `.claude/settings.local.json`; `--settings` read-only (verified via claude-code-guide) |
+| 2026-05-03 | https://code.claude.com/docs/en/settings — permission path resolution: `//` absolute, `/` project-relative, `~` home; contrast with sandbox path conventions (moved from claude-code-client.md) |

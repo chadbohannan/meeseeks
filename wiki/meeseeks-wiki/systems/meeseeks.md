@@ -2,7 +2,9 @@
 
 Meeseeks is a local web-app for supervising agentic instances within development pipelines, providing oversight capabilities for ensuring proper model behavior during development workflows.
 
-The system implements a local, single-process architecture that displays a Kanban view of project data, where each ticket can run an isolated [Claude Code](../components/runtime.md) instance in a floating console. State is persisted via disk files, permissions are enforced from a YAML config, and runtime status is displayed for each ticket. See the [Architecture Overview](../syntheses/architecture-overview.md) for the decomposition and data flow.
+The system implements a local, single-process architecture that displays a Kanban view of project data, where each ticket can run an isolated [Claude Code](claude-code.md) instance in a floating console. State is persisted via disk files, permissions are enforced from a YAML config, and runtime status is displayed for each ticket. See the [Architecture Overview](../syntheses/architecture-overview.md) for the decomposition and data flow.
+
+[Claude Code](claude-code.md) is the agentic harness Meeseeks depends on today, and much of this wiki evaluates whether it could be swapped for an interchangeable alternative — the [Pi coding agent](pi.md) or the [LangChain ecosystem](langchain-ecosystem.md). That evaluation is framed at the paradigm level in the [Supervised CLI vs. Framework/Server](../syntheses/harness-paradigms.md) capstone, which is the entry point into the harness-comparison cluster.
 
 ## Core Architecture
 
