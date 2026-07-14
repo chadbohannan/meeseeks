@@ -1,6 +1,6 @@
 # Console (MDI panels)
 
-Detachable xterm.js panels rendered on top of the SPA. Each panel is bound to a `runtimeId`; the [runtime supervisor](runtime.md) emits stdio frames that the panel writes to its terminal. Closing a panel is the dismiss-without-kill gesture: the runtime keeps running and reopening replays history from the supervisor's ring buffer (via `GET /api/runtimes/:id/snapshot`).
+Detachable xterm.js panels rendered on top of the SPA. Each panel is bound to a `runtimeId`; the [runtime supervisor](runtime.md) emits stdio frames that the panel writes to its terminal. Closing a panel is the dismiss-without-kill gesture: the runtime keeps running and reopening replays history from the supervisor's ring buffer (via `GET /api/runtimes/:id/snapshot`). This gesture has an exact analog in LangChain's frontend SDK, where `stream.disconnect()` leaves a run executing server-side while a remount reattaches to it — the mapping is drawn out in [LangChain frontend rendering](../concepts/langchain-frontend-rendering.md), which notes the SDK version recovers full checkpointed state rather than a lossy buffer replay.
 
 ## State
 
