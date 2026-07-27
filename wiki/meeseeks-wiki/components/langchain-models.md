@@ -8,6 +8,8 @@ Any chat model is initialized either from its provider class (`ChatOpenAI`, `Cha
 
 **Scope note — provider pages were not ingested.** This wiki documents the multi-provider interface *as a capability* (one string swaps the provider) but deliberately does not enumerate the per-provider integration pages behind it. LangChain's provider list is long and includes NVIDIA (the `langchain-nvidia-ai-endpoints` package, `ChatNVIDIA`, and NVIDIA NIM microservices), among many others; none of those provider-specific pages have been read into the wiki. So a search of this wiki for "NVIDIA" (or any specific provider beyond the handful named above as interface examples) returning nothing is an intentional gap in what was ingested, not evidence that LangChain lacks that provider. If Meeseeks ever needs a concrete provider grounded — e.g. running agents against NVIDIA-hosted models — the specifics belong here and can be pulled from the `docs-langchain` source on demand.
 
+*Partially superseded (2026-07-25).* The [Deep Agents Code](../systems/deep-agents-code.md) provider reference has since been ingested, and it enumerates roughly two dozen providers with their packages and credential environment variables — NVIDIA among them (`langchain-nvidia-ai-endpoints`, `NVIDIA_API_KEY`, with bundled model profiles). That table is scoped to what `dcode` ships as install extras rather than to LangChain's full integration catalogue, so the gap above still holds for provider *integration* pages; but a concrete, citable provider list now exists in the wiki, along with the `class_path` escape hatch for any `BaseChatModel` outside it.
+
 ## Capabilities surfaced through the interface
 
 Beyond text generation, the standard interface exposes four capabilities that agents depend on:
