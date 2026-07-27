@@ -26,6 +26,10 @@ LangSmith **Engine** is described as "the agent for agent engineering": it works
 
 **Insights** automatically analyzes traces to detect usage patterns, common agent behaviors, and failure modes through hierarchical categorization, so operators need not read thousands of traces by hand (Plus/Enterprise plans). **Fleet** (formerly Agent Builder) is a **no-code** platform for creating agents from templates, connecting accounts (Slack, Salesforce, MCP servers), and running routine automation with human approvals — the low-code on-ramp that sits above all the code-first frameworks.
 
+## Managed Deep Agents
+
+**Managed Deep Agents**, covered in full on its own [system page](managed-deep-agents.md), is a hosted runtime pairing the [Deep Agents](deep-agents.md) harness with managed infrastructure so a production agent runs without standing up an agent server. It completes the ladder the docs draw — run the OSS harness yourself, deploy a code-first agent onto managed infrastructure, or build a custom application on [LangSmith Deployment](../components/langgraph-agent-server.md) — and it is the *opposite* end of the spectrum from [`dcode`](deep-agents-code.md): the same harness packaged once as a local terminal process and once as fully hosted infrastructure. Two of the capabilities it provisions have their own pages here: [LangSmith Sandboxes](../components/langsmith-sandboxes.md) for isolated execution and the [Context Hub](../concepts/context-hub.md) for versioned instructions, skills, and memory.
+
 ## Deployment
 
 LangSmith is also the deployment home for LangGraph agents, exposing them through the [Agent Server](../components/langgraph-agent-server.md) in managed-cloud, hybrid, standalone, and self-hosted-with-control-plane modes. Deployment, threads, runs, cron, and the task queue are documented on the Agent Server component page; the observability and evaluation layers described here wrap those deployments in production.
@@ -38,4 +42,6 @@ LangSmith is also the deployment home for LangGraph agents, exposing them throug
 | 2026-07-11 | https://docs.langchain.com/langsmith/studio |
 | 2026-07-11 | https://docs.langchain.com/langsmith/engine-overview |
 | 2026-07-11 | https://docs.langchain.com/langsmith/insights |
+| 2026-07-24 | https://docs.langchain.com/langsmith/managed-deep-agents-overview |
+| 2026-07-24 | https://docs.langchain.com/langsmith/managed-deep-agents-cli |
 | 2026-07-11 | https://docs.langchain.com/langsmith/fleet/index |

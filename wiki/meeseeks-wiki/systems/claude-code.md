@@ -2,7 +2,7 @@
 
 Claude Code is the CLI agent harness that Meeseeks supervises today, and the reference point against which the two candidate replacements — the [Pi coding agent](pi.md) and the [LangChain ecosystem](langchain-ecosystem.md) — are measured. It is a compiled ELF binary installed at `~/.local/share/claude/versions/<version>` (symlinked from `~/.local/bin/claude`). The [runtime adapter](../components/runtime.md) in `src/runtime/claude-code.ts` is the single place in Meeseeks that knows Claude Code's flag schema; everything else treats it as an opaque process. The adapter resolves the `claude` binary to its full path at startup via `which`, and strips environment variables like `FORCE_COLOR` that leak from the dev toolchain — see [Platform Constraints](../concepts/platform-constraints.md) for details on these workarounds.
 
-This page covers how Meeseeks *invokes and configures* the binary: its operating modes, the flags the adapter assembles, and the settings file it generates. Two adjacent concerns have their own pages: how Claude Code loads its instructions and `.claude/` context is covered in [Claude Code instruction bootstrapping](../concepts/claude-code-instruction-bootstrapping.md), and how Meeseeks reverse-engineers session state from an opaque process — hooks, stream-json events, and the `awaiting-user`/`idle` distinction — is covered in [Claude Code state detection](../concepts/claude-code-state-detection.md). Permission and sandboxing policy lives in the [Claude Code sandboxing runbook](../runbooks/claude-code-sandboxing.md). For a comparative analysis with the Pi coding agent as an alternative integration target, see [Claude Code vs. Pi Runtime Interfaces](../syntheses/claude-vs-pi-runtime-interfaces.md).
+This page covers two things: how Meeseeks *invokes and configures* the binary — its operating modes, the flags the adapter assembles, and the settings file it generates — and, since a 2026-07-25 review, Claude Code's own [capability surface](#capability-surface) as a coding agent, independent of how Meeseeks drives it. Two adjacent concerns have their own pages: how Claude Code loads its instructions and `.claude/` context is covered in [Claude Code instruction bootstrapping](../concepts/claude-code-instruction-bootstrapping.md), and how Meeseeks reverse-engineers session state from an opaque process — hooks, stream-json events, and the `awaiting-user`/`idle` distinction — is covered in [Claude Code state detection](../concepts/claude-code-state-detection.md). Permission and sandboxing policy lives in the [Claude Code sandboxing runbook](../runbooks/claude-code-sandboxing.md). For a comparative analysis with the Pi coding agent as an alternative integration target, see [Claude Code vs. Pi Runtime Interfaces](../syntheses/claude-vs-pi-runtime-interfaces.md).
 
 ## Operating modes
 
@@ -39,11 +39,76 @@ All flags are assembled in `src/runtime/claude-code.ts:buildSpawnSpec`.
 
 The other modes (`auto`, `default`, `plan`) are interactive or adaptive modes that don't fit the orchestrator pattern. `dontAsk` is the natural mode for autonomous ticket execution — it is a candidate for future board- or lane-level configuration when Meeseeks implements unattended agent runs. See the [Claude Code sandboxing runbook](../runbooks/claude-code-sandboxing.md) for the full architecture of permission modes, settings file precedence, and OS-level sandboxing layers.
 
-`--effort <level>` controls model reasoning intensity. Levels: `low`, `medium`, `high`, `xhigh`, `max`. Could be exposed alongside the model selector as a spawn-time parameter.
+`--effort <level>` controls model reasoning intensity. Levels: `low`, `medium`, `high`, `xhigh`, `max`, plus `ultracode` and `auto` (the last two added since the original April 2026 capture). Could be exposed alongside the model selector as a spawn-time parameter.
 
 `--worktree [name]` creates a git worktree for the session, optionally with a name. Potentially useful for isolating agent work per ticket, but would require coordination with the host repository's worktree layout.
 
 `--bare` skips hooks, LSP, plugin sync, attribution, auto-memory, background prefetches, keychain reads, and CLAUDE.md auto-discovery. It is documented here because it explicitly enumerates the subsystems that the `--settings` file can influence, including hooks. Meeseeks does not use it because hooks are load-bearing for state signalling.
+
+## Capability surface
+
+*Added 2026-07-25 from the live docs. Everything above this section was captured in April 2026 through a narrow "what flags does the adapter assemble" lens, which left most of the product undocumented here. Several claims elsewhere in this wiki rested on that omission and were wrong; they are corrected in place and noted below.*
+
+### Goals — Claude Code persists objectives across turns
+
+`/goal [condition|clear]` sets a goal and **Claude keeps working across turns until the condition is met**. With no argument it shows the current or most recently achieved goal; `clear`/`stop`/`off`/`reset`/`none`/`cancel` removes an active one.
+
+This is a direct analogue of [`dcode`'s goals and rubrics](deep-agents-code.md), and its existence corrects a claim previously made on that page. The two differ in emphasis rather than kind: `dcode` drafts explicit acceptance criteria for inline review and grades each turn against them with a configurable grader model and iteration ceiling, while Claude Code takes a condition and works until it is satisfied. Convergent design, arrived at independently.
+
+### Sessions, checkpoints, and branching
+
+The wiki previously asserted that Claude Code "exposes no session persistence at all." That was **false**, and the surface is in fact rich:
+
+| Command | Behaviour |
+|---|---|
+| `/resume` (`--resume`) | Return to an earlier conversation |
+| `--continue` | Resume the session for the current directory |
+| `/rewind` | Roll **code and conversation** back to a checkpoint, or summarize part of the conversation |
+| `/clear [name]` | Start fresh, optionally labelling the previous conversation for later resumption. Aliases `/reset`, `/new` |
+| `/branch [name]` | Branch the conversation at this point to try a different direction without losing the original |
+| `/fork [prompt]` | Copy the conversation into a new background session and keep working here |
+| `/background` (`/bg`) | Detach the current session to run as a background agent, freeing the terminal |
+
+`/rewind` is the notable one: rolling back *code alongside conversation* to a checkpoint is time-travel with filesystem effects, which is more than the [LangGraph checkpoint replay](../concepts/human-in-the-loop.md) this wiki treats as the framework paradigm's distinguishing feature. And `/background` is native **dismiss-without-kill**: detaching a session to keep running while the terminal is freed is exactly the gesture the [console](../components/console.md) page builds out of panel lifecycle and a ring buffer — available inside the harness Meeseeks already supervises.
+
+### Skills — and the merge with custom commands
+
+**Custom commands have been merged into skills.** `.claude/commands/deploy.md` and `.claude/skills/deploy/SKILL.md` both create `/deploy` and work the same way; existing `commands/` files keep working but skills are recommended because they support supporting files, invocation control, and automatic loading.
+
+Critically, **Claude Code skills follow the [Agent Skills](https://agentskills.io) open standard** — the same standard [Deep Agents](deep-agents.md) implements. This reframes what the [`dcode`](deep-agents-code.md) page describes as LangChain "treating Anthropic's formats as an interoperable substrate": it is a shared open standard both vendors implement, not one copying the other. Claude Code extends it with invocation control, subagent execution, and dynamic context injection.
+
+The progressive-disclosure property is explicit in the docs: "a skill's body loads only when it's used, so long reference material costs almost nothing until you need it." A matching caution applies once loaded — skill content "stays in context across turns, so every line is a recurring token cost." That is the same hot/cold economics the [context-engineering](../concepts/deepagents-context-engineering.md) page documents for Deep Agents.
+
+Frontmatter fields worth knowing:
+
+- `description` — drives automatic loading.
+- `disable-model-invocation` — manual-only; also blocks preloading into subagents and, since v2.1.196, blocks firing from a scheduled task.
+- `user-invocable: false` — hide from the `/` menu (background knowledge only).
+- `allowed-tools` / `disallowed-tools` — pre-approve or remove tools for the invoking turn; the grant clears on the next message.
+- `context: fork` plus `agent` and `background` — run the skill in an isolated subagent (see below).
+- `hooks` — hooks scoped to this skill's lifecycle.
+- `paths` — **glob patterns limiting when the skill auto-activates**, so a skill loads only when working on matching files.
+- `arguments` — named arguments bound positionally, expanded as `$name`.
+
+`${CLAUDE_SKILL_DIR}` and `${CLAUDE_PROJECT_DIR}` substitute into both the markdown body and Bash rules in `allowed-tools`, which is what lets a skill run a bundled script without a permission prompt.
+
+`paths` deserves emphasis: it is *conditional* progressive disclosure, gating auto-activation on the files in play rather than on the model's judgement of the description. That is a mechanism neither Deep Agents nor `dcode` documents.
+
+### Delegation and background work
+
+`context: fork` runs a skill in an isolated subagent that does **not** inherit conversation history — the skill content becomes the subagent's prompt. It runs in the background by default, with the result arriving in the conversation on completion; `background: false` waits within the invoking turn instead (before v2.1.218, forked skills always blocked).
+
+Alongside that, several bundled skills and commands are themselves orchestration primitives: `/batch <instruction>` fans large-scale changes across a codebase in parallel, `/deep-research <question>` is a dynamic workflow fanning out web searches, `/subtask` hands a side task to a subagent, `/loop [interval] [prompt]` runs a prompt repeatedly, and `/tasks` lists background work and subagents.
+
+### Other surface the adapter view missed
+
+**Model and effort.** `/model` switches models mid-session — correcting another stale claim, that model choice is a "static flag at spawn." `/effort` accepts `low`, `medium`, `high`, `xhigh`, `max`, plus `ultracode` and `auto` (the page above lists only the first five). `/fast` toggles fast mode; `/advisor` enables an advisor model.
+
+**Observability.** `/context [all]` visualizes context usage, `/usage` (alias `/cost`) reports tokens and cost, and `/insights` generates an analysis report across sessions — a first-party version of what the [LangSmith tracing runbook](../runbooks/tracing-meeseeks-sessions-to-langsmith.md) proposes bolting on.
+
+**Session portability.** `/teleport` pulls a web session into the terminal, `/remote-control` continues a session from another device, and `/desktop` and `/mobile` move it between apps. Sessions are not bound to the terminal that started them.
+
+**Quality workflows.** `/code-review`, `/security-review`, `/verify`, and `/simplify` ship as bundled skills.
 
 ## Settings file
 
@@ -84,3 +149,5 @@ The `permissions` key is omitted when `allowedTools` and `deniedTools` are both 
 | 2026-04-28 | Debugging session: removed stream-json flags from interactive mode, FORCE_COLOR stripping |
 | 2026-04-28 | `claude -h` — full flag reference |
 | 2026-05-03 | https://code.claude.com/docs/en/settings — settings file schema |
+| 2026-07-25 | https://code.claude.com/docs/en/commands — built-in commands and bundled skills; `/goal`, session/checkpoint commands |
+| 2026-07-25 | https://code.claude.com/docs/en/skills — skills/custom-command merge, Agent Skills standard, frontmatter reference, subagent execution |

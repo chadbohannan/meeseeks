@@ -74,7 +74,9 @@ A hypothetical Pi adapter for Meeseeks would need to consume the RPC JSON-L even
 
 Claude Code accepts a `--settings <file>` flag pointing to a JSON file that merges hooks, permissions, and sandbox configuration. Meeseeks creates a per-runtime settings file at `<board>/.meeseeks/session-<runtimeId>.json` and deletes it on exit.
 
-Pi stores sessions as versioned JSONL files with a `SessionManager` class (`packages/coding-agent/src/core/session-manager.ts`). There is no equivalent of `--settings` for injecting per-session configuration — extensions and tools are loaded once at startup. Session replacement (new, resume, fork, import) is managed by `AgentSessionRuntime` rather than the session itself.
+Pi stores sessions as versioned JSONL files with a `SessionManager` class (`packages/coding-agent/src/core/session-manager.ts`). There is no equivalent of `--settings` for injecting per-session configuration — extensions and tools are loaded once at startup.
+
+**Correction (2026-07-25).** This synthesis was written against an April 2026 capture of Claude Code that documented only the flags the Meeseeks adapter assembles, and it wrongly concluded Claude Code had no session persistence. A review against the live docs found `/resume`, `/branch`, `/fork`, `/background`, and `/rewind` — the last rolling back code *and* conversation to a checkpoint. See the [Claude Code capability surface](../systems/claude-code.md#capability-surface) for the full correction, which also affects the model-switching and delegation rows below. The gap analysis on hooks, permissions, the RPC control surface, and per-session settings injection is unaffected; those comparisons still hold. Session replacement (new, resume, fork, import) is managed by `AgentSessionRuntime` rather than the session itself.
 
 **Gap**: Pi cannot accept a per-session settings injection, limiting an orchestrator's ability to customize agent behaviour per ticket or lane without restarting the process.
 
@@ -88,8 +90,9 @@ Pi stores sessions as versioned JSONL files with a `SessionManager` class (`pack
 | Extension UI protocol | None | Dialog methods + fire-and-forget | Pi → CC |
 | Per-session config injection | `--settings <file>` | Not supported | CC → Pi |
 | Concurrent TUI + structured control | PTY (TUI) + hooks (state) | RPC or TUI, not both | Both directions |
-| Session persistence | None exposed | JSONL files, fork/tree navigation | Pi → CC |
-| Multi-provider model cycling | Static flag at spawn | `cycle_model`, `get_available_models` via RPC | Pi → CC |
+| Session persistence | `/resume`, `/branch`, `/fork`, `/background`, `/rewind` (code + conversation) | JSONL files, fork/tree navigation | Roughly at parity |
+| Session inspectability | Internal; reachable only via its own commands | Plain JSONL files an external process can read | Pi → CC |
+| Mid-session model switching | `/model` (Claude models only) | `cycle_model`, `get_available_models` via RPC | Pi → CC (provider breadth only) |
 | Auto-retry on errors | None | Configurable auto-retry with `abort_retry` | Pi → CC |
 
 ## Implications for Meeseeks
