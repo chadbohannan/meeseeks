@@ -197,14 +197,33 @@ export async function updateTicket(
   if (patch.state !== undefined && !states.find(s => s.dir === patch.state)) {
     throw new InvalidInputError(`unknown state: ${patch.state}`);
   }
+  const newTitle = patch.title ?? fm.title;
+  const newColor = patch.color !== undefined ? patch.color : fm.color;
+  const newBody = patch.body ?? body;
+  const unchanged = newTitle === fm.title
+    && newColor === fm.color
+    && newBody === body
+    && newState === found.state;
+  if (unchanged) {
+    return {
+      filename,
+      state: newState,
+      title: fm.title,
+      body,
+      color: fm.color,
+      created: fm.created,
+      updated: fm.updated,
+      orphaned: false,
+      absPath: found.abs,
+    };
+  }
   const newFm: FrontMatter = {
-    title: patch.title ?? fm.title,
+    title: newTitle,
     created: fm.created,
     updated: new Date().toISOString(),
-    color: patch.color !== undefined ? patch.color : fm.color,
+    color: newColor,
     extra: fm.extra,
   };
-  const newBody = patch.body ?? body;
   const serialized = serialize(newFm, newBody);
   // Re-parse our own output so the returned body matches what subsequent reads
   // produce (gray-matter normalizes trailing whitespace on the body). Clients

@@ -144,6 +144,29 @@ describe('updateTicket', () => {
     expect(await exists(path.join(boardPath, 'lanes/work/todo', c.filename))).toBe(false);
     expect(await exists(path.join(boardPath, 'lanes/work/doing', c.filename))).toBe(true);
   });
+
+  it('is a no-op when nothing changed: leaves updated and file bytes untouched', async () => {
+    const { boardPath, lanePath } = await setup();
+    const c = await createTicket(boardPath, 'work', { title: 'orig', state: 'todo', body: 'body' });
+    // A client loads the ticket, then echoes the loaded values back (the spurious
+    // save path). readTicket returns the normalized body, matching what's on disk.
+    const loaded = await readTicket(boardPath, 'work', c.filename);
+    const filePath = path.join(lanePath, 'todo', c.filename);
+    const before = await readFile(filePath, 'utf8');
+    const u = await updateTicket(boardPath, 'work', c.filename, {
+      title: loaded.title, body: loaded.body, state: loaded.state,
+    });
+    expect(u.updated).toBe(loaded.updated);
+    const after = await readFile(filePath, 'utf8');
+    expect(after).toBe(before);
+  });
+
+  it('bumps updated when content actually changes', async () => {
+    const { boardPath } = await setup();
+    const c = await createTicket(boardPath, 'work', { title: 'orig', state: 'todo', body: 'body' });
+    const u = await updateTicket(boardPath, 'work', c.filename, { body: 'changed' });
+    expect(u.updated).not.toBe(c.updated);
+  });
 });
 
 describe('deleteTicket', () => {
