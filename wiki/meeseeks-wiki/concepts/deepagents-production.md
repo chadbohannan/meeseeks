@@ -34,7 +34,7 @@ Deep Agents inherit LangGraph's [durable execution](langgraph-durable-execution.
 
 ## Memory scoping
 
-Memory in Deep Agents is not a separate subsystem: it is files in the virtual filesystem, made cross-thread by routing a path such as `/memories/` to a `StoreBackend` inside a `CompositeBackend`. The scope is then chosen by the [namespace factory](deepagents-backends.md):
+Memory in Deep Agents is not a separate subsystem: it is files in the virtual filesystem, made cross-thread by routing a path such as `/memories/` to a `StoreBackend` inside a `CompositeBackend`. The scope is then chosen by the [namespace factory](deepagents-backends.md) — as a concrete `namespace=` argument on `StoreBackend` since v0.7.0 removed the older factory-callable construction pattern:
 
 | Scope | Namespace | Use case |
 |-------|-----------|----------|

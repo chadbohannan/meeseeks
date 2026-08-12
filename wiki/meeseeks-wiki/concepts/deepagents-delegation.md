@@ -2,7 +2,7 @@
 
 Delegation is one of the four capability categories [Deep Agents](../systems/deep-agents.md) is built around, and it exists in three distinct forms that are easy to conflate. This page separates them: **synchronous** subagents that block the supervisor, **async** subagents that run as independent background jobs on an Agent Protocol server, and **dynamic** subagents dispatched from [interpreter](deepagents-interpreters.md) code. It also covers the streaming projection that makes delegated work observable, which is what turns delegation from a black box into something a UI can render.
 
-The shared motivation is context isolation: a subagent runs in its own context window and returns only its result, so heavy intermediate work never pollutes the supervisor's history. That is the delegation half of [context engineering](agent-memory.md).
+The shared motivation is context isolation: a subagent runs in its own context window and returns only its result, so heavy intermediate work never pollutes the supervisor's history. That is the delegation half of [context engineering](agent-memory.md). Deep Agents' particular choice — a supervisor dispatching stateless or task-scoped workers that report back rather than converse as peers — is one point in the wider design space the [multi-agent frameworks catalog](multi-agent-frameworks.md) surveys; it sits closest to the conversation-driven/manager-delegation pattern rather than the peer-to-peer handoff model OpenAI Swarm or CAMEL use, and its read-mostly, report-by-reference shape is exactly the condition the [swarm-tax synthesis](../syntheses/swarm-tax-multi-agent-cost-benefit.md) identifies as making multi-agent delegation worth its token premium rather than a pure tax.
 
 ## Synchronous subagents
 
