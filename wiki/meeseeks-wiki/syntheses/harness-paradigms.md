@@ -55,6 +55,8 @@ That framing is challenged from the product side by the [attention-economics syn
 
 The trajectory argument tilts the same way: the LangChain docs frame decoupled model/backend/deployment architectures as where production agents are heading, which implies the supervised-CLI paradigm — and Meeseeks' coupling to it — is the less durable long-term bet. None of this forces a migration; Meeseeks works, and the supervised-CLI paradigm is the pragmatic choice for a single-user local tool today. But when the project weighs generalizing beyond Claude Code, the decision that matters is not Pi-or-LangChain. It is process-supervisor-or-client — and everything else follows from it.
 
+Everything above assumes one agent per supervised session, which is Meeseeks' actual scope today — the paradigm choice governs how a single harness process is driven, not how several agents on one ticket would coordinate with each other. If that scope ever grows, the [multi-agent frameworks catalog](../concepts/multi-agent-frameworks.md) is the design-space map for that different question (peer-to-peer handoff, conversation-driven topology, role-based crews, fixed-role pipelines, or cross-vendor protocol interop via A2A), and the [swarm-tax synthesis](swarm-tax-multi-agent-cost-benefit.md) is the reason to be skeptical by default: running multiple agents on shared write surfaces costs 4-15x the tokens of one and pays off only for read-heavy, independently-parallel work — a bar most ticket-scoped coding work does not clear.
+
 | Ingest Date | Source |
 | ----------- | ------ |
 | 2026-07-11 | `src/runtime/supervisor.ts`, `src/runtime/claude-code.ts` — the process-supervisor machinery |

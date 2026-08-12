@@ -4,6 +4,8 @@ Every [Deep Agent](../systems/deep-agents.md) exposes a filesystem surface to th
 
 Across all backends, `read_file` natively handles images (`.png`, `.jpg`, `.jpeg`, `.gif`, `.webp`), returning them as multimodal content blocks. Sandbox backends and `LocalShellBackend` additionally provide an `execute` tool.
 
+**`deepagents` v0.7.0 (Jul 24, 2026) changed the tool surface in ways worth flagging separately, since some are breaking.** `write_file` now overwrites an existing file instead of raising; `delete` removes a file or, recursively, a directory (new in this release, not just documented here for the first time); `FilesystemMiddleware` now accepts a tool allowlist so a deployment can expose only selected built-in filesystem tools rather than all of them; `read_file` is paginated for open-model compatibility, reporting total and remaining lines plus the next `offset`, and no longer renders a fixed-width `cat -n`-style line-number gutter; `grep`/`glob` return partial results with a `truncated` flag instead of hanging on large trees, and `grep` gained a 1,000-match cap with streamed output and optional context lines. Separately, **empty `ls`/`glob` output changed from `[]` to the string `"No files found"`** — any code parsing these tool outputs (including a Meeseeks adapter, were one built) needs updating for both the gutter removal and the empty-result format change.
+
 ## The built-in backends
 
 **`StateBackend` (default).** Files live in LangGraph agent state, scoped to the thread. They persist across turns via the [checkpointer](langgraph-durable-execution.md) and are *not* shared across threads. It is designed for use from inside a graph — calling backend methods outside a graph run has no effect until the graph executes. Best as a scratchpad and for automatic eviction of large tool outputs the agent can read back piecemeal. Importantly, this backend is **shared between the supervisor and its subagents**: files a subagent writes remain in state after that subagent finishes, and stay visible to the supervisor and other subagents — which makes it the framework's implicit channel for passing work products between delegated tasks.
@@ -25,6 +27,8 @@ Across all backends, `read_file` natively handles images (`.png`, `.jpg`, `.jpeg
 `StoreBackend` takes a `namespace` factory — `Callable[[Runtime], tuple[str, ...]]` — that decides where data is read and written, and it is the mechanism for isolating tenants. The `Runtime` supplies `rt.context` (user-supplied context such as `user_id`), `rt.server_info` (assistant ID, graph ID, authenticated user), and `rt.execution_info` (thread, run, checkpoint IDs), so the common scopes are per-user (`rt.server_info.user.identity`), per-assistant, or per-thread, and these compose into tuples like `(user_id, thread_id)`.
 
 Two details are worth flagging. Namespace components are validated — alphanumerics, hyphens, underscores, dots, `@`, `+`, colons, tildes — and **wildcards are rejected to prevent glob injection**. And the legacy default, used when no factory is given, namespaces by `assistant_id`, "which means all users of the same assistant share the same storage." That is a quietly dangerous default for a multi-user deployment, which is why the docs say the parameter becomes **required in v0.5.0**.
+
+That requirement tightened further in v0.7.0: the backend-construction **compatibility shims were removed outright** — `BackendFactory`, `BACKEND_TYPES`, `FileFormat`, and `Unset` no longer exist. Code must pass concrete `BackendProtocol` instances (as the `CompositeBackend` example above already does) rather than factory callables like `backend=lambda rt: StoreBackend()`, and every `StoreBackend` needs its `namespace` set explicitly, e.g. `StoreBackend(namespace=lambda rt: (rt.server_info.user.identity,))`. `FileData.content` is now a plain string; files written under the older `list[str]` content format still read correctly and convert on next write, so the migration is forward-compatible for existing stored data even though the construction API is not.
 
 ## The composite pattern, and why it is the recommended default
 
@@ -58,5 +62,6 @@ The backend abstraction is the concrete answer to a question the [harness compar
 
 | Ingest Date | Source |
 | ----------- | ------ |
+| 2026-08-12 | https://docs.langchain.com/oss/python/releases/changelog (`deepagents` v0.7.0, Jul 24 2026) |
 | 2026-07-25 | https://docs.langchain.com/oss/python/deepagents/backends |
 | 2026-07-25 | https://docs.langchain.com/oss/python/deepagents/permissions |

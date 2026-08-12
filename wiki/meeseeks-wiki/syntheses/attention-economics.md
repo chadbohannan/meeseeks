@@ -20,6 +20,8 @@ Runtime status is a seven-state enum (`starting → idle → running ↔ awaitin
 
 More importantly it closes Meeseeks' largest blind spot: **the product cannot distinguish an agent that is working from an agent that is stuck.** Both are `running`. An agent forty tool-calls into a loop is indistinguishable from one making progress, and the only way to tell is to open the panel and read — spending exactly the resource the platform exists to conserve. Blocked agents ring; thrashing agents are silent. Observability makes the silent failure legible without attention.
 
+The stakes of that blind spot grow with agent count, not just with agent complexity. The [multi-agent safety and oversight synthesis](multi-agent-safety-and-oversight.md), drawn from a July 2026 swarming-agents literature ingest, argues from the opposite direction that oversight capacity does not scale the way agent count does, and identifies the same doorbell-saturates-around-five-or-six-agents observation this page makes independently as one instance of a general burnout-research finding — while flagging that Meeseeks' own console-per-ticket review model is structurally the kind of one-agent-at-a-time interface that misses failures legible only at the level of *interaction between* agents, catalogued concretely on [multi-agent-failure-modes.md](../concepts/multi-agent-failure-modes.md).
+
 ## What exists only when both are present
 
 Checkpoints plus traces give **branching**: fork a session at a known state and try it three ways. Meeseeks cannot do this at all; [Pi](../systems/pi.md) approximates it with JSONL session trees, and LangGraph exposes it as [time travel](../concepts/human-in-the-loop.md).

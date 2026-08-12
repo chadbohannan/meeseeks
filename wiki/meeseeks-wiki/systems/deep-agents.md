@@ -25,7 +25,7 @@ Deep Agents makes context engineering first-class. **Skills** package domain exp
 
 ## Delegation and steering
 
-**Task planning** (the `write_todos` tool, from the to-do [middleware](../concepts/langchain-middleware.md)) gives the agent an explicit plan for multi-step work. **Subagents** delegate to workers in isolated context windows through a `task` tool — synchronous by default (the supervisor blocks) with an async variant for parallel workstreams that support mid-flight steering and cancellation; `stream.subagents` gives each delegated task its own [stream](../concepts/langchain-streaming.md) handle. **Steering** is [human-in-the-loop](../concepts/human-in-the-loop.md): approval gates and interrupts on tool calls, inherited from the LangGraph interrupt mechanism.
+**Task planning** (the `write_todos` tool, from the to-do [middleware](../concepts/langchain-middleware.md)) gives the agent an explicit plan for multi-step work — as of `deepagents` v0.7.0 this middleware is **opt-in** rather than a default-stack member, one of several breaking changes covered on the [customization](../concepts/deepagents-customization.md#the-default-stack-main-agent) page. **Subagents** delegate to workers in isolated context windows through a `task` tool — synchronous by default (the supervisor blocks) with an async variant for parallel workstreams that support mid-flight steering and cancellation; `stream.subagents` gives each delegated task its own [stream](../concepts/langchain-streaming.md) handle. **Steering** is [human-in-the-loop](../concepts/human-in-the-loop.md): approval gates and interrupts on tool calls, inherited from the LangGraph interrupt mechanism.
 
 ## Deep Agents Code — the CLI
 
@@ -58,6 +58,7 @@ The through-line is decoupling: Deep Agents lets you choose model, execution bac
 
 | Ingest Date | Source |
 | ----------- | ------ |
+| 2026-08-12 | https://docs.langchain.com/oss/python/releases/changelog (`deepagents` v0.7.0, Jul 24 2026) |
 | 2026-07-11 | https://docs.langchain.com/oss/python/deepagents/overview |
 | 2026-07-11 | https://docs.langchain.com/oss/python/deepagents/backends |
 | 2026-07-11 | https://docs.langchain.com/oss/python/deepagents/subagents |

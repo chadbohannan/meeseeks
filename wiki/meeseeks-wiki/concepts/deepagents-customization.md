@@ -4,9 +4,11 @@ A [Deep Agent](../systems/deep-agents.md) is not a monolith — it is a document
 
 ## The default stack, main agent
 
-From first to last:
+**As of `deepagents` v0.7.0 (Jul 24, 2026), `TodoListMiddleware` is no longer part of the default stack** — it is a breaking change from the ordering below, which held through v0.6.x. `create_deep_agent` now starts with an empty base prompt and no todo-planning prompt; the `write_todos` tool, its `todos` state channel, and its planning prose are present only when the caller explicitly passes `middleware=[TodoListMiddleware()]` (imported from `langchain.agents.middleware`, not `deepagents`). This was one lever in a token-budget push: stripping the always-on todo prompt plus trimmed tool-usage prose cut a default-agent turn's input tokens 65% (5,395 → 1,895 per the release notes). The OpenAI Codex harness [profile](#harness-profiles) still opts todos back in automatically, which is a concrete instance of the profile system's purpose — restoring per-provider defaults that the base harness no longer assumes.
 
-1. **`TodoListMiddleware`** — the `write_todos` planning tool.
+From first to last, once restored (or for a stack still on v0.6.x):
+
+1. **`TodoListMiddleware`** — the `write_todos` planning tool, opt-in since v0.7.0 (see above).
 2. **`SkillsMiddleware`** — only when `skills` is passed. Injected immediately after todos and **before** filesystem middleware, so skill metadata is available before file tools run.
 3. **`FilesystemMiddleware`** — file operations. When `permissions` is passed, [permission enforcement](deepagents-backends.md) lives here, positioned so it can evaluate every tool the agent might call.
 4. **`SubAgentMiddleware`** — the `task` tool. Attached only when at least one synchronous subagent exists.
@@ -52,5 +54,6 @@ For a preconfigured model *instance* rather than a `provider:model` string, the 
 
 | Ingest Date | Source |
 | ----------- | ------ |
+| 2026-08-12 | https://docs.langchain.com/oss/python/releases/changelog (`deepagents` v0.7.0, Jul 24 2026) |
 | 2026-07-25 | https://docs.langchain.com/oss/python/deepagents/customization |
 | 2026-07-25 | https://docs.langchain.com/oss/python/deepagents/profiles |
