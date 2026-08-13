@@ -54,4 +54,36 @@ describe('websocket events', () => {
     expect(event.payload.boardId).toBe('b');
     expect(event.payload.laneName).toBe('work');
   });
+
+  it('emits project-changed for projects/*.yaml, not a bogus board-changed', async () => {
+    const tp = await makeBareProject();
+    cleanups.push(tp.cleanup);
+    const srv = await bootTestServer(tp.root);
+    cleanups.push(srv.cleanup);
+
+    const ws = new WebSocket(`ws://127.0.0.1:${srv.port}/ws`);
+    cleanups.push(async () => ws.close());
+    await new Promise<void>((resolve, reject) => {
+      ws.once('open', resolve);
+      ws.once('error', reject);
+    });
+
+    const seen: any[] = [];
+    ws.on('message', (d: WebSocket.RawData) => seen.push(JSON.parse(d.toString())));
+
+    // Let chokidar's initial scan finish. With ignoreInitial, anything created
+    // while that scan is still running is treated as pre-existing and skipped.
+    await new Promise(r => setTimeout(r, 1500));
+
+    // The generic `<dir>/<file>` fallthrough in the watcher would read this as
+    // a board named 'projects' if the projects branch did not intercept first.
+    const projectsDir = path.join(tp.root, 'projects');
+    await mkdir(projectsDir, { recursive: true });
+    await writeFile(path.join(projectsDir, 'meeseeks.yaml'), `name: Meeseeks\nroot: ${tp.root}\n`, 'utf8');
+
+    // The watcher polls at 2s intervals, so allow several cycles.
+    const event = await waitForEvent(ws, e => e.type === 'project-changed', 8000);
+    expect(event.payload.projectId).toBe('meeseeks');
+    expect(seen.some(e => e.type === 'board-changed' && e.payload.boardId === 'projects')).toBe(false);
+  }, 20000);  // settle delay + poll wait can exceed the 10s default
 });

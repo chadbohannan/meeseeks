@@ -1,4 +1,5 @@
 import type { RuntimeStatus, TicketRef, PromptRef, RuntimeSummary } from '../shared/runtime.js';
+import type { PermissionsConfig } from '../shared/types.js';
 
 export interface BoardRuntimeConfig {
   runtime?: {
@@ -8,12 +9,6 @@ export interface BoardRuntimeConfig {
     args?: string[];
     env?: Record<string, string>;
   };
-}
-
-export interface PermissionsConfig {
-  allowedPaths: string[];
-  allowedTools: string[];
-  deniedTools: string[];
 }
 
 export interface SpawnContext {
@@ -52,4 +47,4 @@ export interface PromptSpawnContext {
   model?: string;
 }
 
-export type { RuntimeStatus, TicketRef, PromptRef, RuntimeSummary };
+export type { RuntimeStatus, TicketRef, PromptRef, RuntimeSummary, PermissionsConfig };

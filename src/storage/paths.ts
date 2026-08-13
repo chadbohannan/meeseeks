@@ -1,5 +1,13 @@
 import path from 'node:path';
+import os from 'node:os';
 import { PathSafetyError } from './errors.js';
+
+/** Expand a leading `~` to the user's home directory. */
+export function expandHome(p: string): string {
+  if (p === '~') return os.homedir();
+  if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2));
+  return p;
+}
 
 /** Resolve `child` against `root` and guarantee the result stays inside `root`. */
 export function resolveWithin(root: string, child: string): string {
@@ -21,6 +29,30 @@ export function slugifyBoardPath(configPath: string): string {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * Derive a stable project id from its config path. Unlike boards, project
+ * entries name a file rather than a directory, so the extension is stripped
+ * first — otherwise `projects/meeseeks.yaml` would slug to `meeseeks-yaml`.
+ */
+export function slugifyProjectPath(configPath: string): string {
+  const base = path.basename(configPath).replace(/\.ya?ml$/i, '');
+  return base
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/** Sanitize a free-form project name into a `<slug>.yaml` filename. */
+export function buildProjectFilename(name: string): string {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 80) || 'untitled';
+  return `${slug}.yaml`;
 }
 
 /** Build a datetime-prefixed ticket filename (filesystem-safe). */

@@ -5,6 +5,7 @@ import { ServerState } from './state.js';
 import { WsHub, registerWs } from './ws.js';
 import { mapErrorToResponse } from './error-mapper.js';
 import { registerWorkspaceRoutes } from './routes/workspace.js';
+import { registerProjectRoutes } from './routes/projects.js';
 import { registerBoardRoutes } from './routes/boards.js';
 import { registerLaneRoutes } from './routes/lanes.js';
 import { registerTicketRoutes } from './routes/tickets.js';
@@ -43,6 +44,7 @@ async function main(): Promise<void> {
   await app.register(websocket);
   app.setErrorHandler(mapErrorToResponse);
   await registerWorkspaceRoutes(app, { state, hub });
+  await registerProjectRoutes(app, { state, hub });
   await registerBoardRoutes(app, { state, hub });
   await registerLaneRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });

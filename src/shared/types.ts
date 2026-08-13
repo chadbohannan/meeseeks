@@ -6,7 +6,42 @@ export interface ModelOption {
 export interface WorkspaceConfig {
   name: string;
   boards: string[];
+  projects: string[];    // config-file entries, e.g. 'projects/meeseeks.yaml'
   models?: ModelOption[];
+}
+
+/**
+ * Agent permissions. Lives here rather than in runtime/ because storage owns
+ * reading these from lane and project configs, and may not import from runtime.
+ */
+export interface PermissionsConfig {
+  allowedPaths: string[];
+  allowedTools: string[];
+  deniedTools: string[];
+}
+
+/** A selectable codebase configuration, decoupled from any board. */
+export interface ProjectConfig {
+  name: string;
+  root: string;          // absolute path to the codebase; may live outside the workspace
+  color?: string;        // drives the ticket card badge
+  context?: string;      // inline project context
+  contextFile?: string;  // path to a context doc, relative to the config file's directory
+  permissions?: PermissionsConfig;
+}
+
+export interface ProjectSummary {
+  projectId: string;     // slug derived from the config filename
+  name: string;
+  root: string;          // absolute, tilde-expanded
+  color?: string;
+  available: boolean;    // false if root is missing or is not a directory
+}
+
+export interface ProjectDetail extends ProjectSummary {
+  configPath: string;    // absolute path to the project's yaml file
+  contextContent: string | null;
+  permissions: PermissionsConfig | null;
 }
 
 export interface WorkspaceMeta {

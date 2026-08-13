@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
-import { listBoards, getModels } from '../../storage/workspace.js';
+import { listBoards, getModels, readWorkspace } from '../../storage/workspace.js';
 
 interface Deps { state: ServerState; hub: WsHub }
 
@@ -10,8 +10,11 @@ export async function registerWorkspaceRoutes(app: FastifyInstance, deps: Deps):
 
   app.get('/api/workspace', async () => {
     const open = state.require();
+    // Re-read rather than returning the cached boot-time snapshot: boards and
+    // projects registered since startup would otherwise be missing here.
+    const workspace = await readWorkspace(open.meta.path);
     const boards = await listBoards(open.meta.path);
-    return { workspace: open.meta, boards };
+    return { workspace, boards };
   });
 
   app.get('/api/models', async () => {

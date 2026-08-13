@@ -3,7 +3,8 @@ import path from 'node:path';
 import type { WorkspaceMeta } from '../shared/types.js';
 import type { ChangeKind, WsEvent } from '../shared/events.js';
 import type { WsHub } from './ws.js';
-import { slugifyBoardPath } from '../storage/paths.js';
+import { slugifyBoardPath, slugifyProjectPath } from '../storage/paths.js';
+import { PROJECTS_DIR } from '../storage/project.js';
 
 export interface WatcherHandle {
   cleanup(): Promise<void>;
@@ -44,6 +45,22 @@ export function startWatcher(meta: WorkspaceMeta, hub: WsHub): WatcherHandle {
     const rel = path.relative(workspaceRoot, absPath);
     if (!rel || rel.startsWith('..')) return;
     const parts = rel.split(path.sep);
+
+    // projects/<slug>.yaml — must be handled before the board fallthrough
+    // below, which would otherwise read this as a board named 'projects'.
+    if (parts[0] === PROJECTS_DIR) {
+      if (parts.length !== 2) return;
+      const filename = parts[1]!;
+      if (!/\.ya?ml$/i.test(filename)) return;
+      const projectId = slugifyProjectPath(filename);
+      if (!projectId) return;
+      emit(`project:${projectId}`, {
+        type: 'project-changed',
+        payload: { projectId, kind },
+      });
+      return;
+    }
+
     const lanesIdx = parts.indexOf('lanes');
     const promptsIdx = parts.indexOf('prompts');
     if (lanesIdx === -1 && promptsIdx !== -1) {

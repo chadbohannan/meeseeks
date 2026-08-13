@@ -1,7 +1,25 @@
-import type { WorkspaceMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, TicketSummary, TicketDetail, FileNode, ModelOption } from './types.js';
+import type { WorkspaceMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, TicketSummary, TicketDetail, FileNode, ModelOption, PermissionsConfig, ProjectSummary, ProjectDetail } from './types.js';
 
 // Models
 export interface ListModelsResponse { models: ModelOption[] }
+
+// Projects
+export interface CreateProjectRequest {
+  name: string;
+  root: string;
+  color?: string;
+  context?: string;
+  permissions?: PermissionsConfig;
+}
+export interface PatchProjectRequest {
+  name?: string;
+  root?: string;
+  color?: string;
+  context?: string;
+  permissions?: PermissionsConfig;
+}
+export interface ListProjectsResponse { projects: ProjectSummary[] }
+export interface GetProjectResponse { project: ProjectDetail }
 
 // Boards
 export interface CreateBoardRequest { name: string; path?: string }
@@ -48,4 +66,4 @@ export interface ApiErrorBody {
   error: { code: string; message: string };
 }
 
-export type { WorkspaceMeta, BoardSummary, BoardDetail, LaneDetail, TicketSummary, TicketDetail, FileNode };
+export type { WorkspaceMeta, BoardSummary, BoardDetail, LaneDetail, TicketSummary, TicketDetail, FileNode, ProjectSummary, ProjectDetail, PermissionsConfig };

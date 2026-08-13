@@ -66,6 +66,9 @@ function parseConfig(text: string, workspaceRoot: string): WorkspaceConfig {
     boards: Array.isArray(parsed.boards)
       ? parsed.boards.filter((b): b is string => typeof b === 'string')
       : [],
+    projects: Array.isArray(parsed.projects)
+      ? parsed.projects.filter((p): p is string => typeof p === 'string')
+      : [],
     models: parseModels((parsed as { models?: unknown }).models),
   };
 }
@@ -77,7 +80,7 @@ export async function readWorkspace(workspaceRoot: string): Promise<WorkspaceMet
     return { path: path.resolve(workspaceRoot), config: parseConfig(text, workspaceRoot) };
   }
   // Auto-create project.yaml using directory name
-  const config: WorkspaceConfig = { name: path.basename(workspaceRoot), boards: [] };
+  const config: WorkspaceConfig = { name: path.basename(workspaceRoot), boards: [], projects: [] };
   const text = yaml.dump(config, { lineWidth: 100 });
   await writeFile(yamlPath(workspaceRoot), text, 'utf8');
   return { path: path.resolve(workspaceRoot), config };
@@ -94,6 +97,23 @@ export async function addBoardToWorkspace(workspaceRoot: string, boardPath: stri
     throw new ConflictError(`board already registered: ${boardPath}`);
   }
   meta.config.boards.push(boardPath);
+  await writeWorkspace(workspaceRoot, meta.config);
+}
+
+export async function addProjectToWorkspace(workspaceRoot: string, entry: string): Promise<void> {
+  const meta = await readWorkspace(workspaceRoot);
+  if (meta.config.projects.includes(entry)) {
+    throw new ConflictError(`project already registered: ${entry}`);
+  }
+  meta.config.projects.push(entry);
+  await writeWorkspace(workspaceRoot, meta.config);
+}
+
+export async function removeProjectFromWorkspace(workspaceRoot: string, entry: string): Promise<void> {
+  const meta = await readWorkspace(workspaceRoot);
+  const idx = meta.config.projects.indexOf(entry);
+  if (idx === -1) throw new NotFoundError(`project not registered: ${entry}`);
+  meta.config.projects.splice(idx, 1);
   await writeWorkspace(workspaceRoot, meta.config);
 }
 
