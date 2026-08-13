@@ -1,7 +1,10 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useLane, useTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime, useModels } from '../hooks/queries.js';
+import { useLane, useTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime, useModels, useProjects } from '../hooks/queries.js';
+import { ProjectSelect, findProject } from '../components/ProjectControls.js';
+import { PermissionsPanel } from '../components/PermissionsPanel.js';
+import { useUi } from '../store/ui.js';
 import { useRuntimesStore } from '../store/runtimes.js';
 import { RuntimeStatusDot } from '../components/RuntimeStatusDot.js';
 import { ResizableSplit } from '../components/ResizableSplit.js';
@@ -50,8 +53,11 @@ export function TicketRoute() {
   const [body, setBody] = useState('');
   const [state, setState] = useState('');
   const [color, setColor] = useState<string | undefined>(undefined);
+  const [project, setProject] = useState<string | undefined>(undefined);
   const [dirty, setDirty] = useState(false);
-  const [tab, setTab] = useState<'console' | 'context'>('console');
+  const [tab, setTab] = useState<'console' | 'context' | 'permissions'>('console');
+  const { data: projectsData } = useProjects();
+  const setLastProject = useUi(s => s.setLastProject);
   const { data: modelsData } = useModels();
   const models = modelsData?.models ?? [];
   const [model, setModel] = useState('');
@@ -204,6 +210,7 @@ export function TicketRoute() {
     setTitle(ticket.data.ticket.title);
     setState(ticket.data.ticket.state);
     setColor(ticket.data.ticket.color);
+    setProject(ticket.data.ticket.project);
     setBody(serverBody);
     lastPersistedBodyRef.current = serverBody;
     lastPersistedUpdatedRef.current = serverUpdated;
@@ -234,6 +241,18 @@ export function TicketRoute() {
 
   const accent = color ?? '#6b7280';
 
+  // Assignment is optional, but running is not: the spawn route rejects an
+  // unassigned ticket or a slug whose project no longer exists, because neither
+  // yields a root to point the agent at. Mirror that rule in the affordance so
+  // the failure is visible before the click rather than as a toast after it.
+  const { unknown: projectUnknown } = findProject(projectsData?.projects, project);
+  const startBlockedReason = !project
+    ? 'Assign a project before starting an agent'
+    : projectUnknown
+      ? `Project "${project}" no longer exists — reassign this ticket`
+      : null;
+  const canStart = startBlockedReason === null;
+
   const ticketEditor = (
     <div className="p-6 h-full flex flex-col" style={{ border: `2px solid ${accent}` }}>
       <nav className="text-sm text-slate-400 mb-3 shrink-0 flex items-center justify-between">
@@ -243,6 +262,21 @@ export function TicketRoute() {
           <button className="hover:text-white" onClick={() => navigate(stateUrl)}>{stateName}</button>
         </span>
         <div className="flex items-center gap-2">
+          <label className="text-slate-400">Project</label>
+          <ProjectSelect
+            value={project}
+            onChange={async (next) => {
+              const id = identityRef.current;
+              if (!id) return;
+              setProject(next);
+              if (next) setLastProject(next);
+              await flushPendingSave();
+              // An empty string clears the assignment server-side; undefined
+              // would mean "leave unchanged".
+              await performSave(id, { title, body, state, color, project: next ?? '' });
+              qc.invalidateQueries({ queryKey: ['ticket-permissions', id.boardId, id.laneName, id.filename] });
+            }}
+          />
           <label className="text-slate-400">State</label>
           <select
             className="bg-slate-800 rounded px-2 py-1 text-sm"
@@ -345,6 +379,10 @@ export function TicketRoute() {
           className={`px-3 py-1 text-xs rounded-t ${tab === 'context' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
           onClick={() => setTab('context')}
         >Context</button>
+        <button
+          className={`px-3 py-1 text-xs rounded-t ${tab === 'permissions' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'}`}
+          onClick={() => setTab('permissions')}
+        >Permissions</button>
         <div className="ml-auto flex items-center gap-2">
           {activeRuntime ? (
             <button
@@ -364,7 +402,9 @@ export function TicketRoute() {
                 {models.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
               <button
-                className="rounded bg-emerald-700 px-3 py-1 text-xs"
+                className={`rounded px-3 py-1 text-xs ${canStart ? 'bg-emerald-700' : 'bg-slate-700 text-slate-500 cursor-not-allowed'}`}
+                disabled={!canStart}
+                title={startBlockedReason ?? 'Start an agent on this ticket'}
                 onClick={async () => {
                   try {
                     const res = await spawn.mutateAsync({ boardId, laneName, filename, model });
@@ -389,13 +429,22 @@ export function TicketRoute() {
               No agent running.
             </div>
           )
-        ) : (
+        ) : tab === 'context' ? (
           <div className="h-full overflow-y-auto p-4">
             {runtime?.preamble ? (
               <pre className="text-slate-300 text-xs whitespace-pre-wrap font-mono">{runtime.preamble}</pre>
             ) : (
               <span className="text-slate-500 text-sm">No context available.</span>
             )}
+          </div>
+        ) : (
+          <div className="h-full overflow-y-auto p-4">
+            <PermissionsPanel
+              boardId={boardId}
+              laneName={laneName}
+              filename={filename}
+              active={tab === 'permissions'}
+            />
           </div>
         )}
       </div>

@@ -5,11 +5,61 @@ import type {
   CreateLaneRequest, PatchLaneRequest, DeleteLaneRequest,
   CreateTicketRequest, PatchTicketRequest,
   ListFilesResponse,
+  CreateProjectRequest, PatchProjectRequest,
 } from '@shared/api.js';
 
 export const useWorkspace = () => useQuery({ queryKey: ['workspace'], queryFn: () => api.workspace() });
 export const useModels = () => useQuery({ queryKey: ['models'], queryFn: () => api.listModels(), staleTime: Infinity });
 export const useBoards = () => useQuery({ queryKey: ['boards'], queryFn: () => api.listBoards() });
+
+export const useProjects = () => useQuery({ queryKey: ['projects'], queryFn: () => api.listProjects() });
+export const useProject = (projectId: string | undefined) => useQuery({
+  queryKey: ['project', projectId],
+  queryFn: () => api.getProject(projectId!),
+  enabled: !!projectId,
+});
+export function useCreateProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (req: CreateProjectRequest) => api.createProject(req),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['workspace'] });
+    },
+  });
+}
+export function usePatchProject(projectId: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (req: PatchProjectRequest) => api.patchProject(projectId, req),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['project', projectId] });
+    },
+  });
+}
+export function useDeleteProject() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (projectId: string) => api.deleteProject(projectId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] });
+      qc.invalidateQueries({ queryKey: ['workspace'] });
+    },
+  });
+}
+
+/** What a spawn would actually use. Served by the same resolver the supervisor calls. */
+export const useTicketPermissions = (
+  boardId: string | undefined,
+  laneName: string | undefined,
+  filename: string | undefined,
+  enabled = true,
+) => useQuery({
+  queryKey: ['ticket-permissions', boardId, laneName, filename],
+  queryFn: () => api.ticketPermissions(boardId!, laneName!, filename!),
+  enabled: enabled && !!boardId && !!laneName && !!filename,
+});
 export const useBoard = (boardId: string | undefined) => useQuery({
   queryKey: ['board', boardId],
   queryFn: () => api.getBoard(boardId!),
@@ -263,7 +313,8 @@ export function useDeletePrompt(boardId: string) {
 export function useRunPrompt(boardId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ name, model }: { name: string; model?: string }) => api.runPrompt(boardId, name, model),
+    mutationFn: ({ name, model, projectId }: { name: string; model?: string; projectId?: string }) =>
+      api.runPrompt(boardId, name, { model, projectId }),
     onSuccess: (_, { name }) => {
       qc.invalidateQueries({ queryKey: ['runtimes'] });
       qc.invalidateQueries({ queryKey: ['prompt-logs', boardId, name] });

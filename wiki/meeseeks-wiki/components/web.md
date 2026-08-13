@@ -46,6 +46,16 @@ The [frontend-rendering analysis](../concepts/langchain-frontend-rendering.md) a
 
 The Kanban now supports drag-and-drop between state columns — `TicketCard` is `draggable` and each column registers `onDragOver`/`onDrop` handlers in `Kanban.tsx`, with the active drop target highlighted. The plain-textarea ticket body has been replaced by `MarkdownEditor`, used by ticket bodies, board CONTEXT.md, lane PROCESS.md, skills files, and one-shot prompts. To stop server-driven refetches from clobbering in-progress typing, the ticket body editor and the `FocusGatedMarkdownEditor` wrapper used for CONTEXT.md and PROCESS.md follow the [focus-gated editor pattern](../concepts/focus-gated-editor.md): local state is authoritative while focused or dirty, external edits are adopted on the next clean snapshot rather than blocked permanently, and `MarkdownEditor` exposes the contenteditable's focus transitions through native `focusin`/`focusout` listeners since React's synthetic focus events don't track Milkdown's Crepe surface reliably. UI tests remain deferred.
 
+## Project selection surface
+
+Since the [workspace/project split](../concepts/project-model.md), a board is project-agnostic and each ticket names its own codebase, so the SPA needs somewhere to express that assignment. `components/ProjectControls.tsx` holds the three shared pieces — `ProjectBadge` (the chip on `TicketCard`), `ProjectSelect` (the picker used by the ticket editor, the new-ticket form, and the prompt runner), and `ProjectFilter` plus the `matchesProjectFilter` predicate that the Kanban and state views share so both filter identically.
+
+Filtering is deliberately client-side. A lane's tickets are already fully loaded by `useTickets`, so narrowing them in the browser stays instant and avoids adding a project dimension to every query cache key. The active filter is persisted per board in `store/ui.ts` (alongside a `lastProject` used to seed the new-ticket default), so a filter survives navigation without becoming a URL parameter.
+
+Two states get explicit affordances rather than silent failure. A ticket naming a project that has since been deleted keeps its dangling slug — storage never rewrites ticket files on delete — so `ProjectBadge` renders it as an amber unknown chip and `ProjectSelect` keeps it as a selectable option, which is what makes switching away from it possible. And because the spawn route rejects both the unassigned and unknown-project cases, `TicketRoute` mirrors that rule in the Start button's disabled state and tooltip: the refusal is visible before the click rather than arriving as a toast after it.
+
+The console's **Permissions** tab (`components/PermissionsPanel.tsx`) exists because project and lane permissions are unioned, so two files contribute to one effective policy. It renders the resolved allow/deny/path lists with an origin tag on every entry, and is fed by an endpoint that calls the same resolver the supervisor calls — a preview computed by a parallel implementation would eventually disagree with what actually spawns.
+
 | Ingest Date | Source |
 | ----------- | ------ |
 | 2026-04-26 | `docs/superpowers/plans/2026-04-26-web-ui.md` |
@@ -53,3 +63,4 @@ The Kanban now supports drag-and-drop between state columns — `TicketCard` is 
 | 2026-05-03 | `src/web/components/{PromptsEditor,SkillsEditor,BinEditor,MarkdownEditor,Kanban}.tsx`, `routes/BoardEditorRoute.tsx`, `store/prompts.ts` |
 | 2026-05-19 | `src/web/components/MarkdownEditor.tsx`, `src/web/routes/{TicketRoute,BoardEditorRoute}.tsx` |
 | 2026-07-11 | `src/web/hooks/use-runtime-ws.ts`, `src/web/components/console/{xterm-host,Panel}.tsx`, `src/web/` tree — console byte pipeline and LangChain refactor surface |
+| 2026-08-13 | `src/web/components/{ProjectControls,PermissionsPanel}.tsx`, `src/web/routes/ProjectsRoute.tsx`, `src/web/store/ui.ts` — project selection surface |

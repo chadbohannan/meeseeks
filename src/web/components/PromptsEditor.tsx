@@ -9,6 +9,8 @@ import { useRuntimesStore } from '../store/runtimes.js';
 import { usePromptsStore } from '../store/prompts.js';
 import { MarkdownEditor } from './MarkdownEditor.js';
 import { RuntimeStatusDot } from './RuntimeStatusDot.js';
+import { ProjectSelect } from './ProjectControls.js';
+import { useUi } from '../store/ui.js';
 
 function slugify(name: string): string {
   const trimmed = name.trim().replace(/\.md$/i, '');
@@ -124,6 +126,11 @@ function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: str
   const [body, setBody] = useState('');
   const [dirty, setDirty] = useState(false);
   const [model, setModel] = useState('');
+  // Prompts are board-scoped but may target any project. Unlike tickets, a
+  // project-less prompt run is legitimate (e.g. "lint the wiki").
+  const lastProject = useUi(st => st.lastProject);
+  const setLastProject = useUi(st => st.setLastProject);
+  const [promptProject, setPromptProject] = useState<string | undefined>(lastProject ?? undefined);
   const [tab, setTab] = useState<'editor' | 'log'>('editor');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bodyInitializedRef = useRef(false);
@@ -171,7 +178,8 @@ function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: str
         await put.mutateAsync(body);
         setDirty(false);
       }
-      const res = await run.mutateAsync({ name, model });
+      const res = await run.mutateAsync({ name, model, projectId: promptProject });
+      if (promptProject) setLastProject(promptProject);
       openModal(res.runtime.runtimeId);
     } catch (err) { toast.error((err as Error).message); }
   };
@@ -203,6 +211,12 @@ function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: str
           onClick={() => setTab('log')}
         >Log</button>
         <div className="ml-auto flex items-center gap-2 pb-1">
+          <ProjectSelect
+            value={promptProject}
+            onChange={setPromptProject}
+            disabled={!!liveRuntime}
+            unassignedLabel="Board only"
+          />
           <select
             className="bg-slate-800 rounded px-2 py-1 text-xs text-slate-300"
             value={model}

@@ -7,6 +7,7 @@ import { BoardEditorRoute } from './routes/BoardEditorRoute.js';
 import { LaneRoute } from './routes/LaneRoute.js';
 import { StateRoute } from './routes/StateRoute.js';
 import { TicketRoute } from './routes/TicketRoute.js';
+import { ProjectsRoute } from './routes/ProjectsRoute.js';
 import { Mdi } from './components/console/Mdi.js';
 import { PromptRunModals } from './components/console/PromptRunModal.js';
 
@@ -19,6 +20,8 @@ export default function App() {
         <Route element={<AppShell />}>
           <Route path="/" element={<Navigate to="/boards" replace />} />
           <Route path="/boards" element={<div className="p-8 text-slate-500">Select a board from the sidebar.</div>} />
+          <Route path="/projects" element={<ProjectsRoute />} />
+          <Route path="/projects/:projectId" element={<ProjectsRoute />} />
           <Route path="/boards/:boardId" element={<BoardEditorRoute />} />
           <Route path="/boards/:boardId/lanes/:laneName" element={<LaneRoute />} />
           <Route path="/boards/:boardId/lanes/:laneName/state/:stateDir" element={<StateRoute />} />

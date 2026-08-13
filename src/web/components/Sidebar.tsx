@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { useBoards, useBoard, useTickets } from '../hooks/queries.js';
+import { useNavigate, useParams, useLocation, NavLink } from 'react-router-dom';
+import { useBoards, useBoard, useTickets, useProjects } from '../hooks/queries.js';
 import { useRuntimesStore } from '../store/runtimes.js';
 import { useUi, boardCollapseKey, laneCollapseKey } from '../store/ui.js';
 import { RuntimeStatusDot } from './RuntimeStatusDot.js';
@@ -10,7 +10,9 @@ import type { RuntimeSummary } from '@shared/runtime.js';
 
 export function Sidebar() {
   const boards = useBoards();
+  const projects = useProjects();
   const [showNewBoard, setShowNewBoard] = useState(false);
+  const unavailable = (projects.data?.projects ?? []).filter(p => !p.available).length;
 
   return (
     <nav className="flex flex-col h-full w-full bg-slate-950 border-r border-slate-800 overflow-y-auto text-sm">
@@ -30,6 +32,21 @@ export function Sidebar() {
           <p className="px-3 py-4 text-slate-500 text-center">No boards yet</p>
         )}
       </div>
+      <NavLink
+        to="/projects"
+        className={({ isActive }) =>
+          `flex items-center gap-2 px-3 py-2 border-t border-slate-800 text-xs uppercase tracking-wide ${
+            isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
+          }`}
+      >
+        <span className="font-semibold">Projects</span>
+        <span className="text-slate-500 normal-case">({projects.data?.projects.length ?? 0})</span>
+        {unavailable > 0 && (
+          <span className="ml-auto text-amber-400 normal-case" title={`${unavailable} project root(s) missing on disk`}>
+            {unavailable} !
+          </span>
+        )}
+      </NavLink>
       <NewBoardModal open={showNewBoard} onClose={() => setShowNewBoard(false)} />
     </nav>
   );

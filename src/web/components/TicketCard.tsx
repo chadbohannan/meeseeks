@@ -4,6 +4,8 @@ import type { TicketSummary } from '@shared/types.js';
 import { useRuntimesStore } from '../store/runtimes.js';
 import { RuntimeStatusDot } from './RuntimeStatusDot.js';
 import { Markdown } from './Markdown.js';
+import { ProjectBadge } from './ProjectControls.js';
+import { useProjects } from '../hooks/queries.js';
 
 interface Props {
   boardId: string;
@@ -17,6 +19,7 @@ interface Props {
 export function TicketCard({ boardId, laneName, ticket, draggable, onDragStart, onDragEnd }: Props) {
   const didDrag = useRef(false);
   const [expanded, setExpanded] = useState(false);
+  const { data: projectsData } = useProjects();
   const runtime = useRuntimesStore((s) =>
     Object.values(s.byId).find(r =>
       r.kind === 'ticket' &&
@@ -52,7 +55,10 @@ export function TicketCard({ boardId, laneName, ticket, draggable, onDragStart, 
         {runtime && <RuntimeStatusDot status={runtime.status} />}
         <div className="font-medium text-xl">{ticket.title}</div>
       </div>
-      <div className="text-xs text-slate-500 mt-1">{new Date(ticket.updated).toLocaleString()}</div>
+      <div className="flex items-center gap-2 mt-1 flex-wrap">
+        <ProjectBadge projectId={ticket.project} projects={projectsData?.projects} />
+        <span className="text-xs text-slate-500">{new Date(ticket.updated).toLocaleString()}</span>
+      </div>
       {ticket.body && (
         <div className={`text-xs text-slate-300 mt-2 overflow-hidden${expanded ? '' : ' max-h-16'}`}>
           <Markdown>{ticket.body}</Markdown>

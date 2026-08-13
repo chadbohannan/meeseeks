@@ -20,9 +20,36 @@ function save(state: Record<string, boolean>) {
   }
 }
 
+const FILTER_KEY = 'meeseeks:project-filter';
+const LAST_PROJECT_KEY = 'meeseeks:last-project';
+
+/** Sentinel filter values. Real values are project ids. */
+export const PROJECT_FILTER_ALL = '__all__';
+export const PROJECT_FILTER_UNASSIGNED = '__unassigned__';
+
+function loadJson<T>(key: string, fallback: T): T {
+  if (typeof localStorage === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) as T : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function saveJson(key: string, value: unknown) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch { /* ignore */ }
+}
+
 interface UiState {
   collapsed: Record<string, boolean>;
   toggleCollapsed(key: string): void;
+  /** Project filter per board, so a filter survives navigation. */
+  projectFilter: Record<string, string>;
+  setProjectFilter(boardId: string, value: string): void;
+  /** Last project explicitly chosen anywhere; seeds the new-ticket default. */
+  lastProject: string | null;
+  setLastProject(projectId: string | null): void;
 }
 
 export const useUi = create<UiState>((set) => ({
@@ -34,6 +61,23 @@ export const useUi = create<UiState>((set) => ({
       else next[key] = true;
       save(next);
       return { collapsed: next };
+    }),
+
+  projectFilter: loadJson<Record<string, string>>(FILTER_KEY, {}),
+  setProjectFilter: (boardId, value) =>
+    set((s) => {
+      const next = { ...s.projectFilter };
+      if (value === PROJECT_FILTER_ALL) delete next[boardId];
+      else next[boardId] = value;
+      saveJson(FILTER_KEY, next);
+      return { projectFilter: next };
+    }),
+
+  lastProject: loadJson<string | null>(LAST_PROJECT_KEY, null),
+  setLastProject: (projectId) =>
+    set(() => {
+      saveJson(LAST_PROJECT_KEY, projectId);
+      return { lastProject: projectId };
     }),
 }));
 

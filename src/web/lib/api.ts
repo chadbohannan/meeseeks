@@ -8,6 +8,8 @@ import type {
   PatchFileRequest, PatchFileResponse, FileNode,
   ListPromptsResponse, GetPromptResponse, PutPromptRequest, ListPromptLogsResponse,
   ListModelsResponse,
+  CreateProjectRequest, PatchProjectRequest, ListProjectsResponse, GetProjectResponse,
+  ProjectSummary, ResolvedPermissions,
 } from '@shared/api.js';
 import type { ListRuntimesResponse, SpawnRuntimeResponse, RuntimeSummary } from '@shared/runtime.js';
 
@@ -44,6 +46,18 @@ export const api = {
 
   // Models
   listModels: () => request<ListModelsResponse>('GET', '/api/models'),
+
+  // Projects
+  listProjects: () => request<ListProjectsResponse>('GET', '/api/projects'),
+  getProject: (id: string) => request<GetProjectResponse>('GET', `/api/projects/${enc(id)}`),
+  createProject: (req: CreateProjectRequest) =>
+    request<{ project: ProjectSummary }>('POST', '/api/projects', req),
+  patchProject: (id: string, req: PatchProjectRequest) =>
+    request<GetProjectResponse>('PATCH', `/api/projects/${enc(id)}`, req),
+  deleteProject: (id: string) => request<{ ok: boolean }>('DELETE', `/api/projects/${enc(id)}`),
+  ticketPermissions: (boardId: string, laneName: string, filename: string) =>
+    request<{ projectId: string | null; projectResolved: boolean; permissions: ResolvedPermissions | null }>(
+      'GET', `/api/tickets/${enc(boardId)}/${enc(laneName)}/${enc(filename)}/permissions`),
 
   // Boards
   listBoards: () => request<{ boards: BoardSummary[] }>('GET', '/api/boards'),
@@ -103,8 +117,16 @@ export const api = {
     request<GetPromptResponse>('PUT', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`, req),
   deletePrompt: (boardId: string, name: string) =>
     request<{ ok: boolean }>('DELETE', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`),
-  runPrompt: (boardId: string, name: string, model?: string) =>
-    request<SpawnRuntimeResponse>('POST', `/api/boards/${enc(boardId)}/prompts/${enc(name)}/run`, model ? { model } : undefined),
+  runPrompt: (boardId: string, name: string, opts?: { model?: string; projectId?: string }) => {
+    const body: Record<string, string> = {};
+    if (opts?.model) body.model = opts.model;
+    if (opts?.projectId) body.projectId = opts.projectId;
+    return request<SpawnRuntimeResponse>(
+      'POST',
+      `/api/boards/${enc(boardId)}/prompts/${enc(name)}/run`,
+      Object.keys(body).length > 0 ? body : undefined,
+    );
+  },
   getPromptLogs: (boardId: string, name: string) =>
     request<ListPromptLogsResponse>('GET', `/api/boards/${enc(boardId)}/prompts/${enc(name)}/logs`),
 };

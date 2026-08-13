@@ -2,6 +2,8 @@ import { useState, useRef } from 'react';
 import { useTickets, useMoveTicket } from '../hooks/queries.js';
 import type { LaneDetail, TicketSummary } from '@shared/types.js';
 import { TicketCard } from './TicketCard.js';
+import { ProjectFilter, matchesProjectFilter } from './ProjectControls.js';
+import { useUi, PROJECT_FILTER_ALL } from '../store/ui.js';
 import { toast } from 'sonner';
 
 interface Props { boardId: string; lane: LaneDetail }
@@ -12,10 +14,19 @@ export function Kanban({ boardId, lane }: Props) {
   const dragRef = useRef<{ filename: string; fromState: string } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
+  const filter = useUi(s => s.projectFilter[boardId] ?? PROJECT_FILTER_ALL);
+  const setProjectFilter = useUi(s => s.setProjectFilter);
+
+  const all = tickets.data?.tickets ?? [];
+  // Filtering is client-side: the board's tickets are already fully loaded, so
+  // this stays instant and avoids adding a dimension to the query cache key.
+  const visible = all.filter(t => matchesProjectFilter(t.project, filter));
+  const hiddenCount = all.length - visible.length;
+
   const grouped: Record<string, TicketSummary[]> = {};
   for (const s of lane.states) grouped[s.dir] = [];
   const orphaned: TicketSummary[] = [];
-  for (const t of tickets.data?.tickets ?? []) {
+  for (const t of visible) {
     if (t.orphaned) orphaned.push(t);
     else grouped[t.state]?.push(t);
   }
@@ -33,6 +44,12 @@ export function Kanban({ boardId, lane }: Props) {
 
   return (
     <div className="flex flex-col h-full">
+      <div className="flex items-center gap-3 px-4 pt-3 shrink-0">
+        <ProjectFilter value={filter} onChange={(v) => setProjectFilter(boardId, v)} />
+        {hiddenCount > 0 && (
+          <span className="text-xs text-slate-500">{hiddenCount} hidden by filter</span>
+        )}
+      </div>
       <div className="flex-1 flex gap-3 p-4">
         {lane.states.map((s) => {
           const items = grouped[s.dir] ?? [];
