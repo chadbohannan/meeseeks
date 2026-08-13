@@ -5,11 +5,14 @@ import { readFile } from 'node:fs/promises';
 import yaml from 'js-yaml';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
-import { NotFoundError } from '../../storage/errors.js';
+import { NotFoundError, InvalidInputError } from '../../storage/errors.js';
 import { getBoard } from '../../storage/workspace.js';
 import { readBoardContextContent } from '../../storage/board.js';
-import { findTicketFile } from '../../storage/ticket.js';
-import type { BoardRuntimeConfig, PermissionsConfig } from '../../runtime/types.js';
+import { findTicketFile, readTicket } from '../../storage/ticket.js';
+import { getProject } from '../../storage/project.js';
+import { resolvePermissions, type PermissionSource } from '../../runtime/permissions.js';
+import type { BoardRuntimeConfig, PermissionsConfig, SpawnProject } from '../../runtime/types.js';
+import type { ResolvedPermissions } from '../../shared/types.js';
 
 interface Deps { state: ServerState; hub: WsHub }
 
@@ -21,6 +24,63 @@ async function readYaml<T>(file: string): Promise<T | null> {
     if ((err as NodeJS.ErrnoException).code === 'ENOENT') return null;
     throw err;
   }
+}
+
+interface TicketRuntimeContext {
+  project: SpawnProject | null;
+  permissions: ResolvedPermissions | null;
+}
+
+/**
+ * Resolve the project a ticket names and union its permissions with the lane's.
+ *
+ * `requireProject` is what enforces the "optional to assign, required to run"
+ * rule: the preview endpoint tolerates an unassigned ticket so the UI can show
+ * what a lane alone would contribute, while a spawn refuses it — there is no
+ * project root to point the agent at.
+ */
+async function ticketRuntimeContext(
+  workspaceRoot: string,
+  lanePath: string,
+  projectId: string | undefined,
+  requireProject: boolean,
+): Promise<TicketRuntimeContext> {
+  const lanePermissions = await readYaml<PermissionsConfig>(path.join(lanePath, 'permissions.yaml'));
+
+  if (!projectId) {
+    if (requireProject) {
+      throw new InvalidInputError('ticket has no project assigned; assign one before starting a runtime');
+    }
+    return {
+      project: null,
+      permissions: resolvePermissions([{ origin: 'lane', base: lanePath, config: lanePermissions }]),
+    };
+  }
+
+  const detail = await getProject(workspaceRoot, projectId).catch(() => null);
+  if (!detail) {
+    if (requireProject) {
+      throw new InvalidInputError(`ticket names unknown project '${projectId}'`);
+    }
+    return {
+      project: null,
+      permissions: resolvePermissions([{ origin: 'lane', base: lanePath, config: lanePermissions }]),
+    };
+  }
+
+  const sources: PermissionSource[] = [
+    { origin: 'project', base: detail.root, config: detail.permissions },
+    { origin: 'lane', base: lanePath, config: lanePermissions },
+  ];
+  return {
+    project: {
+      projectId: detail.projectId,
+      name: detail.name,
+      root: detail.root,
+      contextContent: detail.contextContent,
+    },
+    permissions: resolvePermissions(sources),
+  };
 }
 
 export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Deps): Promise<void> {
@@ -57,8 +117,12 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
       const lanePath = path.join(board.path, 'lanes', laneName);
       const found = await findTicketFile(lanePath, filename);
       if (!found) throw new NotFoundError(`ticket ${filename} not found`);
+      const ticket = await readTicket(board.path, laneName, filename);
+      const { project, permissions } = await ticketRuntimeContext(
+        open.meta.path, lanePath, ticket.project, true,
+      );
+
       const boardCfg = await readYaml<BoardRuntimeConfig>(path.join(board.path, 'board.yaml'));
-      const permissions = await readYaml<PermissionsConfig>(path.join(lanePath, 'permissions.yaml'));
       const processDocPath = path.join(lanePath, 'PROCESS.md');
       const processDocContent = await readFile(processDocPath, 'utf8').catch(() => null);
       const boardContextContent = await readBoardContextContent(board.path).catch(() => null);
@@ -82,9 +146,32 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
         ticketRef: { boardId, laneName, filename },
         board: boardCfg,
         permissions,
+        project,
         model: req.body?.model,
       });
       return { runtime: summary };
+    },
+  );
+
+  // Preview: what a spawn *would* use. Deliberately calls the same
+  // ticketRuntimeContext the spawn path calls — a preview computed by a
+  // parallel implementation would eventually disagree with reality.
+  app.get<{ Params: { boardId: string; laneName: string; filename: string } }>(
+    '/api/tickets/:boardId/:laneName/:filename/permissions',
+    async (req) => {
+      const open = state.require();
+      const { boardId, laneName, filename } = req.params;
+      const board = await getBoard(open.meta.path, boardId);
+      const lanePath = path.join(board.path, 'lanes', laneName);
+      const ticket = await readTicket(board.path, laneName, filename);
+      const { project, permissions } = await ticketRuntimeContext(
+        open.meta.path, lanePath, ticket.project, false,
+      );
+      return {
+        projectId: ticket.project ?? null,
+        projectResolved: project !== null,
+        permissions,
+      };
     },
   );
 

@@ -32,8 +32,8 @@ export interface PatchLaneRequest { name?: string; states?: LaneState[]; force?:
 export interface DeleteLaneRequest { deleteFiles?: boolean }
 
 // Tickets
-export interface CreateTicketRequest { title: string; state: string; body?: string }
-export interface PatchTicketRequest { title?: string; body?: string; state?: string; color?: string }
+export interface CreateTicketRequest { title: string; state: string; body?: string; project?: string }
+export interface PatchTicketRequest { title?: string; body?: string; state?: string; color?: string; project?: string }
 export interface ListTicketsResponse { tickets: TicketSummary[] }
 
 // Files
@@ -50,7 +50,7 @@ export interface PromptDetail { name: string; body: string }
 export interface ListPromptsResponse { prompts: PromptSummary[] }
 export interface GetPromptResponse { prompt: PromptDetail }
 export interface PutPromptRequest { body: string }
-export interface RunPromptRequest { model?: string }
+export interface RunPromptRequest { model?: string; projectId?: string }
 export interface PromptRunLog {
   runtimeId: string;
   startedAt: string;

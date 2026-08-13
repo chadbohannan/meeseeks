@@ -177,3 +177,76 @@ describe('deleteTicket', () => {
     expect(await exists(path.join(boardPath, 'lanes/work/todo', c.filename))).toBe(false);
   });
 });
+
+describe('ticket project frontmatter', () => {
+  it('round-trips a project through create, read, and list', async () => {
+    const { boardPath } = await setup();
+    const created = await createTicket(boardPath, 'work', {
+      title: 'Fix auth', state: 'todo', project: 'meeseeks',
+    });
+    expect(created.project).toBe('meeseeks');
+
+    const text = await readFile(path.join(boardPath, 'lanes/work/todo', created.filename), 'utf8');
+    expect(text).toContain('project: meeseeks');
+
+    expect((await readTicket(boardPath, 'work', created.filename)).project).toBe('meeseeks');
+    const listed = await listTickets(boardPath, 'work');
+    expect(listed.find(t => t.filename === created.filename)!.project).toBe('meeseeks');
+  });
+
+  it('leaves project undefined when unassigned and writes no key', async () => {
+    const { boardPath } = await setup();
+    const created = await createTicket(boardPath, 'work', { title: 'No project', state: 'todo' });
+    expect(created.project).toBeUndefined();
+    const text = await readFile(path.join(boardPath, 'lanes/work/todo', created.filename), 'utf8');
+    expect(text).not.toContain('project:');
+  });
+
+  it('assigns, reassigns, and clears via updateTicket', async () => {
+    const { boardPath } = await setup();
+    const c = await createTicket(boardPath, 'work', { title: 'T', state: 'todo' });
+
+    expect((await updateTicket(boardPath, 'work', c.filename, { project: 'alpha' })).project).toBe('alpha');
+    expect((await updateTicket(boardPath, 'work', c.filename, { project: 'beta' })).project).toBe('beta');
+
+    // An empty string clears the assignment; undefined would leave it alone.
+    expect((await updateTicket(boardPath, 'work', c.filename, { project: '' })).project).toBeUndefined();
+    const text = await readFile(path.join(boardPath, 'lanes/work/todo', c.filename), 'utf8');
+    expect(text).not.toContain('project:');
+  });
+
+  it('preserves project across an unrelated patch and a state move', async () => {
+    const { boardPath } = await setup();
+    const c = await createTicket(boardPath, 'work', { title: 'T', state: 'todo', project: 'keep-me' });
+
+    expect((await updateTicket(boardPath, 'work', c.filename, { title: 'Renamed' })).project).toBe('keep-me');
+    const moved = await updateTicket(boardPath, 'work', c.filename, { state: 'doing' });
+    expect(moved.project).toBe('keep-me');
+    expect(moved.state).toBe('doing');
+  });
+
+  it('preserves unrelated frontmatter keys alongside project', async () => {
+    const { boardPath, lanePath } = await setup();
+    const filePath = path.join(lanePath, 'todo', 'custom.md');
+    await writeFile(
+      filePath,
+      '---\ntitle: Custom\ncreated: 2026-08-12T00:00:00Z\nupdated: 2026-08-12T00:00:00Z\nproject: alpha\nsprint: 42\n---\nbody',
+      'utf8',
+    );
+    const updated = await updateTicket(boardPath, 'work', 'custom.md', { title: 'Custom 2' });
+    expect(updated.project).toBe('alpha');
+    const text = await readFile(filePath, 'utf8');
+    expect(text).toContain('sprint: 42');
+    expect(text).toContain('project: alpha');
+  });
+
+  it('treats an empty project value on disk as unassigned', async () => {
+    const { boardPath, lanePath } = await setup();
+    await writeFile(
+      path.join(lanePath, 'todo', 'blank.md'),
+      '---\ntitle: Blank\ncreated: 2026-08-12T00:00:00Z\nupdated: 2026-08-12T00:00:00Z\nproject: ""\n---\nbody',
+      'utf8',
+    );
+    expect((await readTicket(boardPath, 'work', 'blank.md')).project).toBeUndefined();
+  });
+});

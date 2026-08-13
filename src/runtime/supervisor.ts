@@ -6,7 +6,7 @@ import { RingBuffer } from './ring-buffer.js';
 import { StreamParser, type ParseEvent } from './stream-parser.js';
 import { buildSpawnSpec, buildPromptSpawnSpec } from './claude-code.js';
 import type { RuntimeStatus, RuntimeSummary, TicketRef, PromptRef } from '../shared/runtime.js';
-import type { BoardRuntimeConfig, PermissionsConfig } from './types.js';
+import type { BoardRuntimeConfig, ResolvedPermissions, SpawnProject } from './types.js';
 import { spawn as childSpawn } from 'node:child_process';
 
 export interface PtyLike {
@@ -33,7 +33,8 @@ export interface SpawnInput {
   processDocContent?: string | null;
   ticketRef: TicketRef;
   board: BoardRuntimeConfig | null;
-  permissions: PermissionsConfig | null;
+  permissions: ResolvedPermissions | null;
+  project?: SpawnProject | null;
   model?: string;
   adapterArgsOverride?: string[];
 }
@@ -44,7 +45,8 @@ export interface PromptSpawnInput {
   promptRef: PromptRef;
   promptBody: string;
   board: BoardRuntimeConfig | null;
-  permissions: PermissionsConfig | null;
+  permissions: ResolvedPermissions | null;
+  project?: SpawnProject | null;
   model?: string;
 }
 

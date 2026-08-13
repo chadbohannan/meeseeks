@@ -65,4 +65,21 @@ describe('prompt routes', () => {
     const r = await fetch(`${srv.url}/api/boards/${boardId}/prompts/missing.md/run`, { method: 'POST' });
     expect(r.status).toBe(404);
   });
+
+  it('run rejects an unknown projectId with 400', async () => {
+    const { srv, boardId } = await setup();
+    await fetch(`${srv.url}/api/boards/${boardId}/prompts/p.md`, {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ body: 'do a thing' }),
+    });
+    const r = await fetch(`${srv.url}/api/boards/${boardId}/prompts/p.md/run`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ projectId: 'nope' }),
+    });
+    expect(r.status).toBe(400);
+    const body = await r.json() as { error: { message: string } };
+    expect(body.error.message).toContain("unknown project 'nope'");
+  });
 });

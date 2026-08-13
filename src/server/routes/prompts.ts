@@ -11,7 +11,9 @@ import {
   listPrompts, readPrompt, writePrompt, deletePrompt, promptExists,
   appendRunLog, listRunLogs,
 } from '../../storage/prompts.js';
-import type { BoardRuntimeConfig, PermissionsConfig } from '../../runtime/types.js';
+import { getProject } from '../../storage/project.js';
+import { resolvePermissions, type PermissionSource } from '../../runtime/permissions.js';
+import type { BoardRuntimeConfig, PermissionsConfig, SpawnProject } from '../../runtime/types.js';
 
 interface Deps { state: ServerState; hub: WsHub }
 
@@ -69,7 +71,7 @@ export async function registerPromptRoutes(app: FastifyInstance, { state }: Deps
     },
   );
 
-  app.post<{ Params: { boardId: string; name: string }; Body: { model?: string } }>(
+  app.post<{ Params: { boardId: string; name: string }; Body: { model?: string; projectId?: string } }>(
     '/api/boards/:boardId/prompts/:name/run',
     async (req) => {
       const { boardId, name } = req.params;
@@ -90,7 +92,25 @@ export async function registerPromptRoutes(app: FastifyInstance, { state }: Deps
       }
 
       const boardCfg = await readYaml<BoardRuntimeConfig>(path.join(board.path, 'board.yaml'));
-      const permissions = await readYaml<PermissionsConfig>(path.join(board.path, 'permissions.yaml'));
+      const boardPermissions = await readYaml<PermissionsConfig>(path.join(board.path, 'permissions.yaml'));
+
+      // A prompt without a project is allowed — a board-only prompt like
+      // "lint the wiki" is legitimate — but a named one must exist.
+      let project: SpawnProject | null = null;
+      const sources: PermissionSource[] = [];
+      const projectId = req.body?.projectId;
+      if (projectId) {
+        const detail = await getProject(open.meta.path, projectId).catch(() => null);
+        if (!detail) throw new InvalidInputError(`unknown project '${projectId}'`);
+        project = {
+          projectId: detail.projectId,
+          name: detail.name,
+          root: detail.root,
+          contextContent: detail.contextContent,
+        };
+        sources.push({ origin: 'project', base: detail.root, config: detail.permissions });
+      }
+      sources.push({ origin: 'lane', base: board.path, config: boardPermissions });
 
       const runtimeId = randomUUID();
       const summary = await state.supervisor.spawnPrompt({
@@ -99,7 +119,8 @@ export async function registerPromptRoutes(app: FastifyInstance, { state }: Deps
         promptRef: { boardId, name },
         promptBody: body,
         board: boardCfg,
-        permissions,
+        permissions: resolvePermissions(sources),
+        project,
         model: req.body?.model,
       });
 

@@ -1,5 +1,13 @@
 # Runtime Supervisor
 
+## Working directory vs. project root
+
+A ticket runtime's cwd is the **board** directory, not the project's repository, even though the agent's actual code work happens in the repository. This is deliberate. Claude Code resolves `.claude/settings.json`, `.claude/skills/`, and `.claude/bin/` relative to cwd, and boards carry exactly that configuration plus symlinks into shared resources. Moving cwd into the codebase would silently drop the board's skills and helper binaries, or force Meeseeks to write a `.claude/` directory into the user's repository.
+
+Instead the project root is delivered two ways: as an `--add-dir` flag, and as a generated sentence appended to the system prompt — "Project `X` is rooted at `/path`. Your working directory is the board folder; perform code work in the project root." The preamble orders segments most-stable to most-specific: project context, board context, lane process doc, then the two generated sentences (where to work, which ticket) adjacent at the end. Project context leads because it is the most cacheable segment.
+
+This formalizes a pattern that predated it. Before the refactor, the meeseeks board's own `CONTEXT.md` ended with a hand-written line stating where the codebase lived — project configuration expressed as prose to an agent. See the [project model](project-model.md) for the config that replaced it.
+
 The runtime supervisor manages isolated Claude Code instances. Each runtime declares a `kind`: `ticket` runtimes are bound to a single [ticket](project-model.md) and run interactively in a PTY; `prompt` runtimes are short-lived non-interactive `--print` runs of a stored [one-shot prompt](one-shot-prompts.md). Both kinds share the supervisor's stdio transport, ring buffer, stream-json parser, and termination semantics.
 
 ## Lifecycle States

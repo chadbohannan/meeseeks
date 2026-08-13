@@ -111,7 +111,7 @@ describe('RuntimeSupervisor', () => {
       boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
       processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
       board: null,
-      permissions: { allowedPaths: [], allowedTools: ['Bash'], deniedTools: [] },
+      permissions: { allowedPaths: [], allowedTools: [{ value: 'Bash', origins: ['lane'] }], deniedTools: [] },
       adapterArgsOverride: ['--scripted=init'],
     });
     const settingsPath = path.join(tmp, '.meeseeks', 'session-rt-4.json');

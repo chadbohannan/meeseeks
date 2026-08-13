@@ -26,10 +26,11 @@ interface FrontMatter {
   created: string;
   updated: string;
   color?: string;
+  project?: string;
   extra: Record<string, unknown>;
 }
 
-const KNOWN_FM_KEYS = new Set(['title', 'created', 'updated', 'color']);
+const KNOWN_FM_KEYS = new Set(['title', 'created', 'updated', 'color', 'project']);
 
 export async function findTicketFile(lp: string, filename: string): Promise<{ state: string; abs: string } | null> {
   const entries = await readdir(lp, { withFileTypes: true });
@@ -70,12 +71,13 @@ function parse(content: string, filename: string): { fm: FrontMatter; body: stri
   const created = typeof data.created === 'string' ? data.created : new Date().toISOString();
   const updated = typeof data.updated === 'string' ? data.updated : new Date().toISOString();
   const color = typeof data.color === 'string' ? data.color : undefined;
+  const project = typeof data.project === 'string' && data.project !== '' ? data.project : undefined;
   const extra: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(data)) {
     if (!KNOWN_FM_KEYS.has(k)) extra[k] = v;
   }
   return {
-    fm: { title, created, updated, color, extra },
+    fm: { title, created, updated, color, project, extra },
     body: parsed.content,
   };
 }
@@ -86,13 +88,14 @@ function serialize(fm: FrontMatter, body: string): string {
   cleaned.created = fm.created;
   cleaned.updated = fm.updated;
   if (fm.color !== undefined) cleaned.color = fm.color;
+  if (fm.project !== undefined) cleaned.project = fm.project;
   return matter.stringify(body, cleaned);
 }
 
 export async function createTicket(
   boardPath: string,
   laneName: string,
-  input: { title: string; state: string; body?: string },
+  input: { title: string; state: string; body?: string; project?: string },
 ): Promise<TicketDetail> {
   if (!input.title) throw new InvalidInputError('title required');
   const lp = lanePath(boardPath, laneName);
@@ -109,7 +112,9 @@ export async function createTicket(
     target = path.join(lp, input.state, filename);
   }
   const now = new Date().toISOString();
-  const fm: FrontMatter = { title: input.title, created: now, updated: now, extra: {} };
+  const fm: FrontMatter = {
+    title: input.title, created: now, updated: now, project: input.project, extra: {},
+  };
   await mkdir(path.dirname(target), { recursive: true });
   await writeFile(target, serialize(fm, input.body ?? ''), 'utf8');
   return {
@@ -117,6 +122,7 @@ export async function createTicket(
     state: input.state,
     title: input.title,
     body: input.body ?? '',
+    project: input.project,
     created: now,
     updated: now,
     orphaned: false,
@@ -146,6 +152,7 @@ export async function listTickets(boardPath: string, laneName: string): Promise<
         title: fm.title,
         body,
         color: fm.color,
+        project: fm.project,
         created: fm.created,
         updated: fm.updated,
         orphaned: !isKnown,
@@ -177,6 +184,7 @@ export async function readTicket(
     orphaned,
     body,
     color: fm.color,
+    project: fm.project,
     absPath: found.abs,
   };
 }
@@ -185,7 +193,7 @@ export async function updateTicket(
   boardPath: string,
   laneName: string,
   filename: string,
-  patch: { title?: string; body?: string; state?: string; color?: string },
+  patch: { title?: string; body?: string; state?: string; color?: string; project?: string },
 ): Promise<TicketDetail> {
   const lp = lanePath(boardPath, laneName);
   const found = await findTicketFile(lp, filename);
@@ -199,9 +207,14 @@ export async function updateTicket(
   }
   const newTitle = patch.title ?? fm.title;
   const newColor = patch.color !== undefined ? patch.color : fm.color;
+  // An empty string clears the assignment; undefined leaves it alone.
+  const newProject = patch.project !== undefined
+    ? (patch.project === '' ? undefined : patch.project)
+    : fm.project;
   const newBody = patch.body ?? body;
   const unchanged = newTitle === fm.title
     && newColor === fm.color
+    && newProject === fm.project
     && newBody === body
     && newState === found.state;
   if (unchanged) {
@@ -211,6 +224,7 @@ export async function updateTicket(
       title: fm.title,
       body,
       color: fm.color,
+      project: fm.project,
       created: fm.created,
       updated: fm.updated,
       orphaned: false,
@@ -222,6 +236,7 @@ export async function updateTicket(
     created: fm.created,
     updated: new Date().toISOString(),
     color: newColor,
+    project: newProject,
     extra: fm.extra,
   };
   const serialized = serialize(newFm, newBody);
@@ -244,6 +259,7 @@ export async function updateTicket(
     title: newFm.title,
     body: persistedBody,
     color: newFm.color,
+    project: newFm.project,
     created: newFm.created,
     updated: newFm.updated,
     orphaned: false,

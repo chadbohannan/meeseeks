@@ -1,5 +1,13 @@
 import type { RuntimeStatus, TicketRef, PromptRef, RuntimeSummary } from '../shared/runtime.js';
-import type { PermissionsConfig } from '../shared/types.js';
+import type { PermissionsConfig, ResolvedPermissions } from '../shared/types.js';
+
+/** The project a runtime works on. Its root is added with --add-dir, not used as cwd. */
+export interface SpawnProject {
+  projectId: string;
+  name: string;
+  root: string;
+  contextContent?: string | null;
+}
 
 export interface BoardRuntimeConfig {
   runtime?: {
@@ -20,7 +28,8 @@ export interface SpawnContext {
   processDocContent?: string | null;
   ticketRef: TicketRef;
   board: BoardRuntimeConfig | null;
-  permissions: PermissionsConfig | null;
+  permissions: ResolvedPermissions | null;
+  project?: SpawnProject | null;
   model?: string;
 }
 
@@ -43,8 +52,9 @@ export interface PromptSpawnContext {
   promptRef: PromptRef;
   promptBody: string;
   board: BoardRuntimeConfig | null;
-  permissions: PermissionsConfig | null;
+  permissions: ResolvedPermissions | null;
+  project?: SpawnProject | null;
   model?: string;
 }
 
-export type { RuntimeStatus, TicketRef, PromptRef, RuntimeSummary, PermissionsConfig };
+export type { RuntimeStatus, TicketRef, PromptRef, RuntimeSummary, PermissionsConfig, ResolvedPermissions };

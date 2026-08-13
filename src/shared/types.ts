@@ -20,6 +20,30 @@ export interface PermissionsConfig {
   deniedTools: string[];
 }
 
+export type PermissionOrigin = 'project' | 'lane';
+
+/**
+ * One effective permission entry plus the config files that contributed it.
+ * Provenance is retained rather than discarded so the console can attribute
+ * every effective rule back to the file it came from.
+ */
+export interface ResolvedPermissionEntry {
+  value: string;
+  origins: PermissionOrigin[];
+}
+
+/**
+ * Project and lane permissions unioned. Deny beats allow inside Claude Code
+ * itself, so either source can enforce a floor the other cannot undo.
+ * `allowedPaths` values are absolute — each source resolves its own relative
+ * entries against its own base before the union.
+ */
+export interface ResolvedPermissions {
+  allowedPaths: ResolvedPermissionEntry[];
+  allowedTools: ResolvedPermissionEntry[];
+  deniedTools: ResolvedPermissionEntry[];
+}
+
 /** A selectable codebase configuration, decoupled from any board. */
 export interface ProjectConfig {
   name: string;
@@ -86,6 +110,7 @@ export interface TicketSummary {
   title: string;
   body: string;
   color?: string;        // hex color for border/accent, stored in front-matter
+  project?: string;      // projectId; absent means unassigned (cannot start a runtime)
   created: string;       // ISO
   updated: string;       // ISO
   orphaned: boolean;

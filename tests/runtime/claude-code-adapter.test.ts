@@ -5,6 +5,14 @@ import { buildSpawnSpec } from '../../src/runtime/claude-code.js';
 
 const ticketRef = { boardId: 'b', laneName: 'l', filename: '2026-04-26T1430-x.md' };
 
+function addDirsOf(argv: string[]): string[] {
+  const out: string[] = [];
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === '--add-dir') out.push(argv[i + 1]!);
+  }
+  return out;
+}
+
 describe('buildSpawnSpec', () => {
   it('produces minimal argv when board.yaml and permissions.yaml are absent', () => {
     const spec = buildSpawnSpec({
@@ -32,7 +40,9 @@ describe('buildSpawnSpec', () => {
     expect(spec.cwd).toBe('/tmp/p/boards/b');
   });
 
-  it('translates allowedPaths to repeated --add-dir flags resolved against lane', () => {
+  // Path resolution itself now lives in resolvePermissions (which knows each
+  // source's base); the adapter emits the already-absolute values verbatim.
+  it('translates resolved allowedPaths to repeated --add-dir flags', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-1',
       boardPath: '/tmp/p/boards/b',
@@ -41,14 +51,50 @@ describe('buildSpawnSpec', () => {
       processDocContent: null,
       ticketRef,
       board: null,
-      permissions: { allowedPaths: ['../my-repo', '~/notes'], allowedTools: [], deniedTools: [] },
+      permissions: {
+        allowedPaths: [
+          { value: '/tmp/p/my-repo', origins: ['lane'] },
+          { value: path.join(os.homedir(), 'notes'), origins: ['project'] },
+        ],
+        allowedTools: [],
+        deniedTools: [],
+      },
     });
-    const addDirs: string[] = [];
-    for (let i = 0; i < spec.argv.length; i++) {
-      if (spec.argv[i] === '--add-dir') addDirs.push(spec.argv[i + 1]!);
-    }
-    expect(addDirs).toContain(path.resolve('/tmp/p/boards/b/lanes/l', '../my-repo'));
-    expect(addDirs).toContain(path.join(os.homedir(), 'notes'));
+    expect(addDirsOf(spec.argv)).toEqual(['/tmp/p/my-repo', path.join(os.homedir(), 'notes')]);
+  });
+
+  it('adds the project root as --add-dir and keeps cwd on the board', () => {
+    const spec = buildSpawnSpec({
+      runtimeId: 'rt-p',
+      boardPath: '/tmp/p/boards/b',
+      lanePath: '/tmp/p/boards/b/lanes/l',
+      ticketAbsPath: '/x.md',
+      ticketRef,
+      board: null,
+      permissions: null,
+      project: { projectId: 'meeseeks', name: 'Meeseeks', root: '/home/u/code/meeseeks', contextContent: null },
+    });
+    expect(addDirsOf(spec.argv)).toEqual(['/home/u/code/meeseeks']);
+    // cwd deliberately stays on the board so its .claude/ and symlinks resolve.
+    expect(spec.cwd).toBe('/tmp/p/boards/b');
+    expect(spec.env.MEESEEKS_PROJECT_ROOT).toBe('/home/u/code/meeseeks');
+    expect(spec.env.MEESEEKS_PROJECT_NAME).toBe('Meeseeks');
+  });
+
+  it('omits project env vars and --add-dir when no project is assigned', () => {
+    const spec = buildSpawnSpec({
+      runtimeId: 'rt-np',
+      boardPath: '/tmp/p/boards/b',
+      lanePath: '/tmp/p/boards/b/lanes/l',
+      ticketAbsPath: '/x.md',
+      ticketRef,
+      board: null,
+      permissions: null,
+      project: null,
+    });
+    expect(addDirsOf(spec.argv)).toEqual([]);
+    expect(spec.env.MEESEEKS_PROJECT_ROOT).toBeUndefined();
+    expect(spec.env.MEESEEKS_PROJECT_NAME).toBeUndefined();
   });
 
   it('writes a settings file body containing allow/deny tool rules', () => {
@@ -60,7 +106,14 @@ describe('buildSpawnSpec', () => {
       processDocContent: null,
       ticketRef,
       board: null,
-      permissions: { allowedPaths: [], allowedTools: ['Bash', 'Edit'], deniedTools: ['Write'] },
+      permissions: {
+        allowedPaths: [],
+        allowedTools: [
+          { value: 'Bash', origins: ['lane'] },
+          { value: 'Edit', origins: ['project'] },
+        ],
+        deniedTools: [{ value: 'Write', origins: ['lane', 'project'] }],
+      },
     });
     expect(spec.settingsFile).not.toBeNull();
     expect(spec.settingsFile!.path).toMatch(/\.meeseeks\/session-rt-7\.json$/);
@@ -132,6 +185,37 @@ describe('buildSpawnSpec', () => {
     expect(boardIdx).toBeGreaterThanOrEqual(0);
     expect(processIdx).toBeGreaterThan(boardIdx);
     expect(ticketIdx).toBeGreaterThan(processIdx);
+  });
+
+  it('orders preamble: project context, board, process, project location, ticket', () => {
+    const spec = buildSpawnSpec({
+      runtimeId: 'rt-4',
+      boardPath: '/tmp/p/boards/my-board',
+      lanePath: '/tmp/p/boards/my-board/lanes/dev',
+      ticketAbsPath: '/tmp/p/boards/my-board/lanes/dev/todo/t.md',
+      boardContextContent: 'BOARD_MARKER',
+      processDocContent: 'PROCESS_MARKER',
+      ticketRef: { boardId: 'my-board', laneName: 'dev', filename: 't.md' },
+      board: null,
+      permissions: null,
+      project: {
+        projectId: 'meeseeks',
+        name: 'Meeseeks',
+        root: '/home/u/code/meeseeks',
+        contextContent: 'PROJECT_MARKER',
+      },
+    });
+    const projectIdx = spec.preamble.indexOf('PROJECT_MARKER');
+    const boardIdx = spec.preamble.indexOf('BOARD_MARKER');
+    const processIdx = spec.preamble.indexOf('PROCESS_MARKER');
+    const locationIdx = spec.preamble.indexOf('is rooted at');
+    const ticketIdx = spec.preamble.indexOf('You are working on ticket');
+    expect(projectIdx).toBe(0);
+    expect(boardIdx).toBeGreaterThan(projectIdx);
+    expect(processIdx).toBeGreaterThan(boardIdx);
+    expect(locationIdx).toBeGreaterThan(processIdx);
+    expect(ticketIdx).toBeGreaterThan(locationIdx);
+    expect(spec.preamble).toContain('/home/u/code/meeseeks');
   });
 
   it('omits empty parts when only board context is present', () => {

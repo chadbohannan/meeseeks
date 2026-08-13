@@ -21,13 +21,15 @@ export async function registerTicketRoutes(
 
   app.post<{
     Params: { boardId: string; laneName: string };
-    Body: { title: string; state: string; body?: string };
+    Body: { title: string; state: string; body?: string; project?: string };
   }>(BASE, async (req) => {
     const open = state.require();
     const board = await getBoard(open.meta.path, req.params.boardId);
-    const body = req.body ?? {} as { title?: string; state?: string; body?: string };
+    const body = req.body ?? {} as { title?: string; state?: string; body?: string; project?: string };
     if (!body.title || !body.state) throw new InvalidInputError('title and state required');
-    const ticket = await createTicket(board.path, req.params.laneName, { title: body.title, state: body.state, body: body.body });
+    const ticket = await createTicket(board.path, req.params.laneName, {
+      title: body.title, state: body.state, body: body.body, project: body.project,
+    });
     hub.broadcast({
       type: 'ticket-changed',
       payload: { boardId: board.boardId, laneName: req.params.laneName, filename: ticket.filename, state: ticket.state, kind: 'created' },
@@ -46,7 +48,7 @@ export async function registerTicketRoutes(
 
   app.patch<{
     Params: { boardId: string; laneName: string; filename: string };
-    Body: { title?: string; body?: string; state?: string; color?: string };
+    Body: { title?: string; body?: string; state?: string; color?: string; project?: string };
   }>(`${BASE}/:filename`, async (req) => {
     const open = state.require();
     const board = await getBoard(open.meta.path, req.params.boardId);

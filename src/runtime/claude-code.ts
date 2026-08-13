@@ -1,7 +1,7 @@
 import path from 'node:path';
-import os from 'node:os';
 import { execSync } from 'node:child_process';
-import type { SpawnContext, SpawnSpec, PromptSpawnContext } from './types.js';
+import { permissionValues } from './permissions.js';
+import type { SpawnContext, SpawnSpec, PromptSpawnContext, SpawnProject } from './types.js';
 
 function resolveHarnessBin(): string {
   try {
@@ -13,15 +13,14 @@ function resolveHarnessBin(): string {
 
 const HARNESS_BIN = resolveHarnessBin();
 
-function expandHome(p: string): string {
-  if (p === '~') return os.homedir();
-  if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2));
-  return p;
-}
-
-function resolveAllowedPath(p: string, lanePath: string): string {
-  const expanded = expandHome(p);
-  return path.isAbsolute(expanded) ? expanded : path.resolve(lanePath, expanded);
+/**
+ * The sentence that tells the agent where to work. cwd stays on the board so
+ * the board's .claude/ directory, skills, and symlinks keep resolving, so the
+ * project root has to be stated rather than implied by the process.
+ */
+function projectLocationSentence(project: SpawnProject): string {
+  return `Project \`${project.name}\` is rooted at \`${project.root}\`. ` +
+    `Your working directory is the board folder; perform code work in the project root.`;
 }
 
 export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
@@ -31,12 +30,15 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   const model = ctx.model ?? ctx.board?.runtime?.model;
   if (model) argv.push('--model', model);
 
+  if (ctx.project) argv.push('--add-dir', ctx.project.root);
+
+  // Already absolute and unioned across project and lane by resolvePermissions.
   for (const p of ctx.permissions?.allowedPaths ?? []) {
-    argv.push('--add-dir', resolveAllowedPath(p, ctx.lanePath));
+    argv.push('--add-dir', p.value);
   }
 
-  const allowedTools = ctx.permissions?.allowedTools ?? [];
-  const deniedTools = ctx.permissions?.deniedTools ?? [];
+  const allowedTools = permissionValues(ctx.permissions?.allowedTools ?? []);
+  const deniedTools = permissionValues(ctx.permissions?.deniedTools ?? []);
 
   const serverPort = Number(process.env.MEESEEKS_PORT ?? 5174);
   const notifyBase = `http://127.0.0.1:${serverPort}/internal/runtime/${ctx.runtimeId}/notify`;
@@ -75,7 +77,16 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   const ticketContext =
     `You are working on ticket \`${ctx.ticketRef.filename}\` in lane \`${ctx.ticketRef.laneName}\` of board \`${boardName}\`. ` +
     `Ticket file: \`${ctx.ticketAbsPath}\`.`;
-  const preamble = [ctx.boardContextContent, ctx.processDocContent, ticketContext]
+  // Most stable segment first (project context is the most cacheable), most
+  // specific last. The two generated sentences sit adjacent at the end so the
+  // agent reads *where* to work and *what* to work on together.
+  const preamble = [
+    ctx.project?.contextContent,
+    ctx.boardContextContent,
+    ctx.processDocContent,
+    ctx.project ? projectLocationSentence(ctx.project) : null,
+    ticketContext,
+  ]
     .filter((p): p is string => Boolean(p && p.length > 0))
     .join('\n\n');
 
@@ -88,6 +99,9 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
     MEESEEKS_TICKET_PATH: ctx.ticketAbsPath,
     MEESEEKS_BOARD_PATH: ctx.boardPath,
     MEESEEKS_LANE_PATH: ctx.lanePath,
+    ...(ctx.project
+      ? { MEESEEKS_PROJECT_ROOT: ctx.project.root, MEESEEKS_PROJECT_NAME: ctx.project.name }
+      : {}),
     ...(ctx.board?.runtime?.env ?? {}),
   };
   if (ctx.board?.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.board.runtime.provider;
@@ -104,12 +118,14 @@ export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
   const model = ctx.model ?? ctx.board?.runtime?.model;
   if (model) argv.push('--model', model);
 
+  if (ctx.project) argv.push('--add-dir', ctx.project.root);
+
   for (const p of ctx.permissions?.allowedPaths ?? []) {
-    argv.push('--add-dir', resolveAllowedPath(p, ctx.boardPath));
+    argv.push('--add-dir', p.value);
   }
 
-  const allowedTools = ctx.permissions?.allowedTools ?? [];
-  const deniedTools = ctx.permissions?.deniedTools ?? [];
+  const allowedTools = permissionValues(ctx.permissions?.allowedTools ?? []);
+  const deniedTools = permissionValues(ctx.permissions?.deniedTools ?? []);
   const settingsObj: Record<string, unknown> = {};
   if (allowedTools.length > 0 || deniedTools.length > 0) {
     settingsObj.permissions = { allow: allowedTools, deny: deniedTools };
@@ -119,6 +135,16 @@ export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
     const filePath = path.join(ctx.boardPath, '.meeseeks', `prompt-${ctx.runtimeId}.json`);
     settingsFile = { path: filePath, body: JSON.stringify(settingsObj, null, 2) };
     argv.push('--settings', filePath);
+  }
+
+  // Unlike ticket runtimes, a prompt's preamble is otherwise display-only, so
+  // the project segments have to be passed explicitly. Guarded on ctx.project
+  // so a prompt run without one keeps its existing flagset unchanged.
+  if (ctx.project) {
+    const systemPrompt = [ctx.project.contextContent, projectLocationSentence(ctx.project)]
+      .filter((p): p is string => Boolean(p && p.length > 0))
+      .join('\n\n');
+    argv.push('--append-system-prompt', systemPrompt);
   }
 
   for (const a of ctx.board?.runtime?.args ?? []) argv.push(a);
@@ -132,10 +158,19 @@ export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
     ...inherited,
     MEESEEKS_BOARD_PATH: ctx.boardPath,
     MEESEEKS_PROMPT_NAME: ctx.promptRef.name,
+    ...(ctx.project
+      ? { MEESEEKS_PROJECT_ROOT: ctx.project.root, MEESEEKS_PROJECT_NAME: ctx.project.name }
+      : {}),
     ...(ctx.board?.runtime?.env ?? {}),
   };
   if (ctx.board?.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.board.runtime.provider;
 
-  const preamble = `Prompt: ${ctx.promptRef.name}`;
+  const preamble = [
+    ctx.project?.contextContent,
+    ctx.project ? projectLocationSentence(ctx.project) : null,
+    `Prompt: ${ctx.promptRef.name}`,
+  ]
+    .filter((p): p is string => Boolean(p && p.length > 0))
+    .join('\n\n');
   return { argv, env, cwd: ctx.boardPath, preamble, settingsFile };
 }

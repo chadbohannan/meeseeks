@@ -2,7 +2,7 @@
 
 Meeseeks organizes work in a four-level hierarchy: Workspace → Board → Lane → Ticket, with Projects as a cross-cutting fifth concept selectable per ticket.
 
-> **In flight (2026-08-12):** the term *project* is being split in two. The top-level container described below is now called a **Workspace**, and *Project* is being reclaimed for a selectable per-codebase configuration so that one Development or Incident Response board can serve many codebases. The [workspace/project decoupling design](../../../docs/superpowers/specs/2026-08-12-workspace-project-decoupling-design.md) records the full plan; phases 1 and 2 have landed and are described here. Phases 3–5 (ticket binding, UI, migration) are not yet implemented.
+> **In flight (2026-08-12):** the term *project* is being split in two. The top-level container described below is now called a **Workspace**, and *Project* is being reclaimed for a selectable per-codebase configuration so that one Development or Incident Response board can serve many codebases. The [workspace/project decoupling design](../../../docs/superpowers/specs/2026-08-12-workspace-project-decoupling-design.md) records the full plan; phases 1–3 have landed, so a shared board is fully functional through the API. Phases 4–5 (web UI, migration) are not yet implemented.
 
 ## Workspace
 
@@ -32,9 +32,23 @@ A lane represents a stage in the workflow (e.g., todo, in-progress, done). Lanes
 
 A ticket is a unit of work, stored as a Markdown file in a lane state directory. Ticket filenames follow `YYYY-MM-DDTHHmm-<slug>.md` pattern with base36 collision suffix.
 
+A ticket names its project through a `project:` frontmatter key holding a project *slug*, never a path — moving a repository therefore edits one project config rather than every ticket. Assignment is optional, but a ticket without a resolvable project cannot start a runtime: the spawn route rejects both the unassigned case and a slug naming a project that no longer exists, because neither yields a root to point the agent at. A dangling slug is left in place when a project is deleted rather than being rewritten across every board, on the grounds that a visible broken reference beats a silent mass edit.
+
+One property of `src/storage/ticket.ts` made this cheap: unknown frontmatter keys already round-trip through an `extra` bag in `parse`/`serialize`. A `project:` key written by hand or by migration survives every read-modify-write path even in builds that predate the feature, which is what lets the migration phase run ahead of the code that understands it.
+
 ## Permissions
 
-`permissions.yaml` in lane directories controls what an agent can do. Allowed paths generate `--add-dir` flags, and allowed/denied tools generate a JSON settings file. Because both lanes and projects now carry permission blocks, `PermissionsConfig` moved from `src/runtime/types.ts` to `src/shared/types.ts` — storage owns reading these configs and may not import from `runtime/`, so the type had to live somewhere both layers can reach. The design's forthcoming union-with-deny-wins resolution across the two sources is described in the [decoupling spec](../../../docs/superpowers/specs/2026-08-12-workspace-project-decoupling-design.md); until phase 3 lands, only lane permissions reach a spawn.
+`permissions.yaml` in lane directories controls what an agent can do. Allowed paths generate `--add-dir` flags, and allowed/denied tools generate a JSON settings file. Because both lanes and projects now carry permission blocks, `PermissionsConfig` moved from `src/runtime/types.ts` to `src/shared/types.ts` — storage owns reading these configs and may not import from `runtime/`, so the type had to live somewhere both layers can reach.
+
+The two sources are combined by `resolvePermissions` in `src/runtime/permissions.ts`, which unions all three fields and adds no precedence logic of its own. That works because the three fields are not symmetric once they reach the harness: `allowedPaths` becomes `--add-dir` and is a purely additive capability grant with no counterpart that revokes a directory; `allowedTools` becomes `permissions.allow`, an *auto-approve* list whose absence means "ask the human" rather than "blocked"; and only `deniedTools` becomes a hard block, which Claude Code resolves over allow regardless of origin. Restriction therefore lives exclusively in `deniedTools`, so a union lets an Incident Response lane and a project each enforce a floor that the other cannot undo.
+
+The rejected alternative was wholesale replacement — project permissions overriding the lane's when present. It was discarded because replacement triggers on the *presence* of a block rather than on intent: adding an `allowedPaths` entry to a project, an edit purely about filesystem reach, would silently delete that lane's deny list.
+
+Two consequences are worth knowing. First, relative `allowedPaths` entries need different resolution bases depending on their source — a lane's `../shared` resolves against the lane directory, a project's `./vendor` against the project root — so paths are made absolute *before* the union; a merged list has no way to recover which base an entry needed. This is why `PermissionSource` carries its own `base`. Second, auto-approvals leak across contexts: a project allowing `Bash(npm:*)` auto-approves it on every board, and the only remedy is a deny, because Claude Code offers no way to express "make this ask again."
+
+The cost of over-restriction differs sharply between the two runtime kinds. A ticket runtime is an interactive PTY, so a non-approved tool prompts, the `permission_prompt` hook fires, and the console moves to `awaiting-user` — recoverable. A prompt run uses `--print`, where nothing can answer, so the call is refused outright. Prompts are the case where `allowedTools` is load-bearing rather than merely convenient.
+
+Provenance survives resolution: each effective entry carries the origins that contributed it, which powers `GET /api/tickets/:boardId/:laneName/:filename/permissions`. That endpoint calls the same `resolvePermissions` the supervisor calls, deliberately — a preview computed by a parallel implementation would eventually disagree with what actually spawns.
 
 ## Watcher interaction
 
