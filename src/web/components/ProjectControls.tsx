@@ -61,11 +61,13 @@ interface SelectProps {
   /** Label used for the empty option. */
   unassignedLabel?: string;
   disabled?: boolean;
+  /** Tooltip — worth setting whenever `disabled` is true, to say why. */
+  title?: string;
 }
 
 /** Project picker. The empty option maps to undefined (unassigned). */
 export function ProjectSelect({
-  value, onChange, className = '', unassignedLabel = 'No project', disabled,
+  value, onChange, className = '', unassignedLabel = 'No project', disabled, title,
 }: SelectProps) {
   const { data } = useProjects();
   const projects = data?.projects ?? [];
@@ -75,9 +77,10 @@ export function ProjectSelect({
 
   return (
     <select
-      className={`bg-slate-800 rounded px-2 py-1 text-xs text-slate-300 ${className}`}
+      className={`bg-slate-800 rounded px-2 py-1 text-xs text-slate-300 disabled:opacity-50 disabled:cursor-not-allowed ${className}`}
       value={value ?? ''}
       disabled={disabled}
+      title={title}
       onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
     >
       <option value="">{unassignedLabel}</option>

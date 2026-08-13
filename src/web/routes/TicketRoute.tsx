@@ -265,6 +265,15 @@ export function TicketRoute() {
           <label className="text-slate-400">Project</label>
           <ProjectSelect
             value={project}
+            // The project is captured at spawn time — it becomes --add-dir, a
+            // preamble sentence, and MEESEEKS_PROJECT_ROOT in the live process.
+            // Reassigning mid-session would change the ticket and badge while
+            // the agent kept working in the old codebase, so lock it until the
+            // runtime is released.
+            disabled={!!activeRuntime}
+            title={activeRuntime
+              ? 'Release the agent before reassigning — a running session is bound to the project it started with'
+              : undefined}
             onChange={async (next) => {
               const id = identityRef.current;
               if (!id) return;
