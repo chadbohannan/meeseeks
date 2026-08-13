@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback } from 'react';
 import { Outlet, Link } from 'react-router-dom';
-import { useCurrentProject } from '../hooks/queries.js';
+import { useWorkspace } from '../hooks/queries.js';
 import { Logo } from './Logo.js';
 import { Sidebar } from './Sidebar.js';
 import { Dock } from './console/Dock.js';
@@ -16,8 +16,7 @@ function loadWidth() {
 }
 
 export function AppShell() {
-  const { data } = useCurrentProject();
-  const project = data?.project;
+  useWorkspace();
   const [width, setWidth] = useState(loadWidth);
   const dragging = useRef(false);
   const startX = useRef(0);

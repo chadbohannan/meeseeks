@@ -3,19 +3,19 @@ export interface ModelOption {
   label: string;   // shown in the picker
 }
 
-export interface ProjectConfig {
+export interface WorkspaceConfig {
   name: string;
   boards: string[];
   models?: ModelOption[];
 }
 
-export interface ProjectMeta {
-  path: string;          // absolute path to the project folder (containing project.meeseeks)
-  config: ProjectConfig;
+export interface WorkspaceMeta {
+  path: string;          // absolute path to the workspace folder (containing project.yaml)
+  config: WorkspaceConfig;
 }
 
 export interface BoardSummary {
-  boardId: string;       // slug derived from project.meeseeks entry
+  boardId: string;       // slug derived from the workspace config's boards[] entry
   name: string;
   path: string;          // absolute
   available: boolean;    // false if folder is missing on disk

@@ -2,7 +2,7 @@ import { mkdir, rename, rm, writeFile, readFile, access } from 'node:fs/promises
 import path from 'node:path';
 import yaml from 'js-yaml';
 import { ConflictError, NotFoundError, InvalidInputError } from './errors.js';
-import { readProject, writeProject } from './project.js';
+import { readWorkspace, writeWorkspace } from './workspace.js';
 import { listLanes, createLane } from './lane.js';
 import { boardContextTemplate, STARTER_LANE, STARTER_LANE_PROCESS } from './templates.js';
 import type { BoardDetail } from '../shared/types.js';
@@ -97,20 +97,20 @@ export async function readBoardDetail(
 }
 
 export async function renameBoard(
-  projectRoot: string,
+  workspaceRoot: string,
   oldEntry: string,
   newEntry: string,
 ): Promise<void> {
-  const meta = await readProject(projectRoot);
+  const meta = await readWorkspace(workspaceRoot);
   const idx = meta.config.boards.indexOf(oldEntry);
   if (idx === -1) throw new NotFoundError(`board not registered: ${oldEntry}`);
-  const oldAbs = path.isAbsolute(oldEntry) ? oldEntry : path.resolve(projectRoot, oldEntry);
-  const newAbs = path.isAbsolute(newEntry) ? newEntry : path.resolve(projectRoot, newEntry);
+  const oldAbs = path.isAbsolute(oldEntry) ? oldEntry : path.resolve(workspaceRoot, oldEntry);
+  const newAbs = path.isAbsolute(newEntry) ? newEntry : path.resolve(workspaceRoot, newEntry);
   if (await exists(newAbs)) throw new ConflictError(`destination exists: ${newAbs}`);
   await mkdir(path.dirname(newAbs), { recursive: true });
   await rename(oldAbs, newAbs);
   meta.config.boards[idx] = newEntry;
-  await writeProject(projectRoot, meta.config);
+  await writeWorkspace(workspaceRoot, meta.config);
 }
 
 export async function deleteBoardFolder(boardPath: string): Promise<void> {

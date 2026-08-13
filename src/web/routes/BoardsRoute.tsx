@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { Link, Navigate } from 'react-router-dom';
-import { useBoards, useCurrentProject } from '../hooks/queries.js';
+import { useBoards, useWorkspace } from '../hooks/queries.js';
 import { NewBoardModal } from '../components/NewBoardModal.js';
 
 export function BoardsRoute() {
-  const current = useCurrentProject();
+  const current = useWorkspace();
   const boards = useBoards();
   const [showNew, setShowNew] = useState(false);
 
-  if (!current.isLoading && !current.data?.project) return <Navigate to="/" replace />;
+  if (!current.isLoading && !current.data?.workspace) return <Navigate to="/" replace />;
 
   return (
     <div className="p-8 max-w-3xl">

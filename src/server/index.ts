@@ -4,14 +4,14 @@ import fastifyStatic from '@fastify/static';
 import { ServerState } from './state.js';
 import { WsHub, registerWs } from './ws.js';
 import { mapErrorToResponse } from './error-mapper.js';
-import { registerProjectRoutes } from './routes/projects.js';
+import { registerWorkspaceRoutes } from './routes/workspace.js';
 import { registerBoardRoutes } from './routes/boards.js';
 import { registerLaneRoutes } from './routes/lanes.js';
 import { registerTicketRoutes } from './routes/tickets.js';
 import { registerRuntimeRoutes } from './routes/runtimes.js';
 import { registerFileRoutes } from './routes/files.js';
 import { registerPromptRoutes } from './routes/prompts.js';
-import { readProject } from '../storage/project.js';
+import { readWorkspace } from '../storage/workspace.js';
 import { startWatcher } from './watcher.js';
 import path from 'node:path';
 import { existsSync } from 'node:fs';
@@ -22,15 +22,15 @@ const HOST = process.env.MEESEEKS_HOST ?? '127.0.0.1';
 
 async function main(): Promise<void> {
   const argPath = process.argv[2];
-  const projectDir = path.resolve(argPath ?? process.cwd());
+  const workspaceDir = path.resolve(argPath ?? process.cwd());
 
-  if (!existsSync(projectDir)) {
-    console.error(`meeseeks: directory does not exist: ${projectDir}`);
+  if (!existsSync(workspaceDir)) {
+    console.error(`meeseeks: directory does not exist: ${workspaceDir}`);
     process.exit(1);
   }
 
   const hub = new WsHub();
-  const meta = await readProject(projectDir);
+  const meta = await readWorkspace(workspaceDir);
   const handle = startWatcher(meta, hub);
   const state = new ServerState(meta, handle.cleanup);
 
@@ -42,7 +42,7 @@ async function main(): Promise<void> {
   const app = Fastify({ logger: { level: 'warn' } });
   await app.register(websocket);
   app.setErrorHandler(mapErrorToResponse);
-  await registerProjectRoutes(app, { state, hub });
+  await registerWorkspaceRoutes(app, { state, hub });
   await registerBoardRoutes(app, { state, hub });
   await registerLaneRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });

@@ -69,7 +69,7 @@ Storage files import only from `storage/` and `shared/`. Server files import fro
 1. **Understand before implementing**: Read the wiki architecture overview and relevant component pages
 2. **Check existing tests**: Tests mirror source structure under `tests/`
 3. **Run tests**: `npm test` — Vitest with 10s timeout
-4. **Type checking**: No explicit typecheck script; rely on editor integration
+4. **Type checking**: `npm run typecheck` — runs `tsc --noEmit` over both the server and web tsconfigs
 5. **Error handling**: Use typed storage errors (`NotFoundError`, `ConflictError`, etc.) from `storage/errors.ts`
 
 ## Wiki Maintenance Triggers

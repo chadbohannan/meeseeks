@@ -3,7 +3,7 @@ import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
 import { InvalidInputError } from '../../storage/errors.js';
 import { listFiles, readFile, writeFile, deleteFile } from '../../storage/files.js';
-import { getBoard } from '../../storage/project.js';
+import { getBoard } from '../../storage/workspace.js';
 import path from 'node:path';
 import type {
   ListFilesResponse,

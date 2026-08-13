@@ -3,7 +3,7 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 import { ConflictError, InvalidInputError, NotFoundError } from './errors.js';
 import { resolveWithin, slugifyBoardPath } from './paths.js';
-import type { ProjectConfig, ProjectMeta, BoardSummary, ModelOption } from '../shared/types.js';
+import type { WorkspaceConfig, WorkspaceMeta, BoardSummary, ModelOption } from '../shared/types.js';
 
 // Model aliases resolve to whatever Anthropic currently ships, so a new release
 // is picked up by claude-code without editing source. Override per-project by
@@ -44,25 +44,25 @@ async function exists(p: string): Promise<boolean> {
   try { await access(p); return true; } catch { return false; }
 }
 
-function yamlPath(projectRoot: string): string {
-  return path.join(projectRoot, PROJECT_FILE);
+function yamlPath(workspaceRoot: string): string {
+  return path.join(workspaceRoot, PROJECT_FILE);
 }
 
-async function resolveConfigPath(projectRoot: string): Promise<string | null> {
-  const p = yamlPath(projectRoot);
+async function resolveConfigPath(workspaceRoot: string): Promise<string | null> {
+  const p = yamlPath(workspaceRoot);
   if (await exists(p)) return p;
-  const legacy = path.join(projectRoot, PROJECT_FILE_LEGACY);
+  const legacy = path.join(workspaceRoot, PROJECT_FILE_LEGACY);
   if (await exists(legacy)) return legacy;
   return null;
 }
 
-function parseConfig(text: string, projectRoot: string): ProjectConfig {
-  const parsed = yaml.load(text) as Partial<ProjectConfig> | null;
+function parseConfig(text: string, workspaceRoot: string): WorkspaceConfig {
+  const parsed = yaml.load(text) as Partial<WorkspaceConfig> | null;
   if (!parsed || typeof parsed !== 'object') {
-    throw new InvalidInputError(`malformed project config at ${projectRoot}`);
+    throw new InvalidInputError(`malformed project config at ${workspaceRoot}`);
   }
   return {
-    name: typeof parsed.name === 'string' ? parsed.name : path.basename(projectRoot),
+    name: typeof parsed.name === 'string' ? parsed.name : path.basename(workspaceRoot),
     boards: Array.isArray(parsed.boards)
       ? parsed.boards.filter((b): b is string => typeof b === 'string')
       : [],
@@ -70,49 +70,49 @@ function parseConfig(text: string, projectRoot: string): ProjectConfig {
   };
 }
 
-export async function readProject(projectRoot: string): Promise<ProjectMeta> {
-  const configFile = await resolveConfigPath(projectRoot);
+export async function readWorkspace(workspaceRoot: string): Promise<WorkspaceMeta> {
+  const configFile = await resolveConfigPath(workspaceRoot);
   if (configFile) {
     const text = await readFile(configFile, 'utf8');
-    return { path: path.resolve(projectRoot), config: parseConfig(text, projectRoot) };
+    return { path: path.resolve(workspaceRoot), config: parseConfig(text, workspaceRoot) };
   }
   // Auto-create project.yaml using directory name
-  const config: ProjectConfig = { name: path.basename(projectRoot), boards: [] };
+  const config: WorkspaceConfig = { name: path.basename(workspaceRoot), boards: [] };
   const text = yaml.dump(config, { lineWidth: 100 });
-  await writeFile(yamlPath(projectRoot), text, 'utf8');
-  return { path: path.resolve(projectRoot), config };
+  await writeFile(yamlPath(workspaceRoot), text, 'utf8');
+  return { path: path.resolve(workspaceRoot), config };
 }
 
-export async function writeProject(projectRoot: string, config: ProjectConfig): Promise<void> {
+export async function writeWorkspace(workspaceRoot: string, config: WorkspaceConfig): Promise<void> {
   const text = yaml.dump(config, { lineWidth: 100 });
-  await writeFile(yamlPath(projectRoot), text, 'utf8');
+  await writeFile(yamlPath(workspaceRoot), text, 'utf8');
 }
 
-export async function addBoardToProject(projectRoot: string, boardPath: string): Promise<void> {
-  const meta = await readProject(projectRoot);
+export async function addBoardToWorkspace(workspaceRoot: string, boardPath: string): Promise<void> {
+  const meta = await readWorkspace(workspaceRoot);
   if (meta.config.boards.includes(boardPath)) {
     throw new ConflictError(`board already registered: ${boardPath}`);
   }
   meta.config.boards.push(boardPath);
-  await writeProject(projectRoot, meta.config);
+  await writeWorkspace(workspaceRoot, meta.config);
 }
 
-export async function removeBoardFromProject(projectRoot: string, boardPath: string): Promise<void> {
-  const meta = await readProject(projectRoot);
+export async function removeBoardFromWorkspace(workspaceRoot: string, boardPath: string): Promise<void> {
+  const meta = await readWorkspace(workspaceRoot);
   const idx = meta.config.boards.indexOf(boardPath);
   if (idx === -1) throw new NotFoundError(`board not registered: ${boardPath}`);
   meta.config.boards.splice(idx, 1);
-  await writeProject(projectRoot, meta.config);
+  await writeWorkspace(workspaceRoot, meta.config);
 }
 
-export async function listBoards(projectRoot: string): Promise<BoardSummary[]> {
-  const meta = await readProject(projectRoot);
+export async function listBoards(workspaceRoot: string): Promise<BoardSummary[]> {
+  const meta = await readWorkspace(workspaceRoot);
   const seen = new Map<string, number>();
   const out: BoardSummary[] = [];
   for (const entry of meta.config.boards) {
     const abs = path.isAbsolute(entry)
       ? entry
-      : resolveWithin(projectRoot, entry);
+      : resolveWithin(workspaceRoot, entry);
     const baseId = slugifyBoardPath(entry);
     let id = baseId;
     const collisions = seen.get(baseId) ?? 0;
@@ -127,13 +127,13 @@ export async function listBoards(projectRoot: string): Promise<BoardSummary[]> {
   return out;
 }
 
-export async function getModels(projectRoot: string): Promise<ModelOption[]> {
-  const meta = await readProject(projectRoot);
+export async function getModels(workspaceRoot: string): Promise<ModelOption[]> {
+  const meta = await readWorkspace(workspaceRoot);
   return meta.config.models ?? DEFAULT_MODELS;
 }
 
-export async function getBoard(projectRoot: string, boardId: string): Promise<BoardSummary> {
-  const boards = await listBoards(projectRoot);
+export async function getBoard(workspaceRoot: string, boardId: string): Promise<BoardSummary> {
+  const boards = await listBoards(workspaceRoot);
   const board = boards.find(b => b.boardId === boardId);
   if (!board) throw new NotFoundError(`no board with id ${boardId}`);
   return board;

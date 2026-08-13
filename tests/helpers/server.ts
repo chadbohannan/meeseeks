@@ -3,14 +3,14 @@ import websocket from '@fastify/websocket';
 import { ServerState } from '../../src/server/state.js';
 import { WsHub, registerWs } from '../../src/server/ws.js';
 import { mapErrorToResponse } from '../../src/server/error-mapper.js';
-import { registerProjectRoutes } from '../../src/server/routes/projects.js';
+import { registerWorkspaceRoutes } from '../../src/server/routes/workspace.js';
 import { registerBoardRoutes } from '../../src/server/routes/boards.js';
 import { registerLaneRoutes } from '../../src/server/routes/lanes.js';
 import { registerTicketRoutes } from '../../src/server/routes/tickets.js';
 import { registerRuntimeRoutes } from '../../src/server/routes/runtimes.js';
 import { registerFileRoutes } from '../../src/server/routes/files.js';
 import { registerPromptRoutes } from '../../src/server/routes/prompts.js';
-import { readProject } from '../../src/storage/project.js';
+import { readWorkspace } from '../../src/storage/workspace.js';
 import { startWatcher } from '../../src/server/watcher.js';
 
 export interface TestServer {
@@ -23,14 +23,14 @@ export interface TestServer {
 }
 
 export async function bootTestServer(projectRoot: string): Promise<TestServer> {
-  const meta = await readProject(projectRoot);
+  const meta = await readWorkspace(projectRoot);
   const hub = new WsHub();
   const handle = startWatcher(meta, hub);
   const state = new ServerState(meta, handle.cleanup);
   const app = Fastify({ logger: false });
   await app.register(websocket);
   app.setErrorHandler(mapErrorToResponse);
-  await registerProjectRoutes(app, { state, hub });
+  await registerWorkspaceRoutes(app, { state, hub });
   await registerBoardRoutes(app, { state, hub });
   await registerLaneRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });

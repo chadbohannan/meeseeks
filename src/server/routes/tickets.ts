@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
-import { getBoard } from '../../storage/project.js';
+import { getBoard } from '../../storage/workspace.js';
 import { createTicket, listTickets, readTicket, updateTicket, deleteTicket } from '../../storage/ticket.js';
 import { InvalidInputError } from '../../storage/errors.js';
 

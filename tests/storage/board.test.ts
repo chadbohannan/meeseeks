@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
 import { readFile, writeFile, access } from 'node:fs/promises';
 import { createBoard, renameBoard, deleteBoardFolder, readBoardDetail } from '../../src/storage/board.js';
-import { addBoardToProject, listBoards } from '../../src/storage/project.js';
+import { addBoardToWorkspace, listBoards } from '../../src/storage/workspace.js';
 import { ConflictError, NotFoundError } from '../../src/storage/errors.js';
 import { makeBareProject } from '../helpers/tmp-project.js';
 
@@ -70,7 +70,7 @@ describe('renameBoard', () => {
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/old');
     await createBoard(boardPath, 'Old');
-    await addBoardToProject(tp.root, 'boards/old');
+    await addBoardToWorkspace(tp.root, 'boards/old');
 
     const newPath = path.join(tp.root, 'boards/renamed');
     await renameBoard(tp.root, 'boards/old', 'boards/renamed');

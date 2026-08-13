@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import path from 'node:path';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
-import { listBoards, addBoardToProject, removeBoardFromProject, getBoard, readProject } from '../../storage/project.js';
+import { listBoards, addBoardToWorkspace, removeBoardFromWorkspace, getBoard, readWorkspace } from '../../storage/workspace.js';
 import { createBoard, readBoardDetail, renameBoard, deleteBoardFolder, updateBoardName, writeBoardContextContent } from '../../storage/board.js';
 import { InvalidInputError } from '../../storage/errors.js';
 import { slugifyBoardPath } from '../../storage/paths.js';
@@ -25,7 +25,7 @@ export async function registerBoardRoutes(
     const entry = body.path ?? `boards/${slugifyBoardPath(body.name)}`;
     const abs = path.isAbsolute(entry) ? entry : path.resolve(open.meta.path, entry);
     await createBoard(abs, body.name);
-    await addBoardToProject(open.meta.path, entry);
+    await addBoardToWorkspace(open.meta.path, entry);
     const board = await getBoard(open.meta.path, slugifyBoardPath(entry));
     hub.broadcast({ type: 'board-changed', payload: { boardId: board.boardId, kind: 'created' } });
     return { board };
@@ -41,7 +41,7 @@ export async function registerBoardRoutes(
     const open = state.require();
     const board = await getBoard(open.meta.path, req.params.boardId);
     if (req.body?.name) {
-      const meta = await readProject(open.meta.path);
+      const meta = await readWorkspace(open.meta.path);
       const oldEntry = meta.config.boards.find(b => slugifyBoardPath(b) === board.boardId);
       if (oldEntry) {
         const parentDir = path.dirname(oldEntry);
@@ -63,9 +63,9 @@ export async function registerBoardRoutes(
   app.delete<{ Params: { boardId: string }; Body: { deleteFiles?: boolean } }>('/api/boards/:boardId', async (req) => {
     const open = state.require();
     const board = await getBoard(open.meta.path, req.params.boardId);
-    const meta = await readProject(open.meta.path);
+    const meta = await readWorkspace(open.meta.path);
     const entry = meta.config.boards.find(b => slugifyBoardPath(b) === board.boardId);
-    if (entry) await removeBoardFromProject(open.meta.path, entry);
+    if (entry) await removeBoardFromWorkspace(open.meta.path, entry);
     if (req.body?.deleteFiles) await deleteBoardFolder(board.path);
     hub.broadcast({ type: 'board-changed', payload: { boardId: board.boardId, kind: 'deleted' } });
     return { ok: true };

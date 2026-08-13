@@ -3,7 +3,7 @@ import type {
   CreateLaneRequest, PatchLaneRequest, DeleteLaneRequest,
   CreateTicketRequest, PatchTicketRequest, ListTicketsResponse,
   ApiErrorBody,
-  ProjectMeta, BoardSummary, BoardDetail, LaneDetail, TicketDetail,
+  WorkspaceMeta, BoardSummary, BoardDetail, LaneDetail, TicketDetail,
   ListFilesResponse, ReadFileResponse, WriteFileRequest, WriteFileResponse,
   PatchFileRequest, PatchFileResponse, FileNode,
   ListPromptsResponse, GetPromptResponse, PutPromptRequest, ListPromptLogsResponse,
@@ -39,8 +39,8 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
 const enc = encodeURIComponent;
 
 export const api = {
-  // Projects
-  current: () => request<{ project: ProjectMeta | null }>('GET', '/api/projects/current'),
+  // Workspace
+  workspace: () => request<{ workspace: WorkspaceMeta | null }>('GET', '/api/workspace'),
 
   // Models
   listModels: () => request<ListModelsResponse>('GET', '/api/models'),

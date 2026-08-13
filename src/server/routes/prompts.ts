@@ -6,7 +6,7 @@ import yaml from 'js-yaml';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
 import { ConflictError, InvalidInputError, NotFoundError } from '../../storage/errors.js';
-import { getBoard } from '../../storage/project.js';
+import { getBoard } from '../../storage/workspace.js';
 import {
   listPrompts, readPrompt, writePrompt, deletePrompt, promptExists,
   appendRunLog, listRunLogs,

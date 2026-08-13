@@ -1,4 +1,4 @@
-import type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, TicketSummary, TicketDetail, FileNode, ModelOption } from './types.js';
+import type { WorkspaceMeta, BoardSummary, BoardDetail, LaneDetail, LaneState, TicketSummary, TicketDetail, FileNode, ModelOption } from './types.js';
 
 // Models
 export interface ListModelsResponse { models: ModelOption[] }
@@ -48,4 +48,4 @@ export interface ApiErrorBody {
   error: { code: string; message: string };
 }
 
-export type { ProjectMeta, BoardSummary, BoardDetail, LaneDetail, TicketSummary, TicketDetail, FileNode };
+export type { WorkspaceMeta, BoardSummary, BoardDetail, LaneDetail, TicketSummary, TicketDetail, FileNode };

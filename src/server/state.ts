@@ -1,16 +1,16 @@
-import type { ProjectMeta } from '../shared/types.js';
+import type { WorkspaceMeta } from '../shared/types.js';
 import { RuntimeSupervisor } from '../runtime/supervisor.js';
 
-export interface OpenProjectState {
-  meta: ProjectMeta;
+export interface OpenWorkspaceState {
+  meta: WorkspaceMeta;
   watcherCleanup?: () => Promise<void>;
 }
 
 export class ServerState {
-  private readonly _state: OpenProjectState;
+  private readonly _state: OpenWorkspaceState;
   readonly supervisor = new RuntimeSupervisor();
 
-  constructor(meta: ProjectMeta, watcherCleanup?: () => Promise<void>) {
+  constructor(meta: WorkspaceMeta, watcherCleanup?: () => Promise<void>) {
     this._state = { meta, watcherCleanup };
   }
 
@@ -21,6 +21,6 @@ export class ServerState {
     }
   }
 
-  require(): OpenProjectState { return this._state; }
-  peek(): OpenProjectState { return this._state; }
+  require(): OpenWorkspaceState { return this._state; }
+  peek(): OpenWorkspaceState { return this._state; }
 }

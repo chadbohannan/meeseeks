@@ -1,6 +1,6 @@
 import chokidar from 'chokidar';
 import path from 'node:path';
-import type { ProjectMeta } from '../shared/types.js';
+import type { WorkspaceMeta } from '../shared/types.js';
 import type { ChangeKind, WsEvent } from '../shared/events.js';
 import type { WsHub } from './ws.js';
 import { slugifyBoardPath } from '../storage/paths.js';
@@ -18,9 +18,9 @@ interface PendingChange {
 
 const DEBOUNCE_MS = 50;
 
-export function startWatcher(meta: ProjectMeta, hub: WsHub): WatcherHandle {
-  const projectRoot = meta.path;
-  const watcher = chokidar.watch(projectRoot, {
+export function startWatcher(meta: WorkspaceMeta, hub: WsHub): WatcherHandle {
+  const workspaceRoot = meta.path;
+  const watcher = chokidar.watch(workspaceRoot, {
     ignored: ['**/node_modules/**', '**/.git/**', '**/.meeseeks/**', '**/.claude/**'],
     ignoreInitial: true,
     usePolling: true,
@@ -41,7 +41,7 @@ export function startWatcher(meta: ProjectMeta, hub: WsHub): WatcherHandle {
   }
 
   function handle(absPath: string, kind: ChangeKind): void {
-    const rel = path.relative(projectRoot, absPath);
+    const rel = path.relative(workspaceRoot, absPath);
     if (!rel || rel.startsWith('..')) return;
     const parts = rel.split(path.sep);
     const lanesIdx = parts.indexOf('lanes');
@@ -61,7 +61,7 @@ export function startWatcher(meta: ProjectMeta, hub: WsHub): WatcherHandle {
       return;
     }
     if (lanesIdx === -1) {
-      // Skip top-level project files (e.g. project.meeseeks itself).
+      // Skip top-level workspace config files (e.g. project.yaml itself).
       // Board-level changes need at least <boardEntry>/<file>.
       if (parts.length < 2) return;
       const boardEntry = parts.slice(0, parts.length - 1).join('/');
