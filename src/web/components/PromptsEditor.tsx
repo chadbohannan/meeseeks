@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
-  usePrompts, usePrompt, usePutPrompt, useDeletePrompt, useRunPrompt, usePromptLogs, useModels,
-  useWorkflows,
+  usePrompts, usePrompt, usePutPrompt, useDeletePrompt, useRunPrompt, usePromptLogs,
+  useWorkflows, useWorkflow,
 } from '../hooks/queries.js';
+import { useModelOptions } from '../hooks/use-model-options.js';
 import type { PromptRunLog } from '@shared/api.js';
 import { api } from '../lib/api.js';
 import { useRuntimesStore } from '../store/runtimes.js';
@@ -122,11 +123,8 @@ function PromptEditor({ name, onDeleted }: { name: string; onDeleted: () => void
   const run = useRunPrompt();
   const openModal = usePromptsStore((s) => s.openModal);
   const runtimes = useRuntimesStore((s) => s.byId);
-  const { data: modelsData } = useModels();
-  const models = modelsData?.models ?? [];
   const [body, setBody] = useState('');
   const [dirty, setDirty] = useState(false);
-  const [model, setModel] = useState('');
   // Prompts live at the workspace root and may target any project. Unlike
   // tickets, a project-less prompt run is legitimate (e.g. "lint the wiki").
   const lastProject = useUi(st => st.lastProject);
@@ -141,13 +139,16 @@ function PromptEditor({ name, onDeleted }: { name: string; onDeleted: () => void
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bodyInitializedRef = useRef(false);
 
-  // Default to the first available model once the list loads (or if the current
-  // selection is no longer offered).
-  useEffect(() => {
-    if (models.length > 0 && !models.some(m => m.value === model)) {
-      setModel(models[0]!.value);
-    }
-  }, [models, model]);
+  // Adopting the chosen workflow's runtime is what the workflow picker above
+  // already promises, so the model follows the selection and re-seeds whenever
+  // it changes. With no workflow chosen there is no default and the workspace
+  // list applies — which is why `ready` is true in that case rather than
+  // waiting on a query that will never run.
+  const selectedWorkflow = useWorkflow(promptWorkflow);
+  const { options: models, model, setModel, unlisted: modelUnlisted } = useModelOptions(
+    selectedWorkflow.data?.workflow.runtime?.model,
+    !promptWorkflow || selectedWorkflow.isSuccess,
+  );
 
   const liveRuntime = useMemo(() => Object.values(runtimes).find(r =>
     r.kind === 'prompt' && r.promptRef?.name === name &&
@@ -236,10 +237,13 @@ function PromptEditor({ name, onDeleted }: { name: string; onDeleted: () => void
             ))}
           </select>
           <select
-            className="bg-slate-800 rounded px-2 py-1 text-xs text-slate-300"
+            className={`bg-slate-800 rounded px-2 py-1 text-xs ${modelUnlisted ? 'text-amber-400' : 'text-slate-300'}`}
             value={model}
             onChange={(e) => setModel(e.target.value)}
             disabled={!!liveRuntime}
+            title={modelUnlisted
+              ? `The selected workflow pins "${model}", which the workspace does not list. Check its workflow.yaml.`
+              : 'Model for this run. Follows the selected workflow\'s runtime model.'}
           >
             {models.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
           </select>

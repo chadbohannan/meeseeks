@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { useWorkflow, useTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime, useModels, useProjects } from '../hooks/queries.js';
+import { useWorkflow, useTicket, useDeleteTicket, useSpawnRuntime, useTerminateRuntime, useProjects } from '../hooks/queries.js';
+import { useModelOptions } from '../hooks/use-model-options.js';
 import { ProjectSelect, findProject } from '../components/ProjectControls.js';
 import { PermissionsPanel } from '../components/PermissionsPanel.js';
 import { useUi } from '../store/ui.js';
@@ -58,16 +59,12 @@ export function TicketRoute() {
   const [tab, setTab] = useState<'console' | 'context' | 'permissions'>('console');
   const { data: projectsData } = useProjects();
   const setLastProject = useUi(s => s.setLastProject);
-  const { data: modelsData } = useModels();
-  const models = modelsData?.models ?? [];
-  const [model, setModel] = useState('');
-  // Default to the first available model once the list loads (or if the current
-  // selection is no longer offered).
-  useEffect(() => {
-    if (models.length > 0 && !models.some(m => m.value === model)) {
-      setModel(models[0]!.value);
-    }
-  }, [models, model]);
+  // Seeded from this workflow's resolved runtime, so its `runtime.model` is
+  // the starting selection rather than a value the picker silently shadows.
+  const { options: models, model, setModel, unlisted: modelUnlisted } = useModelOptions(
+    workflow.data?.workflow.runtime?.model,
+    workflow.isSuccess,
+  );
   // Body the server most recently persisted (whether we wrote it or it came in
   // from a fresh load). Used to distinguish echoes of our own saves from genuine
   // external edits.
@@ -404,9 +401,12 @@ export function TicketRoute() {
           ) : (
             <>
               <select
-                className="bg-slate-800 rounded px-2 py-1 text-xs text-slate-300"
+                className={`bg-slate-800 rounded px-2 py-1 text-xs ${modelUnlisted ? 'text-amber-400' : 'text-slate-300'}`}
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
+                title={modelUnlisted
+                  ? `This workflow pins "${model}", which the workspace does not list. Check workflow.yaml.`
+                  : 'Model for this run. Defaults to the workflow\'s runtime model.'}
               >
                 {models.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select>
