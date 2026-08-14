@@ -1,4 +1,0 @@
-name: meeseeks
-workflows:
-  - workflows/development
-projects: []
