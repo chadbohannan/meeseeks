@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import {
-  useProjects, useProject, useCreateProject, usePatchProject, useDeleteProject,
+  useProjects, useProject, usePatchProject, useDeleteProject,
 } from '../hooks/queries.js';
+import { NewProjectModal } from '../components/NewProjectModal.js';
 import type { PermissionsConfig } from '@shared/types.js';
 
 const FALLBACK_COLOR = '#64748b';
@@ -76,10 +77,6 @@ function ProjectEditor({ projectId }: { projectId: string }) {
 
   return (
     <div className="max-w-3xl">
-      <div className="flex items-center gap-2 mb-1">
-        <h2 className="text-xl font-semibold">{p.name}</h2>
-        <span className="text-xs text-slate-500 font-mono">{p.projectId}</span>
-      </div>
       {!p.available && (
         <p className="text-xs text-amber-400 mb-3">
           Root does not exist on disk. Agents started against this project will not find the codebase.
@@ -88,7 +85,14 @@ function ProjectEditor({ projectId }: { projectId: string }) {
 
       <div className="grid gap-3 mb-4">
         <div>
-          <label className="block text-xs text-slate-400 mb-1">Name</label>
+          {/* The selected project is already named by the highlighted chip above
+              and by this field's value, so a heading would be a third copy. The
+              id is shown here instead — it appears nowhere else, and this is
+              where the rename caveat below is relevant. */}
+          <div className="flex items-baseline justify-between mb-1">
+            <label className="text-xs text-slate-400">Name</label>
+            <span className="text-[10px] text-slate-500 font-mono">id: {p.projectId}</span>
+          </div>
           <input
             className="w-full bg-slate-800 rounded px-2 py-1 text-sm"
             value={current.name}
@@ -180,67 +184,35 @@ function ProjectEditor({ projectId }: { projectId: string }) {
   );
 }
 
-function NewProjectForm() {
-  const create = useCreateProject();
-  const navigate = useNavigate();
-  const [name, setName] = useState('');
-  const [root, setRoot] = useState('');
-
-  return (
-    <form
-      className="flex gap-2 items-end"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        if (!name.trim() || !root.trim()) return;
-        try {
-          const res = await create.mutateAsync({ name, root });
-          setName(''); setRoot('');
-          navigate(`/projects/${encodeURIComponent(res.project.projectId)}`);
-        } catch (err) { toast.error((err as Error).message); }
-      }}
-    >
-      <div>
-        <label className="block text-xs text-slate-400 mb-1">Name</label>
-        <input
-          className="bg-slate-800 rounded px-2 py-1 text-sm"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="meeseeks"
-        />
-      </div>
-      <div className="flex-1">
-        <label className="block text-xs text-slate-400 mb-1">Repository root</label>
-        <input
-          className="w-full bg-slate-800 rounded px-2 py-1 text-sm font-mono"
-          value={root}
-          onChange={(e) => setRoot(e.target.value)}
-          placeholder="~/workspace/meeseeks"
-        />
-      </div>
-      <button type="submit" className="px-3 py-1 rounded bg-blue-600 text-sm" disabled={create.isPending}>
-        Add project
-      </button>
-    </form>
-  );
-}
-
 export function ProjectsRoute() {
   const { projectId } = useParams<{ projectId?: string }>();
   const { data, isLoading } = useProjects();
+  const navigate = useNavigate();
+  const [showNew, setShowNew] = useState(false);
   const projects = data?.projects ?? [];
 
   return (
     <div className="p-8">
-      <h1 className="text-2xl mb-1">Projects</h1>
+      <div className="flex items-center justify-between mb-1">
+        <h1 className="text-2xl">Projects</h1>
+        <button
+          className="px-3 py-1 rounded bg-blue-600 text-sm"
+          onClick={() => setShowNew(true)}
+        >+ Project</button>
+      </div>
       <p className="text-sm text-slate-500 mb-4">
         A project is a codebase configuration. Tickets on any board can be assigned to any project.
       </p>
 
-      <div className="mb-6"><NewProjectForm /></div>
+      <NewProjectModal
+        open={showNew}
+        onClose={() => setShowNew(false)}
+        onCreated={(id) => navigate(`/projects/${encodeURIComponent(id)}`)}
+      />
 
       {isLoading && <p className="text-slate-500">Loading…</p>}
       {!isLoading && projects.length === 0 && (
-        <p className="text-slate-500">No projects yet. Add one above to start assigning tickets.</p>
+        <p className="text-slate-500">No projects yet. Add one to start assigning tickets.</p>
       )}
 
       {projects.length > 0 && (

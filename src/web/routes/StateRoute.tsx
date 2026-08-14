@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useParams, Navigate, Link } from 'react-router-dom';
 import { useTickets, useLane, useCreateTicket } from '../hooks/queries.js';
 import { TicketCard } from '../components/TicketCard.js';
-import { ProjectFilter, ProjectSelect, matchesProjectFilter } from '../components/ProjectControls.js';
+import { ProjectFilter, ProjectSelect, FilteredEmptyNotice, matchesProjectFilter } from '../components/ProjectControls.js';
 import { useUi, PROJECT_FILTER_ALL, PROJECT_FILTER_UNASSIGNED } from '../store/ui.js';
 import { toast } from 'sonner';
 
@@ -37,8 +37,12 @@ export function StateRoute() {
       <div className="flex items-center gap-3 mb-4">
         <Link to={`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(laneName)}`} className="text-slate-400 hover:text-white text-lg font-semibold">{lane.data?.lane.displayName ?? laneName}</Link>
         <h2 className="text-lg font-semibold">{stateName}</h2>
+        <ProjectFilter value={filter} onChange={(v) => setProjectFilter(boardId, v)} />
+        {hiddenCount > 0 && filtered.length > 0 && (
+          <span className="text-xs text-slate-400">{hiddenCount} hidden</span>
+        )}
         <form
-          className="flex gap-2"
+          className="ml-auto flex gap-2"
           onSubmit={async (e) => {
             e.preventDefault();
             if (!newTitle.trim()) return;
@@ -58,12 +62,18 @@ export function StateRoute() {
           <ProjectSelect value={newProject} onChange={setNewProject} className="py-1" />
           <button type="submit" className="px-3 py-1 rounded bg-blue-600 text-sm" disabled={create.isPending}>Add</button>
         </form>
-        <div className="ml-auto flex items-center gap-3">
-          <ProjectFilter value={filter} onChange={(v) => setProjectFilter(boardId, v)} />
-          {hiddenCount > 0 && <span className="text-xs text-slate-500">{hiddenCount} hidden</span>}
-        </div>
       </div>
-      {filtered.length === 0 && <p className="text-slate-500">No tickets in this state.</p>}
+      {hiddenCount > 0 && filtered.length === 0 && (
+        <div className="mb-4">
+          <FilteredEmptyNotice
+            hiddenCount={hiddenCount}
+            onClear={() => setProjectFilter(boardId, PROJECT_FILTER_ALL)}
+          />
+        </div>
+      )}
+      {filtered.length === 0 && hiddenCount === 0 && (
+        <p className="text-slate-500">No tickets in this state.</p>
+      )}
       <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {filtered.map((t) => (
           <TicketCard key={t.filename} boardId={boardId} laneName={laneName} ticket={t} />

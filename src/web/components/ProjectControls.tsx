@@ -103,21 +103,57 @@ interface FilterProps {
 export function ProjectFilter({ value, onChange }: FilterProps) {
   const { data } = useProjects();
   const projects = data?.projects ?? [];
+  const active = value !== PROJECT_FILTER_ALL;
+  // A persisted filter naming a deleted project has no matching <option>, and a
+  // select with an unmatched value renders its *first* option instead — so the
+  // control would read "All" while still hiding everything. Keep the stale
+  // value selectable so the display always matches the filter actually applied.
+  const isStale = active
+    && value !== PROJECT_FILTER_UNASSIGNED
+    && !projects.some(p => p.projectId === value);
+
   return (
     <label className="flex items-center gap-1.5 text-xs text-slate-400">
       Project
       <select
-        className="bg-slate-800 rounded px-2 py-1 text-xs text-slate-300"
+        className={`rounded px-2 py-1 text-xs ${
+          active ? 'bg-blue-900 text-white ring-1 ring-blue-500' : 'bg-slate-800 text-slate-300'
+        }`}
         value={value}
         onChange={(e) => onChange(e.target.value)}
       >
         <option value={PROJECT_FILTER_ALL}>All</option>
         <option value={PROJECT_FILTER_UNASSIGNED}>Unassigned</option>
+        {isStale && <option value={value}>{value} (deleted)</option>}
         {projects.map(p => (
           <option key={p.projectId} value={p.projectId}>{p.name}</option>
         ))}
       </select>
     </label>
+  );
+}
+
+/**
+ * Shown when a filter is the reason a view looks empty. The sidebar's counts
+ * come from the server and are never filtered, so without this the two
+ * disagree with no visible explanation.
+ */
+export function FilteredEmptyNotice({
+  hiddenCount, onClear,
+}: {
+  hiddenCount: number;
+  onClear: () => void;
+}) {
+  return (
+    <div className="flex items-center gap-3 rounded border border-blue-800 bg-blue-950/40 px-3 py-2 text-sm">
+      <span className="text-slate-300">
+        {hiddenCount} {hiddenCount === 1 ? 'ticket is' : 'tickets are'} hidden by the project filter.
+      </span>
+      <button
+        className="rounded bg-blue-700 px-2 py-0.5 text-xs hover:bg-blue-600"
+        onClick={onClear}
+      >Clear filter</button>
+    </div>
   );
 }
 

@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import { useTickets, useMoveTicket } from '../hooks/queries.js';
 import type { LaneDetail, TicketSummary } from '@shared/types.js';
 import { TicketCard } from './TicketCard.js';
-import { ProjectFilter, matchesProjectFilter } from './ProjectControls.js';
+import { ProjectFilter, FilteredEmptyNotice, matchesProjectFilter } from './ProjectControls.js';
 import { useUi, PROJECT_FILTER_ALL } from '../store/ui.js';
 import { toast } from 'sonner';
 
@@ -46,10 +46,18 @@ export function Kanban({ boardId, lane }: Props) {
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-4 pt-3 shrink-0">
         <ProjectFilter value={filter} onChange={(v) => setProjectFilter(boardId, v)} />
-        {hiddenCount > 0 && (
-          <span className="text-xs text-slate-500">{hiddenCount} hidden by filter</span>
+        {hiddenCount > 0 && visible.length > 0 && (
+          <span className="text-xs text-slate-400">{hiddenCount} hidden by filter</span>
         )}
       </div>
+      {hiddenCount > 0 && visible.length === 0 && (
+        <div className="px-4 pt-2 shrink-0">
+          <FilteredEmptyNotice
+            hiddenCount={hiddenCount}
+            onClear={() => setProjectFilter(boardId, PROJECT_FILTER_ALL)}
+          />
+        </div>
+      )}
       <div className="flex-1 flex gap-3 p-4">
         {lane.states.map((s) => {
           const items = grouped[s.dir] ?? [];
