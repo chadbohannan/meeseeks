@@ -8,6 +8,7 @@ import { WorkflowRoute } from './routes/WorkflowRoute.js';
 import { StateRoute } from './routes/StateRoute.js';
 import { TicketRoute } from './routes/TicketRoute.js';
 import { ProjectsRoute } from './routes/ProjectsRoute.js';
+import { SettingsRoute } from './routes/SettingsRoute.js';
 import { Mdi } from './components/console/Mdi.js';
 import { PromptRunModals } from './components/console/PromptRunModal.js';
 
@@ -22,6 +23,7 @@ export default function App() {
           <Route path="/workflows" element={<div className="p-8 text-slate-500">Select a workflow from the sidebar.</div>} />
           <Route path="/projects" element={<ProjectsRoute />} />
           <Route path="/projects/:projectId" element={<ProjectsRoute />} />
+          <Route path="/settings" element={<SettingsRoute />} />
           <Route path="/workflows/:workflowName" element={<WorkflowRoute />} />
           <Route path="/workflows/:workflowName/edit" element={<WorkflowEditorRoute />} />
           <Route path="/workflows/:workflowName/state/:stateDir" element={<StateRoute />} />

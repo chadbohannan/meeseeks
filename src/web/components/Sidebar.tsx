@@ -47,6 +47,18 @@ export function Sidebar() {
           </span>
         )}
       </NavLink>
+      {/* Top-level rather than inside a workflow editor: these files are
+          workspace-scoped, and a workspace with no workflows yet still needs
+          somewhere to write a prompt or a skill. */}
+      <NavLink
+        to="/settings"
+        className={({ isActive }) =>
+          `flex items-center gap-2 px-3 py-2 border-t border-slate-800 text-xs uppercase tracking-wide ${
+            isActive ? 'bg-slate-800 text-white' : 'text-slate-400 hover:text-white'
+          }`}
+      >
+        <span className="font-semibold">Workspace</span>
+      </NavLink>
       <NewWorkflowModal open={showNew} onClose={() => setShowNew(false)} />
     </nav>
   );

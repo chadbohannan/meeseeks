@@ -1,0 +1,8 @@
+name: Development
+states:
+  - dir: todo
+    name: Todo
+  - dir: in-progress
+    name: In progress
+  - dir: done
+    name: Done

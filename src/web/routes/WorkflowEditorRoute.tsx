@@ -1,29 +1,21 @@
 import { useState } from 'react';
-import { useParams, useSearchParams, useNavigate, Navigate } from 'react-router-dom';
+import { useParams, useSearchParams, useNavigate, Navigate, Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useWorkflow, usePatchWorkflow, useDeleteWorkflow } from '../hooks/queries.js';
 import type { WorkflowState, RuntimeConfig } from '@shared/types.js';
-import { SkillsEditor } from '../components/SkillsEditor.js';
-import { BinEditor } from '../components/BinEditor.js';
-import { PromptsEditor } from '../components/PromptsEditor.js';
 import { StatesEditor } from '../components/StatesEditor.js';
+import { SectionNav, type SectionItem } from '../components/SectionNav.js';
 import { FocusGatedMarkdownEditor } from '../components/FocusGatedMarkdownEditor.js';
 
-type Section = 'states' | 'process' | 'runtime' | 'prompts' | 'skills' | 'bin';
+// Only this workflow's own configuration. Prompts, skills and bin are
+// workspace-scoped and live at /settings: they are the same files from every
+// workflow, and reaching them must not require having picked one.
+type Section = 'states' | 'process' | 'runtime';
 
-const WORKFLOW_SECTIONS: Array<{ key: Section; label: string }> = [
+const SECTIONS: ReadonlyArray<SectionItem<Section>> = [
   { key: 'states', label: 'States' },
   { key: 'process', label: 'PROCESS.md' },
   { key: 'runtime', label: 'Runtime' },
-];
-
-// These edit files at the workspace root, shared by every workflow. They live
-// here because this is the only settings surface, but they are labelled by what
-// they actually edit so the scope is legible from the label alone.
-const WORKSPACE_SECTIONS: Array<{ key: Section; label: string }> = [
-  { key: 'prompts', label: 'Prompts' },
-  { key: 'skills', label: '.claude/skills' },
-  { key: 'bin', label: '.claude/bin' },
 ];
 
 export function WorkflowEditorRoute() {
@@ -36,54 +28,21 @@ export function WorkflowEditorRoute() {
   return (
     <div className="flex h-full">
       <div className="w-52 border-r border-slate-700 flex flex-col shrink-0">
-        <SectionGroup
+        <SectionNav
           heading={workflowName}
-          items={WORKFLOW_SECTIONS}
+          items={SECTIONS}
           active={section}
           onSelect={(k) => setSearchParams({ section: k })}
         />
-        <SectionGroup
-          heading="Workspace"
-          items={WORKSPACE_SECTIONS}
-          active={section}
-          onSelect={(k) => setSearchParams({ section: k })}
-        />
+        <Link
+          to="/settings"
+          className="px-4 py-2 text-xs text-slate-500 hover:text-slate-300"
+        >Workspace settings →</Link>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {section === 'prompts' ? <PromptsEditor />
-          : section === 'skills' ? <SkillsEditor />
-          : section === 'bin' ? <BinEditor />
-          : <WorkflowConfig workflowName={workflowName} section={section} />}
+        <WorkflowConfig workflowName={workflowName} section={section} />
       </div>
-    </div>
-  );
-}
-
-function SectionGroup({
-  heading, items, active, onSelect,
-}: {
-  heading: string;
-  items: Array<{ key: Section; label: string }>;
-  active: Section;
-  onSelect: (key: Section) => void;
-}) {
-  return (
-    <div className="border-b border-slate-800">
-      <div className="px-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500 truncate">
-        {heading}
-      </div>
-      {items.map(item => (
-        <div
-          key={item.key}
-          className={`px-4 py-2 cursor-pointer text-sm border-b border-slate-800/50 ${
-            active === item.key ? 'bg-slate-800 text-white' : 'text-slate-300 hover:bg-slate-800/50'
-          }`}
-          onClick={() => onSelect(item.key)}
-        >
-          {item.label}
-        </div>
-      ))}
     </div>
   );
 }
