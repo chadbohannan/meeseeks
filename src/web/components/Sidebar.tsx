@@ -2,10 +2,10 @@ import { useState } from 'react';
 import { useNavigate, useParams, useLocation, NavLink } from 'react-router-dom';
 import { useBoards, useBoard, useTickets, useProjects } from '../hooks/queries.js';
 import { useRuntimesStore } from '../store/runtimes.js';
-import { useUi, boardCollapseKey, laneCollapseKey } from '../store/ui.js';
+import { useUi, boardCollapseKey, workflowCollapseKey } from '../store/ui.js';
 import { RuntimeStatusDot } from './RuntimeStatusDot.js';
 import { NewBoardModal } from './NewBoardModal.js';
-import type { BoardSummary, LaneSummary } from '@shared/types.js';
+import type { BoardSummary, WorkflowSummary } from '@shared/types.js';
 import type { RuntimeSummary } from '@shared/runtime.js';
 
 export function Sidebar() {
@@ -55,9 +55,9 @@ export function Sidebar() {
 function BoardNode({ board }: { board: BoardSummary }) {
   const { boardId: activeBoardId } = useParams();
   const navigate = useNavigate();
-  const laneActive = useIsLaneActive();
+  const workflowActive = useIsWorkflowActive();
   const isActive = activeBoardId === board.boardId;
-  const isBoardOnly = isActive && !laneActive;
+  const isBoardOnly = isActive && !workflowActive;
 
   const boardDetail = useBoard(board.boardId);
 
@@ -68,7 +68,7 @@ function BoardNode({ board }: { board: BoardSummary }) {
     (r) => r.kind === 'ticket' && r.ticketRef?.boardId === board.boardId && isRuntimeActive(r),
   );
   const effectiveCollapsed = userCollapsed && !hasActiveRuntime;
-  const lanes = boardDetail.data?.board.lanes ?? [];
+  const workflows = boardDetail.data?.board.workflows ?? [];
 
   return (
     <div>
@@ -80,7 +80,7 @@ function BoardNode({ board }: { board: BoardSummary }) {
       >
         <CollapseToggle
           collapsed={effectiveCollapsed}
-          visible={lanes.length > 0}
+          visible={workflows.length > 0}
           onToggle={() => toggleCollapsed(boardCollapseKey(board.boardId))}
         />
         <span className={`truncate flex-1 ${!board.available ? 'opacity-50' : ''}`}>
@@ -89,11 +89,11 @@ function BoardNode({ board }: { board: BoardSummary }) {
       </div>
       {boardDetail.data && !effectiveCollapsed && (
         <div className="ml-3">
-          {lanes.map((lane) => (
-            <LaneNode
-              key={lane.laneName}
+          {workflows.map((workflow) => (
+            <WorkflowNode
+              key={workflow.workflowName}
               boardId={board.boardId}
-              lane={lane}
+              workflow={workflow}
             />
           ))}
         </div>
@@ -129,19 +129,19 @@ function CollapseToggle({
   );
 }
 
-function useIsLaneActive() {
+function useIsWorkflowActive() {
   const location = useLocation();
-  return /\/boards\/[^/]+\/lanes\//.test(location.pathname);
+  return /\/boards\/[^/]+\/workflows\//.test(location.pathname);
 }
 
 function useActiveState() {
-  const { boardId, laneName } = useParams<{ boardId?: string; laneName?: string }>();
+  const { boardId, workflowName } = useParams<{ boardId?: string; workflowName?: string }>();
   const location = useLocation();
   const stateMatch = location.pathname.match(/\/state\/([^/]+)/);
   const ticketMatch = location.pathname.match(/\/tickets\/([^/]+)/);
   return {
     boardId,
-    laneName,
+    workflowName,
     stateDir: stateMatch?.[1] ? decodeURIComponent(stateMatch[1]) : undefined,
     filename: ticketMatch?.[1] ? decodeURIComponent(ticketMatch[1]) : undefined,
   };
@@ -151,23 +151,23 @@ function isRuntimeActive(r: RuntimeSummary) {
   return r.status === 'running' || r.status === 'starting' || r.status === 'idle' || r.status === 'awaiting-user';
 }
 
-function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
+function WorkflowNode({ boardId, workflow }: { boardId: string; workflow: WorkflowSummary }) {
   const active = useActiveState();
   const navigate = useNavigate();
-  const isActive = active.boardId === boardId && active.laneName === lane.laneName;
+  const isActive = active.boardId === boardId && active.workflowName === workflow.workflowName;
 
   const runtimes = useRuntimesStore((s) => s.byId);
-  const laneRuntimes = Object.values(runtimes).filter(
-    (r) => r.kind === 'ticket' && r.ticketRef?.boardId === boardId && r.ticketRef?.laneName === lane.laneName && isRuntimeActive(r),
+  const workflowRuntimes = Object.values(runtimes).filter(
+    (r) => r.kind === 'ticket' && r.ticketRef?.boardId === boardId && r.ticketRef?.workflowName === workflow.workflowName && isRuntimeActive(r),
   );
-  const hasActiveRuntime = laneRuntimes.length > 0;
+  const hasActiveRuntime = workflowRuntimes.length > 0;
 
-  const tickets = useTickets(hasActiveRuntime ? boardId : undefined, hasActiveRuntime ? lane.laneName : undefined);
+  const tickets = useTickets(hasActiveRuntime ? boardId : undefined, hasActiveRuntime ? workflow.workflowName : undefined);
   const ticketsByFilename = new Map(
     (tickets.data?.tickets ?? []).map((t) => [t.filename, t]),
   );
 
-  const userCollapsed = useUi((s) => !!s.collapsed[laneCollapseKey(boardId, lane.laneName)]);
+  const userCollapsed = useUi((s) => !!s.collapsed[workflowCollapseKey(boardId, workflow.workflowName)]);
   const toggleCollapsed = useUi((s) => s.toggleCollapsed);
   const effectiveCollapsed = userCollapsed && !hasActiveRuntime;
 
@@ -177,23 +177,23 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
         className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-slate-800 ${
           isActive && !active.stateDir && !active.filename ? 'bg-slate-800 text-white' : 'text-slate-300'
         }`}
-        onClick={() => navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}`)}
+        onClick={() => navigate(`/boards/${encodeURIComponent(boardId)}/workflows/${encodeURIComponent(workflow.workflowName)}`)}
       >
         <CollapseToggle
           collapsed={effectiveCollapsed}
-          visible={lane.states.length > 0}
-          onToggle={() => toggleCollapsed(laneCollapseKey(boardId, lane.laneName))}
+          visible={workflow.states.length > 0}
+          onToggle={() => toggleCollapsed(workflowCollapseKey(boardId, workflow.workflowName))}
         />
         <span className="truncate flex-1">
-          {lane.displayName}
+          {workflow.displayName}
         </span>
       </div>
       {!effectiveCollapsed && (
       <div className="ml-5">
-        {lane.states.map((st) => {
-          const count = lane.ticketCounts[st.dir] ?? 0;
-          const isStateActive = active.stateDir === st.dir && active.laneName === lane.laneName;
-          const stateRuntimes = laneRuntimes.filter((r) => {
+        {workflow.states.map((st) => {
+          const count = workflow.ticketCounts[st.dir] ?? 0;
+          const isStateActive = active.stateDir === st.dir && active.workflowName === workflow.workflowName;
+          const stateRuntimes = workflowRuntimes.filter((r) => {
             if (!r.ticketRef) return false;
             const ticket = ticketsByFilename.get(r.ticketRef!.filename);
             return ticket?.state === st.dir;
@@ -205,7 +205,7 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
                   isStateActive ? 'bg-slate-800 text-white' : 'text-slate-400'
                 }`}
                 onClick={() =>
-                  navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}/state/${encodeURIComponent(st.dir)}`)
+                  navigate(`/boards/${encodeURIComponent(boardId)}/workflows/${encodeURIComponent(workflow.workflowName)}/state/${encodeURIComponent(st.dir)}`)
                 }
               >
                 <span className="truncate flex-1">{st.name}</span>
@@ -213,7 +213,7 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
               </div>
               {stateRuntimes.map((r) => {
                 const ticket = ticketsByFilename.get(r.ticketRef!.filename);
-                const isTicketActive = active.filename === r.ticketRef!.filename && active.laneName === lane.laneName;
+                const isTicketActive = active.filename === r.ticketRef!.filename && active.workflowName === workflow.workflowName;
                 return (
                   <div
                     key={r.runtimeId}
@@ -222,7 +222,7 @@ function LaneNode({ boardId, lane }: { boardId: string; lane: LaneSummary }) {
                     }`}
                     style={{ border: `2px solid ${ticket?.color || "#6b7280"}` }}
                     onClick={() =>
-                      navigate(`/boards/${encodeURIComponent(boardId)}/lanes/${encodeURIComponent(lane.laneName)}/tickets/${encodeURIComponent(r.ticketRef!.filename)}`)
+                      navigate(`/boards/${encodeURIComponent(boardId)}/workflows/${encodeURIComponent(workflow.workflowName)}/tickets/${encodeURIComponent(r.ticketRef!.filename)}`)
                     }
                   >
                     <span className="truncate whitespace-nowrap">{ticket?.title ?? r.ticketRef!.filename}</span>

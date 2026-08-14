@@ -1,14 +1,14 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useParams, useSearchParams, Navigate } from 'react-router-dom';
-import { useBoard, useLane, useCreateLane, usePatchLane, useDeleteLane, usePatchBoard } from '../hooks/queries.js';
-import type { LaneSummary, LaneState } from '@shared/types.js';
+import { useBoard, useWorkflow, useCreateWorkflow, usePatchWorkflow, useDeleteWorkflow, usePatchBoard } from '../hooks/queries.js';
+import type { WorkflowSummary, WorkflowState } from '@shared/types.js';
 import { toast } from 'sonner';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { SkillsEditor } from '../components/SkillsEditor.js';
 import { BinEditor } from '../components/BinEditor.js';
 import { PromptsEditor } from '../components/PromptsEditor.js';
 
-const NEW_LANE_KEY = '__new__';
+const NEW_WORKFLOW_KEY = '__new__';
 
 // Treat bodies as equivalent if they only differ in trailing whitespace —
 // server round-trips through markdown serializers can add/remove a trailing
@@ -17,7 +17,7 @@ function bodiesEquivalent(a: string, b: string): boolean {
   return a.trimEnd() === b.trimEnd();
 }
 
-const DEFAULT_STATES: LaneState[] = [
+const DEFAULT_STATES: WorkflowState[] = [
   { dir: 'todo', name: 'Todo' },
   { dir: 'in-progress', name: 'In progress' },
   { dir: 'done', name: 'Done' },
@@ -27,8 +27,8 @@ export function BoardEditorRoute() {
   const { boardId } = useParams<{ boardId: string }>();
   const board = useBoard(boardId);
   const [searchParams, setSearchParams] = useSearchParams();
-  const selectedLane = searchParams.get('lane');
-  const hasSelection = searchParams.get('context') === 'true' || searchParams.get('skills') === 'true' || searchParams.get('bin') === 'true' || searchParams.get('prompts') === 'true' || !!selectedLane;
+  const selectedWorkflow = searchParams.get('workflow');
+  const hasSelection = searchParams.get('context') === 'true' || searchParams.get('skills') === 'true' || searchParams.get('bin') === 'true' || searchParams.get('prompts') === 'true' || !!selectedWorkflow;
   const isContext = !hasSelection || searchParams.get('context') === 'true';
   const isPrompts = searchParams.get('prompts') === 'true';
   const [editingName, setEditingName] = useState(false);
@@ -39,7 +39,7 @@ export function BoardEditorRoute() {
   if (board.isLoading) return <div className="p-8 text-slate-500">Loading board…</div>;
   if (!board.data) return <div className="p-8 text-red-400">Board not found.</div>;
 
-  const lanes = board.data.board.lanes;
+  const workflows = board.data.board.workflows;
 
   const startEditName = () => {
     setBoardName(board.data!.board.name);
@@ -109,21 +109,21 @@ export function BoardEditorRoute() {
           >
             <span className="text-sm font-medium">.claude/bin</span>
           </div>
-          {lanes.map((lane) => (
-            <LaneListItem
-              key={lane.laneName}
-              lane={lane}
-              selected={selectedLane === lane.laneName}
-              onClick={() => setSearchParams({ lane: lane.laneName })}
+          {workflows.map((workflow) => (
+            <WorkflowListItem
+              key={workflow.workflowName}
+              workflow={workflow}
+              selected={selectedWorkflow === workflow.workflowName}
+              onClick={() => setSearchParams({ workflow: workflow.workflowName })}
             />
           ))}
           <div
             className={`flex items-center px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
-              selectedLane === NEW_LANE_KEY ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-400'
+              selectedWorkflow === NEW_WORKFLOW_KEY ? 'bg-slate-800 text-white' : 'hover:bg-slate-800/50 text-slate-400'
             }`}
-            onClick={() => setSearchParams({ lane: NEW_LANE_KEY })}
+            onClick={() => setSearchParams({ workflow: NEW_WORKFLOW_KEY })}
           >
-            <span className="text-sm">+ New Lane</span>
+            <span className="text-sm">+ New Workflow</span>
           </div>
         </div>
 
@@ -136,12 +136,12 @@ export function BoardEditorRoute() {
             <SkillsEditor boardId={boardId} />
           ) : searchParams.get('bin') === 'true' ? (
             <BinEditor boardId={boardId} />
-          ) : selectedLane === NEW_LANE_KEY ? (
-            <NewLaneEditor boardId={boardId} onCreated={(name) => setSearchParams({ lane: name })} />
-          ) : selectedLane ? (
-            <LaneEditor boardId={boardId} laneName={selectedLane} />
+          ) : selectedWorkflow === NEW_WORKFLOW_KEY ? (
+            <NewWorkflowEditor boardId={boardId} onCreated={(name) => setSearchParams({ workflow: name })} />
+          ) : selectedWorkflow ? (
+            <WorkflowEditor boardId={boardId} workflowName={selectedWorkflow} />
           ) : (
-            <div className="p-8 text-slate-500">Select a lane to edit its configuration.</div>
+            <div className="p-8 text-slate-500">Select a workflow to edit its configuration.</div>
           )}
         </div>
       </div>
@@ -149,7 +149,7 @@ export function BoardEditorRoute() {
   );
 }
 
-function LaneListItem({ lane, selected, onClick }: { lane: LaneSummary; selected: boolean; onClick: () => void }) {
+function WorkflowListItem({ workflow, selected, onClick }: { workflow: WorkflowSummary; selected: boolean; onClick: () => void }) {
   return (
     <div
       className={`flex items-center gap-2 px-4 py-3 cursor-pointer border-b border-slate-800/50 ${
@@ -158,22 +158,22 @@ function LaneListItem({ lane, selected, onClick }: { lane: LaneSummary; selected
       onClick={onClick}
     >
       <div className="flex-1 min-w-0">
-        <div className="font-medium text-sm truncate">{lane.displayName}</div>
+        <div className="font-medium text-sm truncate">{workflow.displayName}</div>
         <div className="text-xs text-slate-500 mt-0.5">
-          {lane.states.map((s) => s.name).join(' → ')}
+          {workflow.states.map((s) => s.name).join(' → ')}
         </div>
       </div>
-      {lane.orphanedCount > 0 && <span className="text-amber-400 text-xs">⚠ {lane.orphanedCount}</span>}
+      {workflow.orphanedCount > 0 && <span className="text-amber-400 text-xs">⚠ {workflow.orphanedCount}</span>}
     </div>
   );
 }
 
-function NewLaneEditor({ boardId, onCreated }: { boardId: string; onCreated: (name: string) => void }) {
-  const create = useCreateLane(boardId);
+function NewWorkflowEditor({ boardId, onCreated }: { boardId: string; onCreated: (name: string) => void }) {
+  const create = useCreateWorkflow(boardId);
   const [name, setName] = useState('');
-  const [states, setStates] = useState<LaneState[]>(DEFAULT_STATES);
+  const [states, setStates] = useState<WorkflowState[]>(DEFAULT_STATES);
 
-  const updateState = (idx: number, field: keyof LaneState, value: string) => {
+  const updateState = (idx: number, field: keyof WorkflowState, value: string) => {
     const next = [...states];
     next[idx] = { ...next[idx], [field]: value };
     setStates(next);
@@ -192,12 +192,12 @@ function NewLaneEditor({ boardId, onCreated }: { boardId: string; onCreated: (na
   };
 
   const handleCreate = async () => {
-    if (!name.trim()) { toast.error('Lane name is required'); return; }
+    if (!name.trim()) { toast.error('Workflow name is required'); return; }
     if (states.length === 0) { toast.error('At least one state is required'); return; }
     try {
       const result = await create.mutateAsync({ name: name.trim(), states });
-      toast.success('Lane created');
-      onCreated(result.lane.laneName);
+      toast.success('Workflow created');
+      onCreated(result.workflow.workflowName);
       setName('');
       setStates(DEFAULT_STATES);
     } catch (err) { toast.error((err as Error).message); }
@@ -205,13 +205,13 @@ function NewLaneEditor({ boardId, onCreated }: { boardId: string; onCreated: (na
 
   return (
     <div className="p-6 max-w-2xl">
-      <h2 className="text-lg font-semibold mb-6">New Lane</h2>
+      <h2 className="text-lg font-semibold mb-6">New Workflow</h2>
 
       <section className="mb-6">
         <h3 className="text-sm font-semibold text-slate-400 mb-2">Name</h3>
         <input
           className="w-full bg-slate-800 rounded px-2 py-1 text-sm"
-          placeholder="Lane name (e.g. feature-work)"
+          placeholder="Workflow name (e.g. feature-work)"
           value={name}
           onChange={(e) => setName(e.target.value)}
           autoFocus
@@ -227,46 +227,46 @@ function NewLaneEditor({ boardId, onCreated }: { boardId: string; onCreated: (na
         className="px-4 py-1.5 rounded bg-blue-600 text-sm hover:bg-blue-500"
         onClick={handleCreate}
         disabled={create.isPending}
-      >Create Lane</button>
+      >Create Workflow</button>
     </div>
   );
 }
 
-function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }) {
-  const lane = useLane(boardId, laneName);
-  const patchLane = usePatchLane(boardId, laneName);
-  const deleteLane = useDeleteLane(boardId, laneName);
+function WorkflowEditor({ boardId, workflowName }: { boardId: string; workflowName: string }) {
+  const workflow = useWorkflow(boardId, workflowName);
+  const patchWorkflow = usePatchWorkflow(boardId, workflowName);
+  const deleteWorkflow = useDeleteWorkflow(boardId, workflowName);
   const [, setSearchParams] = useSearchParams();
-  const [states, setStates] = useState<LaneState[] | null>(null);
+  const [states, setStates] = useState<WorkflowState[] | null>(null);
   const [editingName, setEditingName] = useState(false);
   const [newName, setNewName] = useState('');
 
-  if (lane.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
-  if (!lane.data) return <div className="p-6 text-red-400">Lane not found.</div>;
+  if (workflow.isLoading) return <div className="p-6 text-slate-500">Loading…</div>;
+  if (!workflow.data) return <div className="p-6 text-red-400">Workflow not found.</div>;
 
-  const currentStates = states ?? lane.data.lane.states;
+  const currentStates = states ?? workflow.data.workflow.states;
   const dirty = states !== null;
 
-  const currentDisplayName = lane.data.lane.displayName;
+  const currentDisplayName = workflow.data.workflow.displayName;
 
   const startEditName = () => {
     setNewName(currentDisplayName);
     setEditingName(true);
   };
 
-  const saveLaneName = async () => {
+  const saveWorkflowName = async () => {
     const trimmed = newName.trim();
     if (trimmed && trimmed !== currentDisplayName) {
       try {
-        const result = await patchLane.mutateAsync({ name: trimmed });
-        setSearchParams({ lane: result.lane.laneName });
-        toast.success('Lane renamed');
+        const result = await patchWorkflow.mutateAsync({ name: trimmed });
+        setSearchParams({ workflow: result.workflow.workflowName });
+        toast.success('Workflow renamed');
       } catch (err) { toast.error((err as Error).message); }
     }
     setEditingName(false);
   };
 
-  const updateState = (idx: number, field: keyof LaneState, value: string) => {
+  const updateState = (idx: number, field: keyof WorkflowState, value: string) => {
     const next = [...currentStates];
     next[idx] = { ...next[idx], [field]: value };
     setStates(next);
@@ -291,18 +291,18 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
   const save = async () => {
     if (!states) return;
     try {
-      await patchLane.mutateAsync({ states });
+      await patchWorkflow.mutateAsync({ states });
       setStates(null);
-      toast.success('Lane updated');
+      toast.success('Workflow updated');
     } catch (err) { toast.error((err as Error).message); }
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete lane "${laneName}" and all its contents?`)) return;
+    if (!confirm(`Delete workflow "${workflowName}" and all its contents?`)) return;
     try {
-      await deleteLane.mutateAsync({ deleteFiles: true });
+      await deleteWorkflow.mutateAsync({ deleteFiles: true });
       setSearchParams({});
-      toast.success('Lane deleted');
+      toast.success('Workflow deleted');
     } catch (err) { toast.error((err as Error).message); }
   };
 
@@ -314,8 +314,8 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
             className="bg-slate-800 rounded px-2 py-1 text-lg font-semibold"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onBlur={saveLaneName}
-            onKeyDown={(e) => { if (e.key === 'Enter') saveLaneName(); if (e.key === 'Escape') setEditingName(false); }}
+            onBlur={saveWorkflowName}
+            onKeyDown={(e) => { if (e.key === 'Enter') saveWorkflowName(); if (e.key === 'Escape') setEditingName(false); }}
             autoFocus
           />
         ) : (
@@ -324,7 +324,7 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
           </h2>
         )}
         <button className="px-3 py-1 rounded bg-red-700/50 hover:bg-red-700 text-sm" onClick={handleDelete}>
-          Delete Lane
+          Delete Workflow
         </button>
       </div>
 
@@ -332,7 +332,7 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
         <h3 className="text-sm font-semibold text-slate-400 mb-3">States</h3>
         <StatesEditor
           states={currentStates}
-          ticketCounts={lane.data!.lane.ticketCounts}
+          ticketCounts={workflow.data!.workflow.ticketCounts}
           onUpdate={updateState}
           onAdd={addState}
           onRemove={removeState}
@@ -343,7 +343,7 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
             <button
               className="px-3 py-1 rounded bg-blue-600 text-sm"
               onClick={save}
-              disabled={patchLane.isPending}
+              disabled={patchWorkflow.isPending}
             >Save</button>
             <button
               className="px-3 py-1 rounded bg-slate-700 text-sm"
@@ -353,12 +353,12 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
         )}
       </section>
 
-      {lane.data.lane.hasProcessDoc && (
+      {workflow.data.workflow.hasProcessDoc && (
         <section className="mt-8 pt-6 border-t border-slate-800">
           <h3 className="text-sm font-semibold text-slate-400 mb-2">PROCESS.md</h3>
           <FocusGatedMarkdownEditor
-            serverValue={lane.data.lane.processDoc ?? ''}
-            save={(content) => patchLane.mutateAsync({ processDoc: content })}
+            serverValue={workflow.data.workflow.processDoc ?? ''}
+            save={(content) => patchWorkflow.mutateAsync({ processDoc: content })}
             externalLabel="PROCESS.md changed on disk while you were editing — your next save will overwrite it."
             savedToast="PROCESS.md saved"
             className="w-full bg-slate-800 rounded min-h-48"
@@ -371,9 +371,9 @@ function LaneEditor({ boardId, laneName }: { boardId: string; laneName: string }
 }
 
 interface StatesEditorProps {
-  states: LaneState[];
+  states: WorkflowState[];
   ticketCounts?: Record<string, number>;
-  onUpdate: (idx: number, field: keyof LaneState, value: string) => void;
+  onUpdate: (idx: number, field: keyof WorkflowState, value: string) => void;
   onAdd: () => void;
   onRemove: (idx: number) => void;
   onMove: (from: number, to: number) => void;

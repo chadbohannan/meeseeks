@@ -22,7 +22,7 @@ export interface BoardRuntimeConfig {
 export interface SpawnContext {
   runtimeId: string;
   boardPath: string;
-  lanePath: string;
+  workflowPath: string;
   ticketAbsPath: string;
   boardContextContent?: string | null;
   processDocContent?: string | null;

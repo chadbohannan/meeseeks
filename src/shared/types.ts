@@ -12,7 +12,7 @@ export interface WorkspaceConfig {
 
 /**
  * Agent permissions. Lives here rather than in runtime/ because storage owns
- * reading these from lane and project configs, and may not import from runtime.
+ * reading these from workflow and project configs, and may not import from runtime.
  */
 export interface PermissionsConfig {
   allowedPaths: string[];
@@ -20,7 +20,7 @@ export interface PermissionsConfig {
   deniedTools: string[];
 }
 
-export type PermissionOrigin = 'project' | 'lane';
+export type PermissionOrigin = 'project' | 'workflow';
 
 /**
  * One effective permission entry plus the config files that contributed it.
@@ -33,7 +33,7 @@ export interface ResolvedPermissionEntry {
 }
 
 /**
- * Project and lane permissions unioned. Deny beats allow inside Claude Code
+ * Project and workflow permissions unioned. Deny beats allow inside Claude Code
  * itself, so either source can enforce a floor the other cannot undo.
  * `allowedPaths` values are absolute — each source resolves its own relative
  * entries against its own base before the union.
@@ -81,24 +81,24 @@ export interface BoardSummary {
 }
 
 export interface BoardDetail extends BoardSummary {
-  lanes: LaneSummary[];
+  workflows: WorkflowSummary[];
   contextContent?: string;
 }
 
-export interface LaneState {
+export interface WorkflowState {
   dir: string;           // folder name on disk
   name: string;          // display name
 }
 
-export interface LaneSummary {
-  laneName: string;      // folder name = id (slug)
+export interface WorkflowSummary {
+  workflowName: string;      // folder name = id (slug)
   displayName: string;   // user-facing name preserving original casing
-  states: LaneState[];
+  states: WorkflowState[];
   ticketCounts: Record<string, number>;  // by state.dir
   orphanedCount: number;
 }
 
-export interface LaneDetail extends LaneSummary {
+export interface WorkflowDetail extends WorkflowSummary {
   hasProcessDoc: boolean;
   hasPermissions: boolean;
   processDoc: string | null;

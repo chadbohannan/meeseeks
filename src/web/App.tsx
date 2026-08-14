@@ -4,7 +4,7 @@ import { useRuntimeWs } from './hooks/use-runtime-ws.js';
 import { AppShell } from './components/AppShell.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
 import { BoardEditorRoute } from './routes/BoardEditorRoute.js';
-import { LaneRoute } from './routes/LaneRoute.js';
+import { WorkflowRoute } from './routes/WorkflowRoute.js';
 import { StateRoute } from './routes/StateRoute.js';
 import { TicketRoute } from './routes/TicketRoute.js';
 import { ProjectsRoute } from './routes/ProjectsRoute.js';
@@ -23,9 +23,9 @@ export default function App() {
           <Route path="/projects" element={<ProjectsRoute />} />
           <Route path="/projects/:projectId" element={<ProjectsRoute />} />
           <Route path="/boards/:boardId" element={<BoardEditorRoute />} />
-          <Route path="/boards/:boardId/lanes/:laneName" element={<LaneRoute />} />
-          <Route path="/boards/:boardId/lanes/:laneName/state/:stateDir" element={<StateRoute />} />
-          <Route path="/boards/:boardId/lanes/:laneName/tickets/:filename" element={<TicketRoute />} />
+          <Route path="/boards/:boardId/workflows/:workflowName" element={<WorkflowRoute />} />
+          <Route path="/boards/:boardId/workflows/:workflowName/state/:stateDir" element={<StateRoute />} />
+          <Route path="/boards/:boardId/workflows/:workflowName/tickets/:filename" element={<TicketRoute />} />
         </Route>
       </Routes>
       <Mdi />

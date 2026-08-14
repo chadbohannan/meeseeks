@@ -3,8 +3,8 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 import { ConflictError, NotFoundError, InvalidInputError } from './errors.js';
 import { readWorkspace, writeWorkspace } from './workspace.js';
-import { listLanes, createLane } from './lane.js';
-import { boardContextTemplate, STARTER_LANE, STARTER_LANE_PROCESS } from './templates.js';
+import { listWorkflows, createWorkflow } from './workflow.js';
+import { boardContextTemplate, STARTER_WORKFLOW, STARTER_WORKFLOW_PROCESS } from './templates.js';
 import type { BoardDetail } from '../shared/types.js';
 
 const DEFAULT_BOARD_YAML = (name: string) => yaml.dump({
@@ -70,11 +70,11 @@ export async function updateBoardName(boardPath: string, name: string): Promise<
 export async function createBoard(boardPath: string, name: string): Promise<void> {
   if (!name || typeof name !== 'string') throw new InvalidInputError('board name required');
   if (await exists(boardPath)) throw new ConflictError(`board folder already exists: ${boardPath}`);
-  await mkdir(path.join(boardPath, 'lanes'), { recursive: true });
+  await mkdir(path.join(boardPath, 'workflows'), { recursive: true });
   await writeFile(path.join(boardPath, 'CONTEXT.md'), DEFAULT_CONTEXT_MD(name), 'utf8');
   await writeFile(path.join(boardPath, 'board.yaml'), DEFAULT_BOARD_YAML(name), 'utf8');
   await writeFile(path.join(boardPath, '.gitignore'), '.meeseeks/\n', 'utf8');
-  await createLane(boardPath, STARTER_LANE.name, STARTER_LANE.states, { processDoc: STARTER_LANE_PROCESS });
+  await createWorkflow(boardPath, STARTER_WORKFLOW.name, STARTER_WORKFLOW.states, { processDoc: STARTER_WORKFLOW_PROCESS });
 }
 
 export async function readBoardDetail(
@@ -84,14 +84,14 @@ export async function readBoardDetail(
   if (!(await exists(boardPath))) {
     throw new NotFoundError(`board not found: ${boardPath}`);
   }
-  const lanes = await listLanes(boardPath);
+  const workflows = await listWorkflows(boardPath);
   const contextContent = await readBoardContextContent(boardPath);
   return {
     boardId: identity.boardId,
     name: identity.name,
     path: boardPath,
     available: true,
-    lanes,
+    workflows,
     contextContent,
   };
 }

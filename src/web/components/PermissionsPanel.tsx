@@ -3,7 +3,7 @@ import { useTicketPermissions } from '../hooks/queries.js';
 
 const ORIGIN_STYLE: Record<PermissionOrigin, string> = {
   project: 'bg-sky-950 text-sky-300 border-sky-800',
-  lane: 'bg-violet-950 text-violet-300 border-violet-800',
+  workflow: 'bg-violet-950 text-violet-300 border-violet-800',
 };
 
 function OriginTags({ origins }: { origins: PermissionOrigin[] }) {
@@ -80,19 +80,19 @@ function Body({ permissions }: { permissions: ResolvedPermissions | null }) {
 
 interface Props {
   boardId: string;
-  laneName: string;
+  workflowName: string;
   filename: string;
   active: boolean;
 }
 
 /**
  * What a spawn *would* run with, resolved by the same code path the supervisor
- * uses. Shows provenance because project and lane both contribute to one
+ * uses. Shows provenance because project and workflow both contribute to one
  * effective policy, and "which file did this rule come from" is otherwise
  * guesswork.
  */
-export function PermissionsPanel({ boardId, laneName, filename, active }: Props) {
-  const { data, isLoading, error } = useTicketPermissions(boardId, laneName, filename, active);
+export function PermissionsPanel({ boardId, workflowName, filename, active }: Props) {
+  const { data, isLoading, error } = useTicketPermissions(boardId, workflowName, filename, active);
 
   if (isLoading) return <p className="text-xs text-slate-500">Resolving…</p>;
   if (error) return <p className="text-xs text-red-400">{(error as Error).message}</p>;
@@ -103,13 +103,13 @@ export function PermissionsPanel({ boardId, laneName, filename, active }: Props)
       <div className="mb-3 text-[11px] text-slate-400">
         {data.projectId === null ? (
           <span className="text-amber-400">
-            No project assigned — lane rules only, and this ticket cannot start an agent.
+            No project assigned — workflow rules only, and this ticket cannot start an agent.
           </span>
         ) : data.projectResolved ? (
-          <>Effective rules for project <span className="text-slate-200">{data.projectId}</span> unioned with this lane. Denials from either side always win.</>
+          <>Effective rules for project <span className="text-slate-200">{data.projectId}</span> unioned with this workflow. Denials from either side always win.</>
         ) : (
           <span className="text-amber-400">
-            Project &quot;{data.projectId}&quot; no longer exists — showing lane rules only.
+            Project &quot;{data.projectId}&quot; no longer exists — showing workflow rules only.
           </span>
         )}
       </div>

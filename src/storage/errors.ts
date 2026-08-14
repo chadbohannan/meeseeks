@@ -3,7 +3,7 @@ export type StorageErrorCode =
   | 'CONFLICT'
   | 'INVALID_INPUT'
   | 'PATH_UNSAFE'
-  | 'INVALID_LANE'
+  | 'INVALID_WORKFLOW'
   | 'PROJECT_NOT_OPEN';
 
 export class StorageError extends Error {
@@ -31,10 +31,10 @@ export class PathSafetyError extends StorageError {
   constructor(message: string) { super('PATH_UNSAFE', message); }
 }
 
-export class InvalidLaneError extends StorageError {
+export class InvalidWorkflowError extends StorageError {
   readonly reason: string;
   constructor(message: string, reason: string) {
-    super('INVALID_LANE', message);
+    super('INVALID_WORKFLOW', message);
     this.reason = reason;
   }
 }

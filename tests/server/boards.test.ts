@@ -28,16 +28,16 @@ describe('board routes', () => {
     expect(list.boards).toHaveLength(1);
   });
 
-  it('reads board detail with a seeded Development lane', async () => {
+  it('reads board detail with a seeded Development workflow', async () => {
     const { srv } = await setup();
     const created = await (await fetch(`${srv.url}/api/boards`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'B' }),
     })).json() as { board: { boardId: string } };
-    const detail = await fetch(`${srv.url}/api/boards/${created.board.boardId}`).then(r => r.json()) as { board: { lanes: Array<{ displayName: string }> } };
-    expect(detail.board.lanes).toHaveLength(1);
-    expect(detail.board.lanes[0]!.displayName).toBe('Development');
+    const detail = await fetch(`${srv.url}/api/boards/${created.board.boardId}`).then(r => r.json()) as { board: { workflows: Array<{ displayName: string }> } };
+    expect(detail.board.workflows).toHaveLength(1);
+    expect(detail.board.workflows[0]!.displayName).toBe('Development');
   });
 
   it('renames a board', async () => {

@@ -41,8 +41,8 @@ interface SetupOpts {
   project?: string;
   /** Permissions written to the created project's config. */
   projectPermissions?: { allowedPaths?: string[]; allowedTools?: string[]; deniedTools?: string[] };
-  /** Permissions written to the lane's permissions.yaml. */
-  lanePermissions?: { allowedPaths?: string[]; allowedTools?: string[]; deniedTools?: string[] };
+  /** Permissions written to the workflow's permissions.yaml. */
+  workflowPermissions?: { allowedPaths?: string[]; allowedTools?: string[]; deniedTools?: string[] };
 }
 
 async function setup(opts: SetupOpts = { project: 'proj' }) {
@@ -56,7 +56,7 @@ async function setup(opts: SetupOpts = { project: 'proj' }) {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name: 'B' }),
   })).json() as { board: { boardId: string } };
-  await fetch(`${srv.url}/api/boards/${board.board.boardId}/lanes`, {
+  await fetch(`${srv.url}/api/boards/${board.board.boardId}/workflows`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name: 'work', states: STATES }),
   });
@@ -81,15 +81,15 @@ async function setup(opts: SetupOpts = { project: 'proj' }) {
       }),
     });
   }
-  if (opts.lanePermissions) {
+  if (opts.workflowPermissions) {
     await writeFile(
-      path.join(boardPath, 'lanes', 'work', 'permissions.yaml'),
-      yaml.dump({ allowedPaths: [], allowedTools: [], deniedTools: [], ...opts.lanePermissions }),
+      path.join(boardPath, 'workflows', 'work', 'permissions.yaml'),
+      yaml.dump({ allowedPaths: [], allowedTools: [], deniedTools: [], ...opts.workflowPermissions }),
       'utf8',
     );
   }
 
-  const ticket = await (await fetch(`${srv.url}/api/boards/${board.board.boardId}/lanes/work/tickets`, {
+  const ticket = await (await fetch(`${srv.url}/api/boards/${board.board.boardId}/workflows/work/tickets`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ title: 'X', state: 'todo', project: opts.project }),
   })).json() as { ticket: { filename: string } };
@@ -135,11 +135,11 @@ describe('runtime routes', () => {
     expect(body.error.message).toContain("unknown project 'proj'");
   });
 
-  it('permissions preview unions project and lane, tagging each entry origin', async () => {
+  it('permissions preview unions project and workflow, tagging each entry origin', async () => {
     const { srv, boardId, filename, repoRoot, boardPath } = await setup({
       project: 'proj',
       projectPermissions: { allowedTools: ['Read'], deniedTools: ['Fetch'], allowedPaths: ['./vendor'] },
-      lanePermissions: { allowedTools: ['Read'], deniedTools: ['Write', 'Bash'], allowedPaths: ['../shared'] },
+      workflowPermissions: { allowedTools: ['Read'], deniedTools: ['Write', 'Bash'], allowedPaths: ['../shared'] },
     });
 
     const res = await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/permissions`);
@@ -157,24 +157,24 @@ describe('runtime routes', () => {
     expect(body.projectId).toBe('proj');
     expect(body.projectResolved).toBe(true);
 
-    // The lane's denials survive alongside the project's - the floor property.
+    // The workflow's denials survive alongside the project's - the floor property.
     expect(body.permissions.deniedTools.map(e => e.value).sort())
       .toEqual(['Bash', 'Fetch', 'Write']);
 
     // A value both sides contribute is de-duplicated and carries both origins.
     const read = body.permissions.allowedTools.find(e => e.value === 'Read')!;
-    expect(read.origins).toEqual(['project', 'lane']);
+    expect(read.origins).toEqual(['project', 'workflow']);
 
     // Each source resolved its own relative path against its own base.
     const paths = body.permissions.allowedPaths.map(e => e.value);
     expect(paths).toContain(path.resolve(repoRoot, './vendor'));
-    expect(paths).toContain(path.resolve(path.join(boardPath, 'lanes', 'work'), '../shared'));
+    expect(paths).toContain(path.resolve(path.join(boardPath, 'workflows', 'work'), '../shared'));
   });
 
-  it('permissions preview tolerates an unassigned ticket and returns lane-only rules', async () => {
+  it('permissions preview tolerates an unassigned ticket and returns workflow-only rules', async () => {
     const { srv, boardId, filename } = await setup({
       project: undefined,
-      lanePermissions: { deniedTools: ['Write'] },
+      workflowPermissions: { deniedTools: ['Write'] },
     });
     const res = await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/permissions`);
     expect(res.status).toBe(200);
@@ -185,7 +185,7 @@ describe('runtime routes', () => {
     };
     expect(body.projectId).toBeNull();
     expect(body.projectResolved).toBe(false);
-    expect(body.permissions.deniedTools).toEqual([{ value: 'Write', origins: ['lane'] }]);
+    expect(body.permissions.deniedTools).toEqual([{ value: 'Write', origins: ['workflow'] }]);
   });
 
   it('spawns a runtime for a ticket and lists it', async () => {

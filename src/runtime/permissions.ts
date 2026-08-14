@@ -8,8 +8,8 @@ import type {
  * One contributing config, tagged with where it came from and what its relative
  * `allowedPaths` entries resolve against.
  *
- * The base travels with the source because it differs per origin: a lane's
- * `../shared` is relative to the lane directory, a project's `./vendor` to that
+ * The base travels with the source because it differs per origin: a workflow's
+ * `../shared` is relative to the workflow directory, a project's `./vendor` to that
  * project's root. Paths must therefore be made absolute *before* the union —
  * once merged, an entry no longer knows which base it needed.
  */
@@ -49,7 +49,7 @@ function merge(
  * Union every source's permissions. There is deliberately no precedence logic
  * here: restriction lives only in `deniedTools`, and Claude Code already
  * resolves deny over allow regardless of which config contributed the entry.
- * A union therefore lets both the lane and the project enforce a floor that the
+ * A union therefore lets both the workflow and the project enforce a floor that the
  * other cannot undo, which wholesale replacement would not.
  *
  * Returns null when no source carries a config, so callers can keep omitting

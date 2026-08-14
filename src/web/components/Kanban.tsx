@@ -1,16 +1,16 @@
 import { useState, useRef } from 'react';
 import { useTickets, useMoveTicket } from '../hooks/queries.js';
-import type { LaneDetail, TicketSummary } from '@shared/types.js';
+import type { WorkflowDetail, TicketSummary } from '@shared/types.js';
 import { TicketCard } from './TicketCard.js';
 import { ProjectFilter, FilteredEmptyNotice, matchesProjectFilter } from './ProjectControls.js';
 import { useUi, PROJECT_FILTER_ALL } from '../store/ui.js';
 import { toast } from 'sonner';
 
-interface Props { boardId: string; lane: LaneDetail }
+interface Props { boardId: string; workflow: WorkflowDetail }
 
-export function Kanban({ boardId, lane }: Props) {
-  const tickets = useTickets(boardId, lane.laneName);
-  const moveTicket = useMoveTicket(boardId, lane.laneName);
+export function Kanban({ boardId, workflow }: Props) {
+  const tickets = useTickets(boardId, workflow.workflowName);
+  const moveTicket = useMoveTicket(boardId, workflow.workflowName);
   const dragRef = useRef<{ filename: string; fromState: string } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
@@ -24,7 +24,7 @@ export function Kanban({ boardId, lane }: Props) {
   const hiddenCount = all.length - visible.length;
 
   const grouped: Record<string, TicketSummary[]> = {};
-  for (const s of lane.states) grouped[s.dir] = [];
+  for (const s of workflow.states) grouped[s.dir] = [];
   const orphaned: TicketSummary[] = [];
   for (const t of visible) {
     if (t.orphaned) orphaned.push(t);
@@ -59,7 +59,7 @@ export function Kanban({ boardId, lane }: Props) {
         </div>
       )}
       <div className="flex-1 flex gap-3 p-4">
-        {lane.states.map((s) => {
+        {workflow.states.map((s) => {
           const items = grouped[s.dir] ?? [];
           const isOver = dropTarget === s.dir && dragRef.current?.fromState !== s.dir;
           return (
@@ -79,7 +79,7 @@ export function Kanban({ boardId, lane }: Props) {
                 <TicketCard
                   key={t.filename}
                   boardId={boardId}
-                  laneName={lane.laneName}
+                  workflowName={workflow.workflowName}
                   ticket={t}
                   draggable
                   onDragStart={(filename) => { dragRef.current = { filename, fromState: s.dir }; }}
@@ -93,7 +93,7 @@ export function Kanban({ boardId, lane }: Props) {
           <div className="flex-1 min-w-0 bg-amber-950/30 rounded p-2">
             <h3 className="text-sm font-semibold mb-2 px-1 text-amber-400">Orphaned ({orphaned.length})</h3>
             {orphaned.map((t) => (
-              <TicketCard key={t.filename} boardId={boardId} laneName={lane.laneName} ticket={t} />
+              <TicketCard key={t.filename} boardId={boardId} workflowName={workflow.workflowName} ticket={t} />
             ))}
           </div>
         )}

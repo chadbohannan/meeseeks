@@ -1,16 +1,16 @@
-import type { LaneState } from '../shared/types.js';
+import type { WorkflowState } from '../shared/types.js';
 
 /**
  * Onboarding defaults. These templates give a freshly created board enough
  * scaffolding to be productive — a structured CONTEXT.md, a ready-to-use
- * Development lane, and a state-aware PROCESS.md generator for lanes the user
+ * Development workflow, and a state-aware PROCESS.md generator for workflows the user
  * adds later. They are deliberately generic: the org-specific machinery seen on
  * mature boards (JIRA proxy headers, .claude/bin discipline, code-rag globs)
  * is left for users to add, not baked in.
  */
 
-/** The Development lane seeded into every new board. */
-export const STARTER_LANE: { name: string; states: LaneState[] } = {
+/** The Development workflow seeded into every new board. */
+export const STARTER_WORKFLOW: { name: string; states: WorkflowState[] } = {
   name: 'Development',
   states: [
     { dir: 'todo', name: 'Todo' },
@@ -29,10 +29,10 @@ codebase, link the repository path here so agents can find it.
 
 ## How this board works
 
-Your work lives as files on disk. Each lane under \`lanes/\` is a workflow;
-within a lane, each state is a subfolder, and **moving a ticket file between
+Your work lives as files on disk. Each workflow under \`workflows/\` is a workflow;
+within a workflow, each state is a subfolder, and **moving a ticket file between
 subfolders is how you change its state**. Agents read this file (CONTEXT.md)
-for board-wide guidance and a lane's PROCESS.md for that workflow's rules.
+for board-wide guidance and a workflow's PROCESS.md for that workflow's rules.
 
 ## Context for agents
 
@@ -41,15 +41,15 @@ here — the systems involved, where the relevant code lives, conventions to
 follow, and commands or tools to prefer. This text is injected into every
 agent started on this board, so keep it current.
 
-## Lanes
+## Workflows
 
-Describe the lanes on this board and what kind of work belongs in each.
-A starter Development lane has been created for you.
+Describe the workflows on this board and what kind of work belongs in each.
+A starter Development workflow has been created for you.
 `;
 }
 
-/** Filled-in PROCESS.md for the seeded Development lane. */
-export const STARTER_LANE_PROCESS = `# Development Process
+/** Filled-in PROCESS.md for the seeded Development workflow. */
+export const STARTER_WORKFLOW_PROCESS = `# Development Process
 
 **First action:** move the ticket into the state that matches the work you're
 about to do, before doing anything else.
@@ -70,14 +70,14 @@ The work is complete and accepted.
 `;
 
 /**
- * PROCESS.md for a user-created lane: a "first action" preamble plus one
+ * PROCESS.md for a user-created workflow: a "first action" preamble plus one
  * fill-in section per state, in the order the user defined them.
  */
-export function laneProcessTemplate(laneName: string, states: LaneState[]): string {
+export function workflowProcessTemplate(workflowName: string, states: WorkflowState[]): string {
   const sections = states
     .map(s => `## ${s.name}\nDescribe when a ticket enters this state and what happens here.\n`)
     .join('\n');
-  return `# ${laneName} Process
+  return `# ${workflowName} Process
 
 **First action:** move the ticket into the state that matches the work you're
 about to do.

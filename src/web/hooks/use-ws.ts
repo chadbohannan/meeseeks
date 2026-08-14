@@ -23,14 +23,14 @@ export function useWsInvalidation(): void {
           qc.invalidateQueries({ queryKey: ['boards'] });
           qc.invalidateQueries({ queryKey: ['board', event.payload.boardId] });
           return;
-        case 'lane-changed':
+        case 'workflow-changed':
           qc.invalidateQueries({ queryKey: ['board', event.payload.boardId] });
-          qc.invalidateQueries({ queryKey: ['lane', event.payload.boardId, event.payload.laneName] });
-          qc.invalidateQueries({ queryKey: ['tickets', event.payload.boardId, event.payload.laneName] });
+          qc.invalidateQueries({ queryKey: ['workflow', event.payload.boardId, event.payload.workflowName] });
+          qc.invalidateQueries({ queryKey: ['tickets', event.payload.boardId, event.payload.workflowName] });
           return;
         case 'ticket-changed':
-          qc.invalidateQueries({ queryKey: ['tickets', event.payload.boardId, event.payload.laneName] });
-          qc.invalidateQueries({ queryKey: ['ticket', event.payload.boardId, event.payload.laneName, event.payload.filename] });
+          qc.invalidateQueries({ queryKey: ['tickets', event.payload.boardId, event.payload.workflowName] });
+          qc.invalidateQueries({ queryKey: ['ticket', event.payload.boardId, event.payload.workflowName, event.payload.filename] });
           return;
         case 'project-changed':
           qc.invalidateQueries({ queryKey: ['projects'] });

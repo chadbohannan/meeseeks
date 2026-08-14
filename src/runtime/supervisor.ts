@@ -27,7 +27,7 @@ export type SpawnFn = (
 export interface SpawnInput {
   runtimeId: string;
   boardPath: string;
-  lanePath: string;
+  workflowPath: string;
   ticketAbsPath: string;
   boardContextContent?: string | null;
   processDocContent?: string | null;

@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { buildSpawnSpec } from '../../src/runtime/claude-code.js';
 
-const ticketRef = { boardId: 'b', laneName: 'l', filename: '2026-04-26T1430-x.md' };
+const ticketRef = { boardId: 'b', workflowName: 'l', filename: '2026-04-26T1430-x.md' };
 
 function addDirsOf(argv: string[]): string[] {
   const out: string[] = [];
@@ -18,8 +18,8 @@ describe('buildSpawnSpec', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-1',
       boardPath: '/tmp/p/boards/b',
-      lanePath: '/tmp/p/boards/b/lanes/l',
-      ticketAbsPath: '/tmp/p/boards/b/lanes/l/todo/2026-04-26T1430-x.md',
+      workflowPath: '/tmp/p/boards/b/workflows/l',
+      ticketAbsPath: '/tmp/p/boards/b/workflows/l/todo/2026-04-26T1430-x.md',
       ticketRef,
       board: null,
       permissions: null,
@@ -34,9 +34,9 @@ describe('buildSpawnSpec', () => {
     const body = JSON.parse(spec.settingsFile!.body) as { hooks: { Notification: Array<{ matcher: string }> } };
     expect(body.hooks.Notification.map(h => h.matcher)).toContain('idle_prompt');
     expect(body.hooks.Notification.map(h => h.matcher)).toContain('permission_prompt');
-    expect(spec.env.MEESEEKS_TICKET_PATH).toBe('/tmp/p/boards/b/lanes/l/todo/2026-04-26T1430-x.md');
+    expect(spec.env.MEESEEKS_TICKET_PATH).toBe('/tmp/p/boards/b/workflows/l/todo/2026-04-26T1430-x.md');
     expect(spec.env.MEESEEKS_BOARD_PATH).toBe('/tmp/p/boards/b');
-    expect(spec.env.MEESEEKS_LANE_PATH).toBe('/tmp/p/boards/b/lanes/l');
+    expect(spec.env.MEESEEKS_WORKFLOW_PATH).toBe('/tmp/p/boards/b/workflows/l');
     expect(spec.cwd).toBe('/tmp/p/boards/b');
   });
 
@@ -46,14 +46,14 @@ describe('buildSpawnSpec', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-1',
       boardPath: '/tmp/p/boards/b',
-      lanePath: '/tmp/p/boards/b/lanes/l',
+      workflowPath: '/tmp/p/boards/b/workflows/l',
       ticketAbsPath: '/x.md',
       processDocContent: null,
       ticketRef,
       board: null,
       permissions: {
         allowedPaths: [
-          { value: '/tmp/p/my-repo', origins: ['lane'] },
+          { value: '/tmp/p/my-repo', origins: ['workflow'] },
           { value: path.join(os.homedir(), 'notes'), origins: ['project'] },
         ],
         allowedTools: [],
@@ -67,7 +67,7 @@ describe('buildSpawnSpec', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-p',
       boardPath: '/tmp/p/boards/b',
-      lanePath: '/tmp/p/boards/b/lanes/l',
+      workflowPath: '/tmp/p/boards/b/workflows/l',
       ticketAbsPath: '/x.md',
       ticketRef,
       board: null,
@@ -85,7 +85,7 @@ describe('buildSpawnSpec', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-np',
       boardPath: '/tmp/p/boards/b',
-      lanePath: '/tmp/p/boards/b/lanes/l',
+      workflowPath: '/tmp/p/boards/b/workflows/l',
       ticketAbsPath: '/x.md',
       ticketRef,
       board: null,
@@ -101,7 +101,7 @@ describe('buildSpawnSpec', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-7',
       boardPath: '/tmp/p/boards/b',
-      lanePath: '/tmp/p/boards/b/lanes/l',
+      workflowPath: '/tmp/p/boards/b/workflows/l',
       ticketAbsPath: '/x.md',
       processDocContent: null,
       ticketRef,
@@ -109,10 +109,10 @@ describe('buildSpawnSpec', () => {
       permissions: {
         allowedPaths: [],
         allowedTools: [
-          { value: 'Bash', origins: ['lane'] },
+          { value: 'Bash', origins: ['workflow'] },
           { value: 'Edit', origins: ['project'] },
         ],
-        deniedTools: [{ value: 'Write', origins: ['lane', 'project'] }],
+        deniedTools: [{ value: 'Write', origins: ['workflow', 'project'] }],
       },
     });
     expect(spec.settingsFile).not.toBeNull();
@@ -129,7 +129,7 @@ describe('buildSpawnSpec', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-1',
       boardPath: '/tmp/p/boards/b',
-      lanePath: '/tmp/p/boards/b/lanes/l',
+      workflowPath: '/tmp/p/boards/b/workflows/l',
       ticketAbsPath: '/x.md',
       processDocContent: null,
       ticketRef,
@@ -154,10 +154,10 @@ describe('buildSpawnSpec', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-1',
       boardPath: '/tmp/p/boards/my-board',
-      lanePath: '/tmp/p/boards/my-board/lanes/dev',
-      ticketAbsPath: '/tmp/p/boards/my-board/lanes/dev/todo/2026-04-26T1430-x.md',
+      workflowPath: '/tmp/p/boards/my-board/workflows/dev',
+      ticketAbsPath: '/tmp/p/boards/my-board/workflows/dev/todo/2026-04-26T1430-x.md',
       processDocContent: '# Development Process\n\nFollow TDD methodology.',
-      ticketRef: { boardId: 'my-board', laneName: 'dev', filename: '2026-04-26T1430-x.md' },
+      ticketRef: { boardId: 'my-board', workflowName: 'dev', filename: '2026-04-26T1430-x.md' },
       board: null,
       permissions: null,
     });
@@ -171,11 +171,11 @@ describe('buildSpawnSpec', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-2',
       boardPath: '/tmp/p/boards/my-board',
-      lanePath: '/tmp/p/boards/my-board/lanes/dev',
-      ticketAbsPath: '/tmp/p/boards/my-board/lanes/dev/todo/t.md',
+      workflowPath: '/tmp/p/boards/my-board/workflows/dev',
+      ticketAbsPath: '/tmp/p/boards/my-board/workflows/dev/todo/t.md',
       boardContextContent: '# Board Context\n\nBOARD_MARKER',
       processDocContent: '# Process\n\nPROCESS_MARKER',
-      ticketRef: { boardId: 'my-board', laneName: 'dev', filename: 't.md' },
+      ticketRef: { boardId: 'my-board', workflowName: 'dev', filename: 't.md' },
       board: null,
       permissions: null,
     });
@@ -191,11 +191,11 @@ describe('buildSpawnSpec', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-4',
       boardPath: '/tmp/p/boards/my-board',
-      lanePath: '/tmp/p/boards/my-board/lanes/dev',
-      ticketAbsPath: '/tmp/p/boards/my-board/lanes/dev/todo/t.md',
+      workflowPath: '/tmp/p/boards/my-board/workflows/dev',
+      ticketAbsPath: '/tmp/p/boards/my-board/workflows/dev/todo/t.md',
       boardContextContent: 'BOARD_MARKER',
       processDocContent: 'PROCESS_MARKER',
-      ticketRef: { boardId: 'my-board', laneName: 'dev', filename: 't.md' },
+      ticketRef: { boardId: 'my-board', workflowName: 'dev', filename: 't.md' },
       board: null,
       permissions: null,
       project: {
@@ -222,11 +222,11 @@ describe('buildSpawnSpec', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-3',
       boardPath: '/tmp/p/boards/my-board',
-      lanePath: '/tmp/p/boards/my-board/lanes/dev',
-      ticketAbsPath: '/tmp/p/boards/my-board/lanes/dev/todo/t.md',
+      workflowPath: '/tmp/p/boards/my-board/workflows/dev',
+      ticketAbsPath: '/tmp/p/boards/my-board/workflows/dev/todo/t.md',
       boardContextContent: 'BOARD_ONLY',
       processDocContent: null,
-      ticketRef: { boardId: 'my-board', laneName: 'dev', filename: 't.md' },
+      ticketRef: { boardId: 'my-board', workflowName: 'dev', filename: 't.md' },
       board: null,
       permissions: null,
     });

@@ -11,7 +11,7 @@ export interface WatcherHandle {
 }
 
 interface PendingChange {
-  type: 'board' | 'lane' | 'ticket';
+  type: 'board' | 'workflow' | 'ticket';
   payload: WsEvent['payload'];
   timer: NodeJS.Timeout;
   kind: ChangeKind;
@@ -61,9 +61,9 @@ export function startWatcher(meta: WorkspaceMeta, hub: WsHub): WatcherHandle {
       return;
     }
 
-    const lanesIdx = parts.indexOf('lanes');
+    const workflowsIdx = parts.indexOf('workflows');
     const promptsIdx = parts.indexOf('prompts');
-    if (lanesIdx === -1 && promptsIdx !== -1) {
+    if (workflowsIdx === -1 && promptsIdx !== -1) {
       // <boardEntry>/prompts/<file>.md
       if (parts.length === promptsIdx + 2) {
         const boardEntry = parts.slice(0, promptsIdx).join('/');
@@ -77,7 +77,7 @@ export function startWatcher(meta: WorkspaceMeta, hub: WsHub): WatcherHandle {
       }
       return;
     }
-    if (lanesIdx === -1) {
+    if (workflowsIdx === -1) {
       // Skip top-level workspace config files (e.g. project.yaml itself).
       // Board-level changes need at least <boardEntry>/<file>.
       if (parts.length < 2) return;
@@ -87,36 +87,36 @@ export function startWatcher(meta: WorkspaceMeta, hub: WsHub): WatcherHandle {
       emit(`board:${boardId}`, { type: 'board-changed', payload: { boardId, kind: 'updated' } });
       return;
     }
-    const boardEntry = parts.slice(0, lanesIdx).join('/');
+    const boardEntry = parts.slice(0, workflowsIdx).join('/');
     const boardId = slugifyBoardPath(boardEntry);
-    if (parts.length === lanesIdx + 2) {
-      // <board>/lanes/<lane>  -- lane folder itself
-      const laneName = parts[lanesIdx + 1]!;
-      emit(`lane:${boardId}:${laneName}`, {
-        type: 'lane-changed', payload: { boardId, laneName, kind },
+    if (parts.length === workflowsIdx + 2) {
+      // <board>/workflows/<workflow>  -- workflow folder itself
+      const workflowName = parts[workflowsIdx + 1]!;
+      emit(`workflow:${boardId}:${workflowName}`, {
+        type: 'workflow-changed', payload: { boardId, workflowName, kind },
       });
       return;
     }
-    if (parts.length === lanesIdx + 3) {
-      // <board>/lanes/<lane>/<file-or-state>
-      const laneName = parts[lanesIdx + 1]!;
-      const last = parts[lanesIdx + 2]!;
-      if (['lane.yaml', 'PROCESS.md', 'permissions.yaml'].includes(last)) {
-        emit(`lane:${boardId}:${laneName}`, {
-          type: 'lane-changed', payload: { boardId, laneName, kind: 'updated' },
+    if (parts.length === workflowsIdx + 3) {
+      // <board>/workflows/<workflow>/<file-or-state>
+      const workflowName = parts[workflowsIdx + 1]!;
+      const last = parts[workflowsIdx + 2]!;
+      if (['workflow.yaml', 'PROCESS.md', 'permissions.yaml'].includes(last)) {
+        emit(`workflow:${boardId}:${workflowName}`, {
+          type: 'workflow-changed', payload: { boardId, workflowName, kind: 'updated' },
         });
       }
       return;
     }
-    if (parts.length === lanesIdx + 4) {
-      // <board>/lanes/<lane>/<state>/<file>.md
-      const laneName = parts[lanesIdx + 1]!;
-      const state = parts[lanesIdx + 2]!;
-      const filename = parts[lanesIdx + 3]!;
+    if (parts.length === workflowsIdx + 4) {
+      // <board>/workflows/<workflow>/<state>/<file>.md
+      const workflowName = parts[workflowsIdx + 1]!;
+      const state = parts[workflowsIdx + 2]!;
+      const filename = parts[workflowsIdx + 3]!;
       if (!filename.endsWith('.md')) return;
-      emit(`ticket:${boardId}:${laneName}:${filename}`, {
+      emit(`ticket:${boardId}:${workflowName}:${filename}`, {
         type: 'ticket-changed',
-        payload: { boardId, laneName, filename, state, kind },
+        payload: { boardId, workflowName, filename, state, kind },
       });
     }
   }

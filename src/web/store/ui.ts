@@ -82,5 +82,5 @@ export const useUi = create<UiState>((set) => ({
 }));
 
 export const boardCollapseKey = (boardId: string) => `board:${boardId}`;
-export const laneCollapseKey = (boardId: string, laneName: string) =>
-  `lane:${boardId}/${laneName}`;
+export const workflowCollapseKey = (boardId: string, workflowName: string) =>
+  `workflow:${boardId}/${workflowName}`;

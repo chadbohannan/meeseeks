@@ -5,7 +5,7 @@ import {
   createTicket, listTickets, readTicket, updateTicket, deleteTicket,
 } from '../../src/storage/ticket.js';
 import { createBoard } from '../../src/storage/board.js';
-import { createLane } from '../../src/storage/lane.js';
+import { createWorkflow } from '../../src/storage/workflow.js';
 import { NotFoundError, InvalidInputError } from '../../src/storage/errors.js';
 import { makeBareProject } from '../helpers/tmp-project.js';
 
@@ -25,8 +25,8 @@ async function setup() {
   cleanups.push(tp.cleanup);
   const boardPath = path.join(tp.root, 'boards/b');
   await createBoard(boardPath, 'B');
-  await createLane(boardPath, 'work', STATES);
-  return { boardPath, lanePath: path.join(boardPath, 'lanes/work') };
+  await createWorkflow(boardPath, 'work', STATES);
+  return { boardPath, workflowPath: path.join(boardPath, 'workflows/work') };
 }
 
 describe('createTicket', () => {
@@ -36,7 +36,7 @@ describe('createTicket', () => {
     expect(t.title).toBe('Fix login');
     expect(t.state).toBe('todo');
     expect(t.filename.endsWith('.md')).toBe(true);
-    const filePath = path.join(boardPath, 'lanes/work/todo', t.filename);
+    const filePath = path.join(boardPath, 'workflows/work/todo', t.filename);
     const text = await readFile(filePath, 'utf8');
     expect(text).toContain('title: Fix login');
     expect(text).toContain('Body text');
@@ -58,11 +58,11 @@ describe('listTickets', () => {
   });
 
   it('treats folder placement as authoritative regardless of frontmatter', async () => {
-    const { boardPath, lanePath } = await setup();
+    const { boardPath, workflowPath } = await setup();
     const c = await createTicket(boardPath, 'work', { title: 'real title', state: 'todo' });
     // Simulate an external agent rewriting frontmatter: drops title, adds status
     await writeFile(
-      path.join(lanePath, 'todo', c.filename),
+      path.join(workflowPath, 'todo', c.filename),
       '---\nstatus: in-progress\n---\nbody\n',
       'utf8',
     );
@@ -88,11 +88,11 @@ describe('readTicket', () => {
   });
 
   it('falls back gracefully when frontmatter is invalid YAML', async () => {
-    const { boardPath, lanePath } = await setup();
+    const { boardPath, workflowPath } = await setup();
     const filename = '2026-06-08T0000-broken.md';
     // `title: [unterminated` is invalid YAML — gray-matter throws, exercising parse()'s catch path.
     await writeFile(
-      path.join(lanePath, 'todo', filename),
+      path.join(workflowPath, 'todo', filename),
       '---\ntitle: [unterminated\n---\nthe body survives\n',
       'utf8',
     );
@@ -103,7 +103,7 @@ describe('readTicket', () => {
     // and must preserve the body. Relies on the fallback having a well-formed `extra`.
     const updated = await updateTicket(boardPath, 'work', filename, { title: 'fixed' });
     expect(updated.title).toBe('fixed');
-    const text = await readFile(path.join(lanePath, 'todo', filename), 'utf8');
+    const text = await readFile(path.join(workflowPath, 'todo', filename), 'utf8');
     expect(text).toContain('the body survives');
   });
 });
@@ -114,14 +114,14 @@ describe('updateTicket', () => {
     const c = await createTicket(boardPath, 'work', { title: 'orig', state: 'todo', body: 'old' });
     const u = await updateTicket(boardPath, 'work', c.filename, { title: 'new', body: 'new body' });
     expect(u.title).toBe('new');
-    const text = await readFile(path.join(boardPath, 'lanes/work/todo', c.filename), 'utf8');
+    const text = await readFile(path.join(boardPath, 'workflows/work/todo', c.filename), 'utf8');
     expect(text).toContain('new body');
   });
 
   it('preserves unknown frontmatter fields across updates', async () => {
-    const { boardPath, lanePath } = await setup();
+    const { boardPath, workflowPath } = await setup();
     const c = await createTicket(boardPath, 'work', { title: 'orig', state: 'todo', body: 'old' });
-    const filePath = path.join(lanePath, 'todo', c.filename);
+    const filePath = path.join(workflowPath, 'todo', c.filename);
     await writeFile(
       filePath,
       '---\ntitle: orig\ncreated: \'2026-01-01T00:00:00.000Z\'\nupdated: \'2026-01-01T00:00:00.000Z\'\njira: https://example.com/JIRA-1\njira_status: In Progress\nassignee: bohannan\npriority: High\n---\nold\n',
@@ -141,17 +141,17 @@ describe('updateTicket', () => {
     const c = await createTicket(boardPath, 'work', { title: 'x', state: 'todo' });
     const moved = await updateTicket(boardPath, 'work', c.filename, { state: 'doing' });
     expect(moved.state).toBe('doing');
-    expect(await exists(path.join(boardPath, 'lanes/work/todo', c.filename))).toBe(false);
-    expect(await exists(path.join(boardPath, 'lanes/work/doing', c.filename))).toBe(true);
+    expect(await exists(path.join(boardPath, 'workflows/work/todo', c.filename))).toBe(false);
+    expect(await exists(path.join(boardPath, 'workflows/work/doing', c.filename))).toBe(true);
   });
 
   it('is a no-op when nothing changed: leaves updated and file bytes untouched', async () => {
-    const { boardPath, lanePath } = await setup();
+    const { boardPath, workflowPath } = await setup();
     const c = await createTicket(boardPath, 'work', { title: 'orig', state: 'todo', body: 'body' });
     // A client loads the ticket, then echoes the loaded values back (the spurious
     // save path). readTicket returns the normalized body, matching what's on disk.
     const loaded = await readTicket(boardPath, 'work', c.filename);
-    const filePath = path.join(lanePath, 'todo', c.filename);
+    const filePath = path.join(workflowPath, 'todo', c.filename);
     const before = await readFile(filePath, 'utf8');
     const u = await updateTicket(boardPath, 'work', c.filename, {
       title: loaded.title, body: loaded.body, state: loaded.state,
@@ -174,7 +174,7 @@ describe('deleteTicket', () => {
     const { boardPath } = await setup();
     const c = await createTicket(boardPath, 'work', { title: 'x', state: 'todo' });
     await deleteTicket(boardPath, 'work', c.filename);
-    expect(await exists(path.join(boardPath, 'lanes/work/todo', c.filename))).toBe(false);
+    expect(await exists(path.join(boardPath, 'workflows/work/todo', c.filename))).toBe(false);
   });
 });
 
@@ -186,7 +186,7 @@ describe('ticket project frontmatter', () => {
     });
     expect(created.project).toBe('meeseeks');
 
-    const text = await readFile(path.join(boardPath, 'lanes/work/todo', created.filename), 'utf8');
+    const text = await readFile(path.join(boardPath, 'workflows/work/todo', created.filename), 'utf8');
     expect(text).toContain('project: meeseeks');
 
     expect((await readTicket(boardPath, 'work', created.filename)).project).toBe('meeseeks');
@@ -198,7 +198,7 @@ describe('ticket project frontmatter', () => {
     const { boardPath } = await setup();
     const created = await createTicket(boardPath, 'work', { title: 'No project', state: 'todo' });
     expect(created.project).toBeUndefined();
-    const text = await readFile(path.join(boardPath, 'lanes/work/todo', created.filename), 'utf8');
+    const text = await readFile(path.join(boardPath, 'workflows/work/todo', created.filename), 'utf8');
     expect(text).not.toContain('project:');
   });
 
@@ -211,7 +211,7 @@ describe('ticket project frontmatter', () => {
 
     // An empty string clears the assignment; undefined would leave it alone.
     expect((await updateTicket(boardPath, 'work', c.filename, { project: '' })).project).toBeUndefined();
-    const text = await readFile(path.join(boardPath, 'lanes/work/todo', c.filename), 'utf8');
+    const text = await readFile(path.join(boardPath, 'workflows/work/todo', c.filename), 'utf8');
     expect(text).not.toContain('project:');
   });
 
@@ -226,8 +226,8 @@ describe('ticket project frontmatter', () => {
   });
 
   it('preserves unrelated frontmatter keys alongside project', async () => {
-    const { boardPath, lanePath } = await setup();
-    const filePath = path.join(lanePath, 'todo', 'custom.md');
+    const { boardPath, workflowPath } = await setup();
+    const filePath = path.join(workflowPath, 'todo', 'custom.md');
     await writeFile(
       filePath,
       '---\ntitle: Custom\ncreated: 2026-08-12T00:00:00Z\nupdated: 2026-08-12T00:00:00Z\nproject: alpha\nsprint: 42\n---\nbody',
@@ -241,9 +241,9 @@ describe('ticket project frontmatter', () => {
   });
 
   it('treats an empty project value on disk as unassigned', async () => {
-    const { boardPath, lanePath } = await setup();
+    const { boardPath, workflowPath } = await setup();
     await writeFile(
-      path.join(lanePath, 'todo', 'blank.md'),
+      path.join(workflowPath, 'todo', 'blank.md'),
       '---\ntitle: Blank\ncreated: 2026-08-12T00:00:00Z\nupdated: 2026-08-12T00:00:00Z\nproject: ""\n---\nbody',
       'utf8',
     );

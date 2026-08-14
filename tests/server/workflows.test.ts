@@ -19,51 +19,51 @@ async function setup() {
   return { srv, boardId: board.board.boardId };
 }
 
-describe('lane routes', () => {
-  it('creates and reads a lane', async () => {
+describe('workflow routes', () => {
+  it('creates and reads a workflow', async () => {
     const { srv, boardId } = await setup();
-    const create = await fetch(`${srv.url}/api/boards/${boardId}/lanes`, {
+    const create = await fetch(`${srv.url}/api/boards/${boardId}/workflows`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'work', states: STATES }),
     });
     expect(create.status).toBe(200);
-    const detail = await fetch(`${srv.url}/api/boards/${boardId}/lanes/work`).then(r => r.json()) as { lane: { states: Array<{ dir: string }> } };
-    expect(detail.lane.states.map(s => s.dir)).toEqual(['todo', 'doing']);
+    const detail = await fetch(`${srv.url}/api/boards/${boardId}/workflows/work`).then(r => r.json()) as { workflow: { states: Array<{ dir: string }> } };
+    expect(detail.workflow.states.map(s => s.dir)).toEqual(['todo', 'doing']);
   });
 
-  it('rejects creating duplicate lane', async () => {
+  it('rejects creating duplicate workflow', async () => {
     const { srv, boardId } = await setup();
-    await fetch(`${srv.url}/api/boards/${boardId}/lanes`, {
+    await fetch(`${srv.url}/api/boards/${boardId}/workflows`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'work', states: STATES }),
     });
-    const r = await fetch(`${srv.url}/api/boards/${boardId}/lanes`, {
+    const r = await fetch(`${srv.url}/api/boards/${boardId}/workflows`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'work', states: STATES }),
     });
     expect(r.status).toBe(409);
   });
 
-  it('updates lane states (add)', async () => {
+  it('updates workflow states (add)', async () => {
     const { srv, boardId } = await setup();
-    await fetch(`${srv.url}/api/boards/${boardId}/lanes`, {
+    await fetch(`${srv.url}/api/boards/${boardId}/workflows`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'work', states: STATES }),
     });
-    const r = await fetch(`${srv.url}/api/boards/${boardId}/lanes/work`, {
+    const r = await fetch(`${srv.url}/api/boards/${boardId}/workflows/work`, {
       method: 'PATCH', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ states: [...STATES, { dir: 'done', name: 'Done' }] }),
     });
     expect(r.status).toBe(200);
   });
 
-  it('deletes a lane', async () => {
+  it('deletes a workflow', async () => {
     const { srv, boardId } = await setup();
-    await fetch(`${srv.url}/api/boards/${boardId}/lanes`, {
+    await fetch(`${srv.url}/api/boards/${boardId}/workflows`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'work', states: STATES }),
     });
-    const r = await fetch(`${srv.url}/api/boards/${boardId}/lanes/work`, {
+    const r = await fetch(`${srv.url}/api/boards/${boardId}/workflows/work`, {
       method: 'DELETE', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ deleteFiles: true }),
     });

@@ -5,7 +5,7 @@ import {
   ConflictError,
   InvalidInputError,
   PathSafetyError,
-  InvalidLaneError,
+  InvalidWorkflowError,
 } from '../../src/storage/errors.js';
 
 describe('storage errors', () => {
@@ -28,9 +28,9 @@ describe('storage errors', () => {
     expect(new PathSafetyError('x').code).toBe('PATH_UNSAFE');
   });
 
-  it('InvalidLaneError has code INVALID_LANE and a reason', () => {
-    const e = new InvalidLaneError('bad lane', 'missing lane.yaml');
-    expect(e.code).toBe('INVALID_LANE');
-    expect(e.reason).toBe('missing lane.yaml');
+  it('InvalidWorkflowError has code INVALID_WORKFLOW and a reason', () => {
+    const e = new InvalidWorkflowError('bad workflow', 'missing workflow.yaml');
+    expect(e.code).toBe('INVALID_WORKFLOW');
+    expect(e.reason).toBe('missing workflow.yaml');
   });
 });

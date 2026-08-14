@@ -32,7 +32,7 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
 
   if (ctx.project) argv.push('--add-dir', ctx.project.root);
 
-  // Already absolute and unioned across project and lane by resolvePermissions.
+  // Already absolute and unioned across project and workflow by resolvePermissions.
   for (const p of ctx.permissions?.allowedPaths ?? []) {
     argv.push('--add-dir', p.value);
   }
@@ -75,7 +75,7 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
 
   const boardName = path.basename(ctx.boardPath);
   const ticketContext =
-    `You are working on ticket \`${ctx.ticketRef.filename}\` in lane \`${ctx.ticketRef.laneName}\` of board \`${boardName}\`. ` +
+    `You are working on ticket \`${ctx.ticketRef.filename}\` in workflow \`${ctx.ticketRef.workflowName}\` of board \`${boardName}\`. ` +
     `Ticket file: \`${ctx.ticketAbsPath}\`.`;
   // Most stable segment first (project context is the most cacheable), most
   // specific last. The two generated sentences sit adjacent at the end so the
@@ -98,7 +98,7 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
     ...inherited,
     MEESEEKS_TICKET_PATH: ctx.ticketAbsPath,
     MEESEEKS_BOARD_PATH: ctx.boardPath,
-    MEESEEKS_LANE_PATH: ctx.lanePath,
+    MEESEEKS_WORKFLOW_PATH: ctx.workflowPath,
     ...(ctx.project
       ? { MEESEEKS_PROJECT_ROOT: ctx.project.root, MEESEEKS_PROJECT_NAME: ctx.project.name }
       : {}),

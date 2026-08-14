@@ -55,10 +55,10 @@ describe('RuntimeSupervisor', () => {
     const summary = await sup.spawn({
       runtimeId: 'rt-1',
       boardPath: tmp,
-      lanePath: path.join(tmp, 'lane'),
-      ticketAbsPath: path.join(tmp, 'lane', 'todo', 't.md'),
+      workflowPath: path.join(tmp, 'workflow'),
+      ticketAbsPath: path.join(tmp, 'workflow', 'todo', 't.md'),
       processDocContent: null,
-      ticketRef: { boardId: 'b', laneName: 'lane', filename: 't.md' },
+      ticketRef: { boardId: 'b', workflowName: 'workflow', filename: 't.md' },
       board: null,
       permissions: null,
       adapterArgsOverride: ['--scripted=init,assistant,result'],
@@ -76,8 +76,8 @@ describe('RuntimeSupervisor', () => {
     const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192 });
     await sup.spawn({
       runtimeId: 'rt-2',
-      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
       board: null, permissions: null,
       adapterArgsOverride: ['--scripted=init,result'],
     });
@@ -94,8 +94,8 @@ describe('RuntimeSupervisor', () => {
     sup.on('runtime-status', (s) => exits.push(s));
     await sup.spawn({
       runtimeId: 'rt-3',
-      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
       board: null, permissions: null,
       adapterArgsOverride: ['--scripted=init'],
     });
@@ -108,10 +108,10 @@ describe('RuntimeSupervisor', () => {
     const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192, termKillMs: 200 });
     await sup.spawn({
       runtimeId: 'rt-4',
-      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
       board: null,
-      permissions: { allowedPaths: [], allowedTools: [{ value: 'Bash', origins: ['lane'] }], deniedTools: [] },
+      permissions: { allowedPaths: [], allowedTools: [{ value: 'Bash', origins: ['workflow'] }], deniedTools: [] },
       adapterArgsOverride: ['--scripted=init'],
     });
     const settingsPath = path.join(tmp, '.meeseeks', 'session-rt-4.json');
@@ -142,8 +142,8 @@ describe('RuntimeSupervisor', () => {
     const silentSup = new RuntimeSupervisor({ spawnFn: silentSpawn, ringBytes: 8192, startingDebounceMs: 100 });
     await silentSup.spawn({
       runtimeId: 'rt-debounce',
-      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
       board: null, permissions: null,
     });
     expect(silentSup.get('rt-debounce')?.status).toBe('starting');
@@ -174,8 +174,8 @@ describe('RuntimeSupervisor', () => {
     const sup = new RuntimeSupervisor({ spawnFn: captureSpawn, ringBytes: 8192, startingDebounceMs: 60_000 });
     await sup.spawn({
       runtimeId: 'rt-resize',
-      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
       board: null, permissions: null,
     });
     expect(sup.get('rt-resize')?.status).toBe('starting');
@@ -201,8 +201,8 @@ describe('RuntimeSupervisor', () => {
     const sup = new RuntimeSupervisor({ spawnFn: captureSpawn, ringBytes: 8192, startingDebounceMs: 50 });
     await sup.spawn({
       runtimeId: 'rt-reflush',
-      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
       board: null, permissions: null,
     });
     sup.resize('rt-reflush', 110, 40);
@@ -219,8 +219,8 @@ describe('RuntimeSupervisor', () => {
     sup.on('runtime-status', (s) => statuses.push(s.status));
     await sup.spawn({
       runtimeId: 'rt-notify',
-      boardPath: tmp, lanePath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', laneName: 'l', filename: 't.md' },
+      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
       board: null, permissions: null,
       adapterArgsOverride: ['--scripted=init'],
     });
@@ -244,17 +244,17 @@ describe('RuntimeSupervisor', () => {
     const summary = await sup.spawn({
       runtimeId: 'rt-preamble',
       boardPath: tmp,
-      lanePath: path.join(tmp, 'lane'),
-      ticketAbsPath: path.join(tmp, 'lane', 'todo', 'my-ticket.md'),
+      workflowPath: path.join(tmp, 'workflow'),
+      ticketAbsPath: path.join(tmp, 'workflow', 'todo', 'my-ticket.md'),
       processDocContent: null,
-      ticketRef: { boardId: 'b', laneName: 'lane', filename: 'my-ticket.md' },
+      ticketRef: { boardId: 'b', workflowName: 'workflow', filename: 'my-ticket.md' },
       board: null,
       permissions: null,
       adapterArgsOverride: ['--scripted=init,result'],
     });
     expect(summary.preamble).toBeTruthy();
     expect(summary.preamble).toContain('my-ticket.md');
-    expect(summary.preamble).toContain('lane');
+    expect(summary.preamble).toContain('workflow');
     await sup.terminateAll();
   });
 });

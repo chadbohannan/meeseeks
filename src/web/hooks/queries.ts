@@ -2,7 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api.js';
 import type {
   CreateBoardRequest, PatchBoardRequest, DeleteBoardRequest,
-  CreateLaneRequest, PatchLaneRequest, DeleteLaneRequest,
+  CreateWorkflowRequest, PatchWorkflowRequest, DeleteWorkflowRequest,
   CreateTicketRequest, PatchTicketRequest,
   ListFilesResponse,
   CreateProjectRequest, PatchProjectRequest,
@@ -52,33 +52,33 @@ export function useDeleteProject() {
 /** What a spawn would actually use. Served by the same resolver the supervisor calls. */
 export const useTicketPermissions = (
   boardId: string | undefined,
-  laneName: string | undefined,
+  workflowName: string | undefined,
   filename: string | undefined,
   enabled = true,
 ) => useQuery({
-  queryKey: ['ticket-permissions', boardId, laneName, filename],
-  queryFn: () => api.ticketPermissions(boardId!, laneName!, filename!),
-  enabled: enabled && !!boardId && !!laneName && !!filename,
+  queryKey: ['ticket-permissions', boardId, workflowName, filename],
+  queryFn: () => api.ticketPermissions(boardId!, workflowName!, filename!),
+  enabled: enabled && !!boardId && !!workflowName && !!filename,
 });
 export const useBoard = (boardId: string | undefined) => useQuery({
   queryKey: ['board', boardId],
   queryFn: () => api.getBoard(boardId!),
   enabled: !!boardId,
 });
-export const useLane = (boardId: string | undefined, laneName: string | undefined) => useQuery({
-  queryKey: ['lane', boardId, laneName],
-  queryFn: () => api.getLane(boardId!, laneName!),
-  enabled: !!boardId && !!laneName,
+export const useWorkflow = (boardId: string | undefined, workflowName: string | undefined) => useQuery({
+  queryKey: ['workflow', boardId, workflowName],
+  queryFn: () => api.getWorkflow(boardId!, workflowName!),
+  enabled: !!boardId && !!workflowName,
 });
-export const useTickets = (boardId: string | undefined, laneName: string | undefined) => useQuery({
-  queryKey: ['tickets', boardId, laneName],
-  queryFn: () => api.listTickets(boardId!, laneName!),
-  enabled: !!boardId && !!laneName,
+export const useTickets = (boardId: string | undefined, workflowName: string | undefined) => useQuery({
+  queryKey: ['tickets', boardId, workflowName],
+  queryFn: () => api.listTickets(boardId!, workflowName!),
+  enabled: !!boardId && !!workflowName,
 });
-export const useTicket = (boardId: string | undefined, laneName: string | undefined, filename: string | undefined) => useQuery({
-  queryKey: ['ticket', boardId, laneName, filename],
-  queryFn: () => api.getTicket(boardId!, laneName!, filename!),
-  enabled: !!boardId && !!laneName && !!filename,
+export const useTicket = (boardId: string | undefined, workflowName: string | undefined, filename: string | undefined) => useQuery({
+  queryKey: ['ticket', boardId, workflowName, filename],
+  queryFn: () => api.getTicket(boardId!, workflowName!, filename!),
+  enabled: !!boardId && !!workflowName && !!filename,
 });
 
 export function useCreateBoard() {
@@ -105,57 +105,57 @@ export function useDeleteBoard(boardId: string) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['boards'] }); },
   });
 }
-export function useCreateLane(boardId: string) {
+export function useCreateWorkflow(boardId: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (req: CreateLaneRequest) => api.createLane(boardId, req),
+    mutationFn: (req: CreateWorkflowRequest) => api.createWorkflow(boardId, req),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['board', boardId] }); },
   });
 }
-export function usePatchLane(boardId: string, laneName: string) {
+export function usePatchWorkflow(boardId: string, workflowName: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (req: PatchLaneRequest) => api.patchLane(boardId, laneName, req),
+    mutationFn: (req: PatchWorkflowRequest) => api.patchWorkflow(boardId, workflowName, req),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['board', boardId] });
-      qc.invalidateQueries({ queryKey: ['lane', boardId, laneName] });
+      qc.invalidateQueries({ queryKey: ['workflow', boardId, workflowName] });
     },
   });
 }
-export function useDeleteLane(boardId: string, laneName: string) {
+export function useDeleteWorkflow(boardId: string, workflowName: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (req: DeleteLaneRequest) => api.deleteLane(boardId, laneName, req),
+    mutationFn: (req: DeleteWorkflowRequest) => api.deleteWorkflow(boardId, workflowName, req),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['board', boardId] }); },
   });
 }
-export function useCreateTicket(boardId: string, laneName: string) {
+export function useCreateTicket(boardId: string, workflowName: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (req: CreateTicketRequest) => api.createTicket(boardId, laneName, req),
+    mutationFn: (req: CreateTicketRequest) => api.createTicket(boardId, workflowName, req),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] });
+      qc.invalidateQueries({ queryKey: ['tickets', boardId, workflowName] });
       qc.invalidateQueries({ queryKey: ['board', boardId] });
     },
   });
 }
-export function useMoveTicket(boardId: string, laneName: string) {
+export function useMoveTicket(boardId: string, workflowName: string) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ filename, state }: { filename: string; state: string }) =>
-      api.patchTicket(boardId, laneName, filename, { state }),
+      api.patchTicket(boardId, workflowName, filename, { state }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] });
+      qc.invalidateQueries({ queryKey: ['tickets', boardId, workflowName] });
       qc.invalidateQueries({ queryKey: ['board', boardId] });
     },
   });
 }
-export function useDeleteTicket(boardId: string, laneName: string, filename: string) {
+export function useDeleteTicket(boardId: string, workflowName: string, filename: string) {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: () => api.deleteTicket(boardId, laneName, filename),
+    mutationFn: () => api.deleteTicket(boardId, workflowName, filename),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['tickets', boardId, laneName] });
+      qc.invalidateQueries({ queryKey: ['tickets', boardId, workflowName] });
       qc.invalidateQueries({ queryKey: ['board', boardId] });
     },
   });
@@ -269,8 +269,8 @@ export function useRuntimes() {
 export function useSpawnRuntime() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (vars: { boardId: string; laneName: string; filename: string; model?: string }) =>
-      api.spawnRuntime(vars.boardId, vars.laneName, vars.filename, vars.model),
+    mutationFn: (vars: { boardId: string; workflowName: string; filename: string; model?: string }) =>
+      api.spawnRuntime(vars.boardId, vars.workflowName, vars.filename, vars.model),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["runtimes"] }); },
   });
 }

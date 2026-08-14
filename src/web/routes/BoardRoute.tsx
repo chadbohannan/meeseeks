@@ -1,53 +1,53 @@
 import { useEffect, useState } from 'react';
 import { useParams, Navigate } from 'react-router-dom';
-import { useBoard, useLane } from '../hooks/queries.js';
+import { useBoard, useWorkflow } from '../hooks/queries.js';
 import { useUi } from '../store/ui.js';
 import { Kanban } from '../components/Kanban.js';
-import { NewLaneModal } from '../components/NewLaneModal.js';
+import { NewWorkflowModal } from '../components/NewWorkflowModal.js';
 
 export function BoardRoute() {
   const { boardId } = useParams<{ boardId: string }>();
   const board = useBoard(boardId);
-  const { selectedLane, setSelectedLane } = useUi();
-  const [showNewLane, setShowNewLane] = useState(false);
+  const { selectedWorkflow, setSelectedWorkflow } = useUi();
+  const [showNewWorkflow, setShowNewWorkflow] = useState(false);
 
   useEffect(() => {
-    const lanes = board.data?.board.lanes;
-    if (!lanes) return;
-    if (!selectedLane || !lanes.find((l) => l.laneName === selectedLane)) {
-      setSelectedLane(lanes[0]?.laneName ?? null);
+    const workflows = board.data?.board.workflows;
+    if (!workflows) return;
+    if (!selectedWorkflow || !workflows.find((l) => l.workflowName === selectedWorkflow)) {
+      setSelectedWorkflow(workflows[0]?.workflowName ?? null);
     }
-  }, [board.data, selectedLane, setSelectedLane]);
+  }, [board.data, selectedWorkflow, setSelectedWorkflow]);
 
-  const lane = useLane(boardId, selectedLane ?? undefined);
+  const workflow = useWorkflow(boardId, selectedWorkflow ?? undefined);
 
   if (!boardId) return <Navigate to="/boards" replace />;
   if (board.isLoading) return <div className="p-8 text-slate-500">Loading board…</div>;
   if (!board.data) return <div className="p-8 text-red-400">Board not found.</div>;
 
-  const lanes = board.data.board.lanes;
+  const workflows = board.data.board.workflows;
 
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-2 px-4 py-2 border-b border-slate-800">
         <h1 className="text-lg font-semibold mr-4">{board.data.board.name}</h1>
-        {lanes.length === 0 ? (
-          <span className="text-slate-500 text-sm">No lanes yet.</span>
+        {workflows.length === 0 ? (
+          <span className="text-slate-500 text-sm">No workflows yet.</span>
         ) : (
           <select
             className="bg-slate-800 rounded px-2 py-1 text-sm"
-            value={selectedLane ?? ''}
-            onChange={(e) => setSelectedLane(e.target.value)}
+            value={selectedWorkflow ?? ''}
+            onChange={(e) => setSelectedWorkflow(e.target.value)}
           >
-            {lanes.map((l) => <option key={l.laneName} value={l.laneName}>{l.laneName}</option>)}
+            {workflows.map((l) => <option key={l.workflowName} value={l.workflowName}>{l.workflowName}</option>)}
           </select>
         )}
-        <button className="px-2 py-1 rounded bg-slate-700 text-sm" onClick={() => setShowNewLane(true)}>+ Lane</button>
+        <button className="px-2 py-1 rounded bg-slate-700 text-sm" onClick={() => setShowNewWorkflow(true)}>+ Workflow</button>
       </div>
-      {selectedLane && lane.data && (
-        <Kanban boardId={boardId} lane={lane.data.lane} />
+      {selectedWorkflow && workflow.data && (
+        <Kanban boardId={boardId} workflow={workflow.data.workflow} />
       )}
-      <NewLaneModal boardId={boardId} open={showNewLane} onClose={() => setShowNewLane(false)} />
+      <NewWorkflowModal boardId={boardId} open={showNewWorkflow} onClose={() => setShowNewWorkflow(false)} />
     </div>
   );
 }

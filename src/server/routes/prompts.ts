@@ -110,7 +110,7 @@ export async function registerPromptRoutes(app: FastifyInstance, { state }: Deps
         };
         sources.push({ origin: 'project', base: detail.root, config: detail.permissions });
       }
-      sources.push({ origin: 'lane', base: board.path, config: boardPermissions });
+      sources.push({ origin: 'workflow', base: board.path, config: boardPermissions });
 
       const runtimeId = randomUUID();
       const summary = await state.supervisor.spawnPrompt({

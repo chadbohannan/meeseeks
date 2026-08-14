@@ -6,7 +6,7 @@ import { mapErrorToResponse } from '../../src/server/error-mapper.js';
 import { registerWorkspaceRoutes } from '../../src/server/routes/workspace.js';
 import { registerProjectRoutes } from '../../src/server/routes/projects.js';
 import { registerBoardRoutes } from '../../src/server/routes/boards.js';
-import { registerLaneRoutes } from '../../src/server/routes/lanes.js';
+import { registerWorkflowRoutes } from '../../src/server/routes/workflows.js';
 import { registerTicketRoutes } from '../../src/server/routes/tickets.js';
 import { registerRuntimeRoutes } from '../../src/server/routes/runtimes.js';
 import { registerFileRoutes } from '../../src/server/routes/files.js';
@@ -34,7 +34,7 @@ export async function bootTestServer(projectRoot: string): Promise<TestServer> {
   await registerWorkspaceRoutes(app, { state, hub });
   await registerProjectRoutes(app, { state, hub });
   await registerBoardRoutes(app, { state, hub });
-  await registerLaneRoutes(app, { state, hub });
+  await registerWorkflowRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });
   await registerRuntimeRoutes(app, { state, hub });
   await registerFileRoutes(app, { state, hub });

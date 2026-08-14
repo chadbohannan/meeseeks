@@ -6,7 +6,7 @@ const STATUS: Record<string, number> = {
   CONFLICT: 409,
   INVALID_INPUT: 400,
   PATH_UNSAFE: 400,
-  INVALID_LANE: 422,
+  INVALID_WORKFLOW: 422,
   PROJECT_NOT_OPEN: 409,
 };
 

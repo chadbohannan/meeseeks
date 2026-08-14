@@ -43,11 +43,11 @@ function PermissionsFields({
   return (
     <div className="grid gap-3 md:grid-cols-3">
       {field('Allowed directories', 'allowedPaths',
-        'Extra --add-dir grants. Relative entries resolve against this project root. Cannot be revoked by a lane.')}
+        'Extra --add-dir grants. Relative entries resolve against this project root. Cannot be revoked by a workflow.')}
       {field('Auto-approved tools', 'allowedTools',
         'Skips the approval prompt. Not a guardrail — absence means "ask", not "blocked".')}
       {field('Denied tools', 'deniedTools',
-        'Hard block. Wins over any allow, from this project or any lane.')}
+        'Hard block. Wins over any allow, from this project or any workflow.')}
     </div>
   );
 }
@@ -133,14 +133,14 @@ function ProjectEditor({ projectId }: { projectId: string }) {
             placeholder="What this codebase is, where its docs live…"
           />
           <p className="text-[10px] text-slate-500 mt-0.5">
-            Prepended to every agent preamble for this project, ahead of board and lane context.
+            Prepended to every agent preamble for this project, ahead of board and workflow context.
           </p>
         </div>
       </div>
 
       <h3 className="text-sm font-semibold mb-2">Permissions</h3>
       <p className="text-[11px] text-slate-500 mb-2">
-        Unioned with the lane&apos;s permissions at spawn time. Either side can deny; neither can
+        Unioned with the workflow&apos;s permissions at spawn time. Either side can deny; neither can
         undo the other&apos;s denial.
       </p>
       <PermissionsFields value={current.permissions} onChange={(next) => set({ permissions: next })} />

@@ -32,20 +32,20 @@ interface TicketRuntimeContext {
 }
 
 /**
- * Resolve the project a ticket names and union its permissions with the lane's.
+ * Resolve the project a ticket names and union its permissions with the workflow's.
  *
  * `requireProject` is what enforces the "optional to assign, required to run"
  * rule: the preview endpoint tolerates an unassigned ticket so the UI can show
- * what a lane alone would contribute, while a spawn refuses it — there is no
+ * what a workflow alone would contribute, while a spawn refuses it — there is no
  * project root to point the agent at.
  */
 async function ticketRuntimeContext(
   workspaceRoot: string,
-  lanePath: string,
+  workflowPath: string,
   projectId: string | undefined,
   requireProject: boolean,
 ): Promise<TicketRuntimeContext> {
-  const lanePermissions = await readYaml<PermissionsConfig>(path.join(lanePath, 'permissions.yaml'));
+  const workflowPermissions = await readYaml<PermissionsConfig>(path.join(workflowPath, 'permissions.yaml'));
 
   if (!projectId) {
     if (requireProject) {
@@ -53,7 +53,7 @@ async function ticketRuntimeContext(
     }
     return {
       project: null,
-      permissions: resolvePermissions([{ origin: 'lane', base: lanePath, config: lanePermissions }]),
+      permissions: resolvePermissions([{ origin: 'workflow', base: workflowPath, config: workflowPermissions }]),
     };
   }
 
@@ -64,13 +64,13 @@ async function ticketRuntimeContext(
     }
     return {
       project: null,
-      permissions: resolvePermissions([{ origin: 'lane', base: lanePath, config: lanePermissions }]),
+      permissions: resolvePermissions([{ origin: 'workflow', base: workflowPath, config: workflowPermissions }]),
     };
   }
 
   const sources: PermissionSource[] = [
     { origin: 'project', base: detail.root, config: detail.permissions },
-    { origin: 'lane', base: lanePath, config: lanePermissions },
+    { origin: 'workflow', base: workflowPath, config: workflowPermissions },
   ];
   return {
     project: {
@@ -108,29 +108,29 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
     return {};
   });
 
-  app.post<{ Params: { boardId: string; laneName: string; filename: string }; Body: { model?: string } }>(
-    '/api/tickets/:boardId/:laneName/:filename/runtime',
+  app.post<{ Params: { boardId: string; workflowName: string; filename: string }; Body: { model?: string } }>(
+    '/api/tickets/:boardId/:workflowName/:filename/runtime',
     async (req) => {
       const open = state.require();
-      const { boardId, laneName, filename } = req.params;
+      const { boardId, workflowName, filename } = req.params;
       const board = await getBoard(open.meta.path, boardId);
-      const lanePath = path.join(board.path, 'lanes', laneName);
-      const found = await findTicketFile(lanePath, filename);
+      const workflowPath = path.join(board.path, 'workflows', workflowName);
+      const found = await findTicketFile(workflowPath, filename);
       if (!found) throw new NotFoundError(`ticket ${filename} not found`);
-      const ticket = await readTicket(board.path, laneName, filename);
+      const ticket = await readTicket(board.path, workflowName, filename);
       const { project, permissions } = await ticketRuntimeContext(
-        open.meta.path, lanePath, ticket.project, true,
+        open.meta.path, workflowPath, ticket.project, true,
       );
 
       const boardCfg = await readYaml<BoardRuntimeConfig>(path.join(board.path, 'board.yaml'));
-      const processDocPath = path.join(lanePath, 'PROCESS.md');
+      const processDocPath = path.join(workflowPath, 'PROCESS.md');
       const processDocContent = await readFile(processDocPath, 'utf8').catch(() => null);
       const boardContextContent = await readBoardContextContent(board.path).catch(() => null);
 
       const existing = state.supervisor.list().find(r =>
         r.kind === 'ticket' &&
         r.ticketRef?.boardId === boardId &&
-        r.ticketRef?.laneName === laneName &&
+        r.ticketRef?.workflowName === workflowName &&
         r.ticketRef?.filename === filename &&
         r.status !== 'exited' && r.status !== 'errored');
       if (existing) return { runtime: existing };
@@ -139,11 +139,11 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
       const summary = await state.supervisor.spawn({
         runtimeId,
         boardPath: board.path,
-        lanePath,
+        workflowPath,
         ticketAbsPath: found.abs,
         boardContextContent,
         processDocContent,
-        ticketRef: { boardId, laneName, filename },
+        ticketRef: { boardId, workflowName, filename },
         board: boardCfg,
         permissions,
         project,
@@ -156,16 +156,16 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
   // Preview: what a spawn *would* use. Deliberately calls the same
   // ticketRuntimeContext the spawn path calls — a preview computed by a
   // parallel implementation would eventually disagree with reality.
-  app.get<{ Params: { boardId: string; laneName: string; filename: string } }>(
-    '/api/tickets/:boardId/:laneName/:filename/permissions',
+  app.get<{ Params: { boardId: string; workflowName: string; filename: string } }>(
+    '/api/tickets/:boardId/:workflowName/:filename/permissions',
     async (req) => {
       const open = state.require();
-      const { boardId, laneName, filename } = req.params;
+      const { boardId, workflowName, filename } = req.params;
       const board = await getBoard(open.meta.path, boardId);
-      const lanePath = path.join(board.path, 'lanes', laneName);
-      const ticket = await readTicket(board.path, laneName, filename);
+      const workflowPath = path.join(board.path, 'workflows', workflowName);
+      const ticket = await readTicket(board.path, workflowName, filename);
       const { project, permissions } = await ticketRuntimeContext(
-        open.meta.path, lanePath, ticket.project, false,
+        open.meta.path, workflowPath, ticket.project, false,
       );
       return {
         projectId: ticket.project ?? null,

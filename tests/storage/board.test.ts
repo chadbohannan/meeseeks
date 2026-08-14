@@ -12,7 +12,7 @@ afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
 const exists = async (p: string) => { try { await access(p); return true; } catch { return false; } };
 
 describe('createBoard', () => {
-  it('creates folder, CONTEXT.md, board.yaml, lanes/', async () => {
+  it('creates folder, CONTEXT.md, board.yaml, workflows/', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/my-board');
@@ -20,24 +20,24 @@ describe('createBoard', () => {
     await createBoard(boardPath, 'My Board');
     expect(await exists(path.join(boardPath, 'CONTEXT.md'))).toBe(true);
     expect(await exists(path.join(boardPath, 'board.yaml'))).toBe(true);
-    expect(await exists(path.join(boardPath, 'lanes'))).toBe(true);
+    expect(await exists(path.join(boardPath, 'workflows'))).toBe(true);
 
     const contextMd = await readFile(path.join(boardPath, 'CONTEXT.md'), 'utf8');
     expect(contextMd).toContain('My Board');
   });
 
-  it('seeds a ready-to-use Development lane', async () => {
+  it('seeds a ready-to-use Development workflow', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/my-board');
     await createBoard(boardPath, 'My Board');
 
-    const lanePath = path.join(boardPath, 'lanes/development');
-    expect(await exists(path.join(lanePath, 'lane.yaml'))).toBe(true);
+    const workflowPath = path.join(boardPath, 'workflows/development');
+    expect(await exists(path.join(workflowPath, 'workflow.yaml'))).toBe(true);
     for (const dir of ['todo', 'in-progress', 'review', 'done']) {
-      expect(await exists(path.join(lanePath, dir))).toBe(true);
+      expect(await exists(path.join(workflowPath, dir))).toBe(true);
     }
-    const process = await readFile(path.join(lanePath, 'PROCESS.md'), 'utf8');
+    const process = await readFile(path.join(workflowPath, 'PROCESS.md'), 'utf8');
     expect(process).toContain('Development Process');
   });
 
@@ -51,14 +51,14 @@ describe('createBoard', () => {
 });
 
 describe('readBoardDetail', () => {
-  it('returns lane summaries and contextContent for an existing board', async () => {
+  it('returns workflow summaries and contextContent for an existing board', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
     const boardPath = path.join(tp.root, 'boards/b');
     await createBoard(boardPath, 'B');
     const detail = await readBoardDetail(boardPath, { boardId: 'b', name: 'B' });
-    expect(detail.lanes).toHaveLength(1);
-    expect(detail.lanes[0]!.displayName).toBe('Development');
+    expect(detail.workflows).toHaveLength(1);
+    expect(detail.workflows[0]!.displayName).toBe('Development');
     expect(detail.contextContent).toBeTruthy();
     expect(detail.contextContent).toContain('B');
   });

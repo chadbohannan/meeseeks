@@ -34,7 +34,7 @@ describe('websocket events', () => {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'B' }),
     })).json() as { board: { boardId: string } };
-    await fetch(`${srv.url}/api/boards/${board.board.boardId}/lanes`, {
+    await fetch(`${srv.url}/api/boards/${board.board.boardId}/workflows`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ name: 'work', states: [{ dir: 'todo', name: 'Todo' }] }),
     });
@@ -46,13 +46,13 @@ describe('websocket events', () => {
       ws.once('error', reject);
     });
 
-    const todoDir = path.join(tp.root, 'boards', 'b', 'lanes', 'work', 'todo');
+    const todoDir = path.join(tp.root, 'boards', 'b', 'workflows', 'work', 'todo');
     await mkdir(todoDir, { recursive: true });
     await writeFile(path.join(todoDir, '2026-04-26T1430-test.md'), '---\ntitle: T\ncreated: 2026-04-26T14:30:00Z\nupdated: 2026-04-26T14:30:00Z\n---\nbody', 'utf8');
 
     const event = await waitForEvent(ws, e => e.type === 'ticket-changed' && e.payload.filename === '2026-04-26T1430-test.md');
     expect(event.payload.boardId).toBe('b');
-    expect(event.payload.laneName).toBe('work');
+    expect(event.payload.workflowName).toBe('work');
   });
 
   it('emits project-changed for projects/*.yaml, not a bogus board-changed', async () => {

@@ -7,7 +7,7 @@ import { mapErrorToResponse } from './error-mapper.js';
 import { registerWorkspaceRoutes } from './routes/workspace.js';
 import { registerProjectRoutes } from './routes/projects.js';
 import { registerBoardRoutes } from './routes/boards.js';
-import { registerLaneRoutes } from './routes/lanes.js';
+import { registerWorkflowRoutes } from './routes/workflows.js';
 import { registerTicketRoutes } from './routes/tickets.js';
 import { registerRuntimeRoutes } from './routes/runtimes.js';
 import { registerFileRoutes } from './routes/files.js';
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
   await registerWorkspaceRoutes(app, { state, hub });
   await registerProjectRoutes(app, { state, hub });
   await registerBoardRoutes(app, { state, hub });
-  await registerLaneRoutes(app, { state, hub });
+  await registerWorkflowRoutes(app, { state, hub });
   await registerTicketRoutes(app, { state, hub });
   await registerRuntimeRoutes(app, { state, hub });
   await registerFileRoutes(app, { state, hub });

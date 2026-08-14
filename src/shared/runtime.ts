@@ -9,7 +9,7 @@ export type RuntimeStatus =
 
 export interface TicketRef {
   boardId: string;
-  laneName: string;
+  workflowName: string;
   filename: string;
 }
 
