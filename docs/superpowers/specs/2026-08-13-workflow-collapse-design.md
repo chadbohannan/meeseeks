@@ -1,7 +1,8 @@
 # Meeseeks — Collapsing Boards into Workflows
 
 **Date:** 2026-08-13
-**Status:** Draft — design agreed via interview, not yet implemented
+**Status:** Implemented (phases 1–4)
+**Migration runbook:** [Board-to-Workflow Migration](../../../wiki/meeseeks-wiki/runbooks/board-to-workflow-migration.md)
 **Follows:** [Workspace/Project Decoupling](2026-08-12-workspace-project-decoupling-design.md)
 
 ## Overview
@@ -119,7 +120,7 @@ The per-workflow escape hatch already exists. `PROCESS.md` is per-workflow and i
 
 Revisit only if a workflow needs skills another workflow must not see. That is the one case that genuinely requires cwd back on the workflow.
 
-### Known consequence of deferring migration
+### Known consequence of deferring migration (resolved by Phase 4)
 
 Until §7 is written, **a build of this change cannot open the existing `~/workspace/meeseeks` workspace** — it has `boards:` where the new code expects `workflows:`, and its lanes are one level too deep and under the old name. Development and testing run against freshly created workspaces. This is the accepted cost of sequencing migration last, and it means the migration phase is not optional polish: it is what makes the real workspace usable again.
 
@@ -283,9 +284,11 @@ The editors are labelled by what they edit (workspace skills, workspace prompts)
 
 **Phase 3 — Web UI.** Sidebar, routes, workflow editor, deletion of board components, component and store renames.
 
-**Phase 4 — Migration.** Old layout → new, in one pass covering both this change and the deferred project migration (see below).
+**Phase 4 — Migration.** Old layout → new, in one pass covering both this change and the deferred project migration (see below). Landed as `src/storage/migrate.ts` behind `npm run migrate`, with three corrections forced by the workspace on disk: `workspace.yaml` may already exist and is merged rather than overwritten; the board context file is `CLAUDE.md` as often as `CONTEXT.md`; and an unregistered directory under `workflows/` counts as a name collision. Section 7 below is the original plan and is left unedited as the record of what was specified.
 
 ## Section 7: Migration (deferred)
+
+> **Implemented 2026-08-14.** Kept as written for the record; see Phase 4 above for where reality diverged.
 
 Written last, but the shape is known and worth recording now because it constrains earlier phases.
 

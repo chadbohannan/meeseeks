@@ -8,6 +8,7 @@ coverage/
 .DS_Store
 .meeseeks/
 settings.json
+.claude/settings.local.json
 
 # Live workspace data. This repository is also the workspace it supervises, so
 # a running server writes its state right here; none of it is source. The first

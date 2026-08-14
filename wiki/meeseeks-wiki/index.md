@@ -25,14 +25,14 @@
 ## Concepts
 
 ### Meeseeks-native
-- [Project Model](concepts/project-model.md) — Workspace, boards, lanes, tickets, and the selectable per-codebase Project config
+- [Project Model](concepts/project-model.md) — Workspace, workflows, tickets, and the selectable per-codebase Project config
 - [Runtime Supervisor](concepts/runtime.md) — Claude Code runtime lifecycle management (ticket and prompt kinds)
-- [One-Shot Prompts](concepts/one-shot-prompts.md) — board-scoped reusable prompts run non-interactively with JSONL run logs
+- [One-Shot Prompts](concepts/one-shot-prompts.md) — workspace-scoped reusable prompts run non-interactively with JSONL run logs
 - [Platform Constraints](concepts/platform-constraints.md) — macOS-specific incompatibilities: chokidar/node-pty, node-pty version, tsx watch scope, env leakage
 - [Focus-Gated Editor](concepts/focus-gated-editor.md) — coexisting with the filesystem watcher when editing Markdown that agents may also rewrite
 
 ### Claude Code
-- [Claude Code Instruction Bootstrapping](concepts/claude-code-instruction-bootstrapping.md) — CLAUDE.md scopes and concatenation, auto memory, and why Meeseeks injects board context explicitly
+- [Claude Code Instruction Bootstrapping](concepts/claude-code-instruction-bootstrapping.md) — CLAUDE.md scopes and concatenation, auto memory, and why Meeseeks injects workflow context explicitly
 - [Claude Code State Detection](concepts/claude-code-state-detection.md) — reverse-engineering agent state from an opaque process via hooks and stream-json events
 
 ### Pi
@@ -75,6 +75,7 @@
 ## Runbooks
 - [Project Setup](runbooks/project-setup.md) — installation, development commands, environment variables, and production deployment
 - [Claude Code Sandboxing](runbooks/claude-code-sandboxing.md) — permission modes, settings precedence, and OS-level sandboxing for orchestrated agents
+- [Board-to-Workflow Migration](runbooks/board-to-workflow-migration.md) — moving an existing workspace off `project.yaml` + `boards/` onto `workspace.yaml` + `workflows/`
 - [Tracing Meeseeks Sessions to LangSmith](runbooks/tracing-meeseeks-sessions-to-langsmith.md) — piping supervised sessions into LangSmith via the supervisor's settings-file seam
 
 ## Syntheses
