@@ -116,7 +116,7 @@ describe('listProjects', () => {
     await writeYaml(path.join(root, 'projects/dup.yaml'), `name: A\nroot: ${repo}\n`);
     await writeYaml(path.join(root, 'nested/dup.yaml'), `name: B\nroot: ${repo}\n`);
     await writeYaml(
-      path.join(root, 'project.yaml'),
+      path.join(root, 'workspace.yaml'),
       `name: WS\nboards: []\nprojects:\n  - projects/dup.yaml\n  - nested/dup.yaml\n`,
     );
 
@@ -157,7 +157,7 @@ describe('getProject', () => {
     );
     await writeFile(path.join(root, 'projects/CONTEXT.md'), 'from a file', 'utf8');
     await writeYaml(
-      path.join(root, 'project.yaml'),
+      path.join(root, 'workspace.yaml'),
       `name: WS\nboards: []\nprojects:\n  - projects/withfile.yaml\n`,
     );
 
@@ -181,7 +181,7 @@ describe('getProject', () => {
       `name: Empty\nroot: ${repo}\npermissions:\n  allowedPaths: []\n  allowedTools: []\n  deniedTools: []\n`,
     );
     await writeYaml(
-      path.join(root, 'project.yaml'),
+      path.join(root, 'workspace.yaml'),
       `name: WS\nboards: []\nprojects:\n  - projects/empty.yaml\n`,
     );
     expect((await getProject(root, 'empty')).permissions).toBeNull();

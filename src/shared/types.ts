@@ -3,11 +3,26 @@ export interface ModelOption {
   label: string;   // shown in the picker
 }
 
+/**
+ * How an agent is launched. Spawn parameters only — nothing here is
+ * path-resolved, which is why this lives on the workflow rather than being
+ * hoisted to the workspace alongside the cwd-bound `.claude/` directory.
+ */
+export interface RuntimeConfig {
+  harness: string;
+  provider: string;
+  model: string;
+  args: string[];
+  env: Record<string, string>;
+}
+
 export interface WorkspaceConfig {
   name: string;
-  boards: string[];
+  workflows: string[];   // directory entries, e.g. 'workflows/development'
   projects: string[];    // config-file entries, e.g. 'projects/meeseeks.yaml'
   models?: ModelOption[];
+  /** Default for workflows that define no `runtime:` of their own. */
+  runtime?: RuntimeConfig;
 }
 
 /**
@@ -73,16 +88,16 @@ export interface WorkspaceMeta {
   config: WorkspaceConfig;
 }
 
-export interface BoardSummary {
-  boardId: string;       // slug derived from the workspace config's boards[] entry
-  name: string;
+/**
+ * A `workflows:` registry entry resolved against the workspace. Kept separate
+ * from WorkflowSummary because resolving an entry only needs the filesystem —
+ * reading a summary additionally parses workflow.yaml and counts tickets, which
+ * a missing or malformed workflow cannot support.
+ */
+export interface WorkflowEntry {
+  workflowName: string;  // slug derived from the registry entry's basename
   path: string;          // absolute
-  available: boolean;    // false if folder is missing on disk
-}
-
-export interface BoardDetail extends BoardSummary {
-  workflows: WorkflowSummary[];
-  contextContent?: string;
+  available: boolean;    // false if the directory is missing on disk
 }
 
 export interface WorkflowState {
@@ -91,17 +106,22 @@ export interface WorkflowState {
 }
 
 export interface WorkflowSummary {
-  workflowName: string;      // folder name = id (slug)
+  workflowName: string;  // slug = registry entry basename = folder name
   displayName: string;   // user-facing name preserving original casing
   states: WorkflowState[];
   ticketCounts: Record<string, number>;  // by state.dir
   orphanedCount: number;
+  available: boolean;    // false if registered but missing on disk
 }
 
 export interface WorkflowDetail extends WorkflowSummary {
   hasProcessDoc: boolean;
   hasPermissions: boolean;
   processDoc: string | null;
+  /** Null when neither the workflow nor the workspace defines one. */
+  runtime: RuntimeConfig | null;
+  /** True when `runtime` came from the workspace default rather than this workflow. */
+  runtimeInherited: boolean;
 }
 
 export interface TicketSummary {

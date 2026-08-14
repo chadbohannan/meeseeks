@@ -1,4 +1,4 @@
-import type { WorkspaceMeta, BoardSummary, BoardDetail, WorkflowDetail, WorkflowState, TicketSummary, TicketDetail, FileNode, ModelOption, PermissionsConfig, ProjectSummary, ProjectDetail } from './types.js';
+import type { WorkspaceMeta, WorkflowDetail, WorkflowState, TicketSummary, TicketDetail, FileNode, ModelOption, PermissionsConfig, ProjectSummary, ProjectDetail, RuntimeConfig, WorkflowSummary } from './types.js';
 
 // Models
 export interface ListModelsResponse { models: ModelOption[] }
@@ -21,14 +21,9 @@ export interface PatchProjectRequest {
 export interface ListProjectsResponse { projects: ProjectSummary[] }
 export interface GetProjectResponse { project: ProjectDetail }
 
-// Boards
-export interface CreateBoardRequest { name: string; path?: string }
-export interface PatchBoardRequest { name?: string; contextContent?: string }
-export interface DeleteBoardRequest { deleteFiles?: boolean }
-
 // Workflows
-export interface CreateWorkflowRequest { name: string; states: WorkflowState[] }
-export interface PatchWorkflowRequest { name?: string; states?: WorkflowState[]; force?: boolean; processDoc?: string }
+export interface CreateWorkflowRequest { name: string; states: WorkflowState[]; runtime?: RuntimeConfig }
+export interface PatchWorkflowRequest { name?: string; states?: WorkflowState[]; force?: boolean; processDoc?: string; runtime?: RuntimeConfig | null }
 export interface DeleteWorkflowRequest { deleteFiles?: boolean }
 
 // Tickets
@@ -66,4 +61,4 @@ export interface ApiErrorBody {
   error: { code: string; message: string };
 }
 
-export type { WorkspaceMeta, BoardSummary, BoardDetail, WorkflowDetail, TicketSummary, TicketDetail, FileNode, ProjectSummary, ProjectDetail, PermissionsConfig };
+export type { WorkspaceMeta, WorkflowDetail, TicketSummary, TicketDetail, FileNode, ProjectSummary, ProjectDetail, PermissionsConfig, RuntimeConfig, WorkflowSummary };

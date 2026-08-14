@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import path from 'node:path';
-import { resolveWithin, slugifyBoardPath } from '../../src/storage/paths.js';
+import { resolveWithin, slugifyWorkflowPath } from '../../src/storage/paths.js';
 import { PathSafetyError } from '../../src/storage/errors.js';
 
 describe('resolveWithin', () => {
@@ -24,16 +24,16 @@ describe('resolveWithin', () => {
   });
 });
 
-describe('slugifyBoardPath', () => {
+describe('slugifyWorkflowPath', () => {
   it('produces a stable slug from a folder path', () => {
-    expect(slugifyBoardPath('boards/my-board')).toBe('my-board');
+    expect(slugifyWorkflowPath('boards/my-board')).toBe('my-board');
   });
 
   it('lowercases and replaces non-alphanumerics', () => {
-    expect(slugifyBoardPath('boards/My Board!')).toBe('my-board');
+    expect(slugifyWorkflowPath('boards/My Board!')).toBe('my-board');
   });
 
   it('strips trailing slashes', () => {
-    expect(slugifyBoardPath('boards/my-board/')).toBe('my-board');
+    expect(slugifyWorkflowPath('boards/my-board/')).toBe('my-board');
   });
 });

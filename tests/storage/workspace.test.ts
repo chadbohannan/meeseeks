@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
-import { readWorkspace, listBoards, addBoardToWorkspace, getModels, DEFAULT_MODELS } from '../../src/storage/workspace.js';
+import { readWorkspace, listWorkflowEntries, addWorkflowToWorkspace, getModels, DEFAULT_MODELS } from '../../src/storage/workspace.js';
 import { ConflictError } from '../../src/storage/errors.js';
 import { makeTmpProject, makeBareProject } from '../helpers/tmp-project.js';
 
@@ -9,37 +9,41 @@ let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
 
 describe('readWorkspace', () => {
-  it('reads project.yaml when present', async () => {
+  it('reads workspace.yaml when present', async () => {
     const tp = await makeTmpProject();
     cleanups.push(tp.cleanup);
-    await writeFile(path.join(tp.root, 'project.yaml'), 'name: YamlProj\nboards: []\n', 'utf8');
+    await writeFile(path.join(tp.root, 'workspace.yaml'), 'name: YamlProj\nworkflows: []\n', 'utf8');
     const meta = await readWorkspace(tp.root);
     expect(meta.config.name).toBe('YamlProj');
   });
 
-  it('falls back to project.meeseeks when project.yaml absent', async () => {
-    const tp = await makeBareProject('LegacyProj');  // writes project.meeseeks
+  // The pre-collapse config named `boards:`, which this code cannot interpret.
+  // Reading it would present an empty workspace as a valid one; instead the old
+  // file is ignored entirely and a fresh config is written beside it.
+  it('does not read a pre-collapse project.yaml', async () => {
+    const tp = await makeTmpProject();
     cleanups.push(tp.cleanup);
+    await writeFile(
+      path.join(tp.root, 'project.yaml'),
+      'name: OldWorkspace\nboards:\n  - boards/dev\n',
+      'utf8',
+    );
     const meta = await readWorkspace(tp.root);
-    expect(meta.config.name).toBe('LegacyProj');
+    expect(meta.config.name).toBe(path.basename(tp.root));
+    expect(meta.config.workflows).toEqual([]);
+    // The old file is left untouched for the migration to consume later.
+    const old = await readFile(path.join(tp.root, 'project.yaml'), 'utf8');
+    expect(old).toContain('boards:');
   });
 
-  it('prefers project.yaml over project.meeseeks when both present', async () => {
-    const tp = await makeBareProject('LegacyName');
-    cleanups.push(tp.cleanup);
-    await writeFile(path.join(tp.root, 'project.yaml'), 'name: NewName\nboards: []\n', 'utf8');
-    const meta = await readWorkspace(tp.root);
-    expect(meta.config.name).toBe('NewName');
-  });
-
-  it('auto-creates project.yaml from directory name when neither file exists', async () => {
+  it('auto-creates workspace.yaml from directory name when no config exists', async () => {
     const tp = await makeTmpProject();
     cleanups.push(tp.cleanup);
     const meta = await readWorkspace(tp.root);
     expect(meta.config.name).toBe(path.basename(tp.root));
-    expect(meta.config.boards).toEqual([]);
+    expect(meta.config.workflows).toEqual([]);
     // file was created on disk
-    const text = await readFile(path.join(tp.root, 'project.yaml'), 'utf8');
+    const text = await readFile(path.join(tp.root, 'workspace.yaml'), 'utf8');
     expect(text).toContain(`name: ${path.basename(tp.root)}`);
   });
 });
@@ -55,8 +59,8 @@ describe('getModels', () => {
     const tp = await makeTmpProject();
     cleanups.push(tp.cleanup);
     await writeFile(
-      path.join(tp.root, 'project.yaml'),
-      'name: P\nboards: []\nmodels:\n  - value: opus\n    label: Big Opus\n  - value: claude-haiku-4-5-20251001\n    label: Pinned Haiku\n',
+      path.join(tp.root, 'workspace.yaml'),
+      'name: P\nworkflows: []\nmodels:\n  - value: opus\n    label: Big Opus\n  - value: claude-haiku-4-5-20251001\n    label: Pinned Haiku\n',
       'utf8',
     );
     expect(await getModels(tp.root)).toEqual([
@@ -69,39 +73,39 @@ describe('getModels', () => {
     const tp = await makeTmpProject();
     cleanups.push(tp.cleanup);
     await writeFile(
-      path.join(tp.root, 'project.yaml'),
-      'name: P\nboards: []\nmodels:\n  - value: 123\n  - label: no-value\n',
+      path.join(tp.root, 'workspace.yaml'),
+      'name: P\nworkflows: []\nmodels:\n  - value: 123\n  - label: no-value\n',
       'utf8',
     );
     expect(await getModels(tp.root)).toEqual(DEFAULT_MODELS);
   });
 });
 
-describe('listBoards / addBoardToWorkspace', () => {
+describe('listWorkflowEntries / addWorkflowToWorkspace', () => {
   it('returns empty list initially', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
-    expect(await listBoards(tp.root)).toEqual([]);
+    expect(await listWorkflowEntries(tp.root)).toEqual([]);
   });
 
-  it('adds a board entry and reports availability', async () => {
+  it('adds a workflow entry and reports availability', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
-    const boardPath = path.join(tp.root, 'boards/b1');
-    await mkdir(boardPath, { recursive: true });
+    const wfPath = path.join(tp.root, 'workflows/b1');
+    await mkdir(wfPath, { recursive: true });
 
-    await addBoardToWorkspace(tp.root, 'boards/b1');
-    const list = await listBoards(tp.root);
+    await addWorkflowToWorkspace(tp.root, 'workflows/b1');
+    const list = await listWorkflowEntries(tp.root);
     expect(list).toHaveLength(1);
-    expect(list[0]!.boardId).toBe('b1');
+    expect(list[0]!.workflowName).toBe('b1');
     expect(list[0]!.available).toBe(true);
   });
 
   it('flags missing folders as unavailable', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
-    await addBoardToWorkspace(tp.root, 'boards/missing');
-    const list = await listBoards(tp.root);
+    await addWorkflowToWorkspace(tp.root, 'workflows/missing');
+    const list = await listWorkflowEntries(tp.root);
     expect(list[0]!.available).toBe(false);
   });
 });

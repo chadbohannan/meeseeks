@@ -3,7 +3,6 @@ import path from 'node:path';
 import { writeFile as fsWriteFile, mkdir, access } from 'node:fs/promises';
 import { listPrompts, readPrompt, writePrompt, deletePrompt, promptExists } from '../../src/storage/prompts.js';
 import { buildPromptFilename } from '../../src/storage/paths.js';
-import { createBoard } from '../../src/storage/board.js';
 import { NotFoundError, InvalidInputError } from '../../src/storage/errors.js';
 import { makeBareProject } from '../helpers/tmp-project.js';
 
@@ -15,9 +14,9 @@ const exists = async (p: string) => { try { await access(p); return true; } catc
 async function setup() {
   const tp = await makeBareProject();
   cleanups.push(tp.cleanup);
-  const boardPath = path.join(tp.root, 'boards/b');
-  await createBoard(boardPath, 'B');
-  return boardPath;
+  // Prompts and file namespaces now hang off the workspace root directly;
+  // there is no intermediate container to scaffold.
+  return tp.root;
 }
 
 describe('listPrompts', () => {

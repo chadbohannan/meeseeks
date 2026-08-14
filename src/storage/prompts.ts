@@ -10,8 +10,8 @@ export interface PromptSummary {
   modified: string;      // ISO
 }
 
-function promptsDir(boardPath: string): string {
-  return path.join(boardPath, 'prompts');
+function promptsDir(workspaceRoot: string): string {
+  return path.join(workspaceRoot, 'prompts');
 }
 
 function validateName(name: string): void {
@@ -20,10 +20,10 @@ function validateName(name: string): void {
   if (!name.endsWith('.md')) throw new InvalidInputError('prompt files must have .md extension');
 }
 
-function resolvePromptPath(boardPath: string, name: string): string {
+function resolvePromptPath(workspaceRoot: string, name: string): string {
   validateName(name);
   try {
-    return resolveWithin(promptsDir(boardPath), name);
+    return resolveWithin(promptsDir(workspaceRoot), name);
   } catch (err) {
     if (err instanceof PathSafetyError) {
       throw new InvalidInputError('path traversal not allowed');
@@ -32,8 +32,8 @@ function resolvePromptPath(boardPath: string, name: string): string {
   }
 }
 
-export async function listPrompts(boardPath: string): Promise<PromptSummary[]> {
-  const dir = promptsDir(boardPath);
+export async function listPrompts(workspaceRoot: string): Promise<PromptSummary[]> {
+  const dir = promptsDir(workspaceRoot);
   let names: string[];
   try {
     names = await readdir(dir);
@@ -53,8 +53,8 @@ export async function listPrompts(boardPath: string): Promise<PromptSummary[]> {
   return out;
 }
 
-export async function readPrompt(boardPath: string, name: string): Promise<{ name: string; body: string }> {
-  const full = resolvePromptPath(boardPath, name);
+export async function readPrompt(workspaceRoot: string, name: string): Promise<{ name: string; body: string }> {
+  const full = resolvePromptPath(workspaceRoot, name);
   try {
     const body = await readFile(full, 'utf8');
     return { name, body };
@@ -66,15 +66,15 @@ export async function readPrompt(boardPath: string, name: string): Promise<{ nam
   }
 }
 
-export async function writePrompt(boardPath: string, name: string, body: string): Promise<{ name: string }> {
-  const full = resolvePromptPath(boardPath, name);
+export async function writePrompt(workspaceRoot: string, name: string, body: string): Promise<{ name: string }> {
+  const full = resolvePromptPath(workspaceRoot, name);
   await mkdir(path.dirname(full), { recursive: true });
   await writeFile(full, body, 'utf8');
   return { name };
 }
 
-export async function deletePrompt(boardPath: string, name: string): Promise<void> {
-  const full = resolvePromptPath(boardPath, name);
+export async function deletePrompt(workspaceRoot: string, name: string): Promise<void> {
+  const full = resolvePromptPath(workspaceRoot, name);
   try {
     await unlink(full);
   } catch (err) {
@@ -85,25 +85,25 @@ export async function deletePrompt(boardPath: string, name: string): Promise<voi
   }
 }
 
-export async function promptExists(boardPath: string, name: string): Promise<boolean> {
-  const full = resolvePromptPath(boardPath, name);
+export async function promptExists(workspaceRoot: string, name: string): Promise<boolean> {
+  const full = resolvePromptPath(workspaceRoot, name);
   try { await access(full); return true; } catch { return false; }
 }
 
-function logsDir(boardPath: string, promptName: string): string {
+function logsDir(workspaceRoot: string, promptName: string): string {
   const slug = promptName.replace(/\.md$/i, '');
-  return path.join(boardPath, 'prompts', '.logs', slug);
+  return path.join(workspaceRoot, 'prompts', '.logs', slug);
 }
 
-export async function appendRunLog(boardPath: string, promptName: string, entry: PromptRunLog): Promise<void> {
-  const dir = logsDir(boardPath, promptName);
+export async function appendRunLog(workspaceRoot: string, promptName: string, entry: PromptRunLog): Promise<void> {
+  const dir = logsDir(workspaceRoot, promptName);
   await mkdir(dir, { recursive: true });
   const line = JSON.stringify(entry) + '\n';
   await appendFile(path.join(dir, 'runs.jsonl'), line, 'utf8');
 }
 
-export async function listRunLogs(boardPath: string, promptName: string, limit = 50): Promise<PromptRunLog[]> {
-  const file = path.join(logsDir(boardPath, promptName), 'runs.jsonl');
+export async function listRunLogs(workspaceRoot: string, promptName: string, limit = 50): Promise<PromptRunLog[]> {
+  const file = path.join(logsDir(workspaceRoot, promptName), 'runs.jsonl');
   let raw: string;
   try {
     raw = await readFile(file, 'utf8');

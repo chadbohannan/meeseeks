@@ -30,15 +30,15 @@ function validateSkillFilename(filename: string): void {
   }
 }
 
-async function ensureNamespaceDir(boardPath: string, namespace: string): Promise<string> {
-  const dir = path.join(boardPath, NAMESPACE_DIRS[namespace]!);
+async function ensureNamespaceDir(workspaceRoot: string, namespace: string): Promise<string> {
+  const dir = path.join(workspaceRoot, NAMESPACE_DIRS[namespace]!);
   await mkdir(dir, { recursive: true });
   return dir;
 }
 
-export async function listFiles(boardPath: string, namespace: string): Promise<FileNode[]> {
+export async function listFiles(workspaceRoot: string, namespace: string): Promise<FileNode[]> {
   validateNamespace(namespace);
-  const dir = await ensureNamespaceDir(boardPath, namespace);
+  const dir = await ensureNamespaceDir(workspaceRoot, namespace);
 
   try {
     const entries = await readdir(dir, { withFileTypes: true });
@@ -63,11 +63,11 @@ export async function listFiles(boardPath: string, namespace: string): Promise<F
   }
 }
 
-export async function readFile(boardPath: string, namespace: string, filepath: string): Promise<string> {
+export async function readFile(workspaceRoot: string, namespace: string, filepath: string): Promise<string> {
   validateNamespace(namespace);
   validateFilepath(filepath);
 
-  const dir = path.join(boardPath, NAMESPACE_DIRS[namespace]!);
+  const dir = path.join(workspaceRoot, NAMESPACE_DIRS[namespace]!);
   let fullPath: string;
   try {
     fullPath = resolveWithin(dir, filepath);
@@ -89,7 +89,7 @@ export async function readFile(boardPath: string, namespace: string, filepath: s
 }
 
 export async function writeFile(
-  boardPath: string,
+  workspaceRoot: string,
   namespace: string,
   filepath: string,
   content: string,
@@ -101,7 +101,7 @@ export async function writeFile(
     validateSkillFilename(filepath);
   }
 
-  const dir = await ensureNamespaceDir(boardPath, namespace);
+  const dir = await ensureNamespaceDir(workspaceRoot, namespace);
   let fullPath: string;
   try {
     fullPath = resolveWithin(dir, filepath);
@@ -115,11 +115,11 @@ export async function writeFile(
   await fsWriteFile(fullPath, content, 'utf8');
 }
 
-export async function deleteFile(boardPath: string, namespace: string, filepath: string): Promise<void> {
+export async function deleteFile(workspaceRoot: string, namespace: string, filepath: string): Promise<void> {
   validateNamespace(namespace);
   validateFilepath(filepath);
 
-  const dir = path.join(boardPath, NAMESPACE_DIRS[namespace]!);
+  const dir = path.join(workspaceRoot, NAMESPACE_DIRS[namespace]!);
   let fullPath: string;
   try {
     fullPath = resolveWithin(dir, filepath);

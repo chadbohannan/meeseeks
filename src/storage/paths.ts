@@ -22,8 +22,8 @@ export function resolveWithin(root: string, child: string): string {
   return resolved;
 }
 
-/** Derive a stable, filesystem-safe board id from its config path. */
-export function slugifyBoardPath(configPath: string): string {
+/** Derive a stable, filesystem-safe workflow id from its registry entry. */
+export function slugifyWorkflowPath(configPath: string): string {
   const base = path.basename(configPath.replace(/[\\/]+$/, ''));
   return base
     .toLowerCase()
@@ -32,7 +32,7 @@ export function slugifyBoardPath(configPath: string): string {
 }
 
 /**
- * Derive a stable project id from its config path. Unlike boards, project
+ * Derive a stable project id from its config path. Unlike workflows, project
  * entries name a file rather than a directory, so the extension is stripped
  * first — otherwise `projects/meeseeks.yaml` would slug to `meeseeks-yaml`.
  */

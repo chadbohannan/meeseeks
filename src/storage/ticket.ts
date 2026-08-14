@@ -3,15 +3,12 @@ import path from 'node:path';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { NotFoundError, InvalidInputError, ConflictError } from './errors.js';
-import { buildTicketFilename, appendCollisionSuffix, randomSuffix, resolveWithin } from './paths.js';
+import { buildTicketFilename, appendCollisionSuffix, randomSuffix } from './paths.js';
+import { resolveWorkflowPath } from './workflow.js';
 import type { TicketSummary, TicketDetail, WorkflowState } from '../shared/types.js';
 
 async function exists(p: string): Promise<boolean> {
   try { await access(p); return true; } catch { return false; }
-}
-
-function workflowPath(boardPath: string, workflowName: string): string {
-  return resolveWithin(path.join(boardPath, 'workflows'), workflowName);
 }
 
 async function readStates(lp: string): Promise<WorkflowState[]> {
@@ -93,12 +90,12 @@ function serialize(fm: FrontMatter, body: string): string {
 }
 
 export async function createTicket(
-  boardPath: string,
+  workspaceRoot: string,
   workflowName: string,
   input: { title: string; state: string; body?: string; project?: string },
 ): Promise<TicketDetail> {
   if (!input.title) throw new InvalidInputError('title required');
-  const lp = workflowPath(boardPath, workflowName);
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
   const states = await readStates(lp);
   if (!states.find(s => s.dir === input.state)) {
     throw new InvalidInputError(`unknown state: ${input.state}`);
@@ -130,8 +127,8 @@ export async function createTicket(
   };
 }
 
-export async function listTickets(boardPath: string, workflowName: string): Promise<TicketSummary[]> {
-  const lp = workflowPath(boardPath, workflowName);
+export async function listTickets(workspaceRoot: string, workflowName: string): Promise<TicketSummary[]> {
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
   const states = await readStates(lp);
   const known = new Set(states.map(s => s.dir));
   const out: TicketSummary[] = [];
@@ -163,11 +160,11 @@ export async function listTickets(boardPath: string, workflowName: string): Prom
 }
 
 export async function readTicket(
-  boardPath: string,
+  workspaceRoot: string,
   workflowName: string,
   filename: string,
 ): Promise<TicketDetail> {
-  const lp = workflowPath(boardPath, workflowName);
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
   const found = await findTicketFile(lp, filename);
   if (!found) throw new NotFoundError(`ticket not found: ${filename}`);
   const text = await readFile(found.abs, 'utf8');
@@ -190,12 +187,12 @@ export async function readTicket(
 }
 
 export async function updateTicket(
-  boardPath: string,
+  workspaceRoot: string,
   workflowName: string,
   filename: string,
   patch: { title?: string; body?: string; state?: string; color?: string; project?: string },
 ): Promise<TicketDetail> {
-  const lp = workflowPath(boardPath, workflowName);
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
   const found = await findTicketFile(lp, filename);
   if (!found) throw new NotFoundError(`ticket not found: ${filename}`);
   const text = await readFile(found.abs, 'utf8');
@@ -268,11 +265,11 @@ export async function updateTicket(
 }
 
 export async function deleteTicket(
-  boardPath: string,
+  workspaceRoot: string,
   workflowName: string,
   filename: string,
 ): Promise<void> {
-  const lp = workflowPath(boardPath, workflowName);
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
   const found = await findTicketFile(lp, filename);
   if (!found) throw new NotFoundError(`ticket not found: ${filename}`);
   await unlink(found.abs);

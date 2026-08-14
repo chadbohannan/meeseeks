@@ -4,22 +4,35 @@ import yaml from 'js-yaml';
 import { ConflictError, NotFoundError, InvalidInputError, InvalidWorkflowError } from './errors.js';
 import { resolveWithin } from './paths.js';
 import { workflowProcessTemplate } from './templates.js';
-import type { WorkflowSummary, WorkflowDetail, WorkflowState } from '../shared/types.js';
+import {
+  readWorkspace, listWorkflowEntries, getWorkflowEntry, addWorkflowToWorkspace,
+  removeWorkflowFromWorkspace, writeWorkspace, parseRuntime,
+} from './workspace.js';
+import type {
+  WorkflowSummary, WorkflowDetail, WorkflowState, RuntimeConfig,
+} from '../shared/types.js';
 
 const WORKFLOW_YAML = 'workflow.yaml';
 const PROCESS_MD = 'PROCESS.md';
 const PERMISSIONS = 'permissions.yaml';
+const WORKFLOWS_DIR = 'workflows';
 
 async function exists(p: string): Promise<boolean> {
   try { await access(p); return true; } catch { return false; }
 }
 
-function workflowsDir(boardPath: string): string {
-  return path.join(boardPath, 'workflows');
-}
-
-function workflowPath(boardPath: string, workflowName: string): string {
-  return resolveWithin(workflowsDir(boardPath), workflowName);
+/**
+ * Resolve a workflow id to its absolute path via the workspace registry. This
+ * replaces the old `workflowPath(boardPath, name)` join: a workflow is now
+ * wherever its `workflows:` entry points, which need not be under
+ * `<workspace>/workflows/`.
+ */
+export async function resolveWorkflowPath(
+  workspaceRoot: string,
+  workflowName: string,
+): Promise<string> {
+  const entry = await getWorkflowEntry(workspaceRoot, workflowName);
+  return entry.path;
 }
 
 function validateStates(states: WorkflowState[]): void {
@@ -45,10 +58,10 @@ function slugifyWorkflowName(name: string): string {
 }
 
 export async function createWorkflow(
-  boardPath: string,
+  workspaceRoot: string,
   workflowName: string,
   states: WorkflowState[],
-  opts: { processDoc?: string } = {},
+  opts: { processDoc?: string; runtime?: RuntimeConfig } = {},
 ): Promise<string> {
   if (!workflowName || !workflowName.trim()) {
     throw new InvalidInputError('workflow name required');
@@ -56,13 +69,27 @@ export async function createWorkflow(
   const slug = slugifyWorkflowName(workflowName);
   if (!slug) throw new InvalidInputError(`invalid workflow name: ${workflowName}`);
   validateStates(states);
-  const lp = workflowPath(boardPath, slug);
-  if (await exists(lp)) throw new ConflictError(`workflow exists: ${slug}`);
+
+  const entry = `${WORKFLOWS_DIR}/${slug}`;
+  const existing = await listWorkflowEntries(workspaceRoot);
+  if (existing.some(w => w.workflowName === slug)) {
+    throw new ConflictError(`workflow exists: ${slug}`);
+  }
+  const lp = resolveWithin(workspaceRoot, entry);
+  if (await exists(lp)) throw new ConflictError(`workflow directory exists: ${entry}`);
+
   await mkdir(lp, { recursive: true });
   for (const s of states) await mkdir(path.join(lp, s.dir), { recursive: true });
-  await writeFile(path.join(lp, WORKFLOW_YAML), yaml.dump({ name: workflowName, states }), 'utf8');
+  const config: Record<string, unknown> = { name: workflowName, states };
+  if (opts.runtime) config.runtime = opts.runtime;
+  await writeFile(path.join(lp, WORKFLOW_YAML), yaml.dump(config, { lineWidth: -1 }), 'utf8');
   await writeFile(path.join(lp, PROCESS_MD), opts.processDoc ?? workflowProcessTemplate(workflowName, states), 'utf8');
   await writeFile(path.join(lp, PERMISSIONS), yaml.dump({ allowedPaths: [], allowedTools: [], deniedTools: [] }), 'utf8');
+
+  // Registered only after the directory is fully written, so a crash midway
+  // leaves an unregistered directory rather than a registry entry pointing at
+  // a half-built workflow.
+  await addWorkflowToWorkspace(workspaceRoot, entry);
   return slug;
 }
 
@@ -89,31 +116,39 @@ async function readWorkflowStates(lp: string): Promise<WorkflowState[]> {
   return states;
 }
 
-export async function listWorkflows(boardPath: string): Promise<WorkflowSummary[]> {
-  const dir = workflowsDir(boardPath);
-  if (!(await exists(dir))) return [];
-  const entries = await readdir(dir, { withFileTypes: true });
+export async function listWorkflows(workspaceRoot: string): Promise<WorkflowSummary[]> {
+  const entries = await listWorkflowEntries(workspaceRoot);
   const summaries: WorkflowSummary[] = [];
   for (const e of entries) {
-    if (!e.isDirectory()) continue;
+    // A registered-but-missing workflow is listed as a stub rather than
+    // skipped, matching how a malformed workflow.yaml is handled below: the
+    // sidebar shows the entry and its problem instead of quietly losing it.
+    if (!e.available) {
+      summaries.push(stubSummary(e.workflowName, false));
+      continue;
+    }
     try {
-      const detail = await readWorkflowSummary(boardPath, e.name);
-      summaries.push(detail);
+      summaries.push(await readWorkflowSummary(e.path, e.workflowName));
     } catch (err) {
       if (err instanceof InvalidWorkflowError) {
-        summaries.push({
-          workflowName: e.name,
-          displayName: e.name,
-          states: [],
-          ticketCounts: {},
-          orphanedCount: 0,
-        });
+        summaries.push(stubSummary(e.workflowName, true));
       } else {
         throw err;
       }
     }
   }
   return summaries;
+}
+
+function stubSummary(workflowName: string, available: boolean): WorkflowSummary {
+  return {
+    workflowName,
+    displayName: workflowName,
+    states: [],
+    ticketCounts: {},
+    orphanedCount: 0,
+    available,
+  };
 }
 
 async function readWorkflowYaml(lp: string): Promise<Record<string, unknown>> {
@@ -135,8 +170,7 @@ async function readWorkflowDisplayName(lp: string, fallback: string): Promise<st
   }
 }
 
-async function readWorkflowSummary(boardPath: string, workflowName: string): Promise<WorkflowSummary> {
-  const lp = workflowPath(boardPath, workflowName);
+async function readWorkflowSummary(lp: string, workflowName: string): Promise<WorkflowSummary> {
   const states = await readWorkflowStates(lp);
   const displayName = await readWorkflowDisplayName(lp, workflowName);
   const ticketCounts: Record<string, number> = {};
@@ -159,40 +193,82 @@ async function readWorkflowSummary(boardPath: string, workflowName: string): Pro
     const files = await readdir(path.join(lp, e.name));
     orphanedCount += files.filter(f => f.endsWith('.md')).length;
   }
-  return { workflowName, displayName, states, ticketCounts, orphanedCount };
+  return { workflowName, displayName, states, ticketCounts, orphanedCount, available: true };
 }
 
-export async function readWorkflowDetail(boardPath: string, workflowName: string): Promise<WorkflowDetail> {
-  const lp = workflowPath(boardPath, workflowName);
+/**
+ * Resolve the runtime an agent should be spawned with. The workflow's block
+ * wins whole; the workspace default is used only when the workflow defines
+ * none. Resolution is deliberately not per-field — merging would let a
+ * workflow pin `model` while silently inheriting an `env` it never declared,
+ * leaving spawn behavior unreadable from either file alone.
+ */
+export async function resolveWorkflowRuntime(
+  workspaceRoot: string,
+  workflowName: string,
+): Promise<{ runtime: RuntimeConfig | null; inherited: boolean }> {
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
+  const own = parseRuntime((await readWorkflowYaml(lp)).runtime);
+  if (own) return { runtime: own, inherited: false };
+  const meta = await readWorkspace(workspaceRoot);
+  return { runtime: meta.config.runtime ?? null, inherited: meta.config.runtime !== undefined };
+}
+
+export async function readWorkflowDetail(
+  workspaceRoot: string,
+  workflowName: string,
+): Promise<WorkflowDetail> {
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
   if (!(await exists(lp))) throw new NotFoundError(`workflow not found: ${workflowName}`);
-  const summary = await readWorkflowSummary(boardPath, workflowName);
+  const summary = await readWorkflowSummary(lp, workflowName);
   const processDocPath = path.join(lp, PROCESS_MD);
   const hasProcessDoc = await exists(processDocPath);
   const processDoc = hasProcessDoc
     ? await readFile(processDocPath, 'utf8')
     : null;
+  const { runtime, inherited } = await resolveWorkflowRuntime(workspaceRoot, workflowName);
   return {
     ...summary,
     hasProcessDoc,
     hasPermissions: await exists(path.join(lp, PERMISSIONS)),
     processDoc,
+    runtime,
+    runtimeInherited: inherited,
   };
 }
 
-export async function writeProcessDoc(boardPath: string, workflowName: string, content: string): Promise<void> {
-  const lp = workflowPath(boardPath, workflowName);
+export async function writeProcessDoc(
+  workspaceRoot: string,
+  workflowName: string,
+  content: string,
+): Promise<void> {
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
   if (!(await exists(lp))) throw new NotFoundError(`workflow not found: ${workflowName}`);
   await writeFile(path.join(lp, PROCESS_MD), content, 'utf8');
 }
 
+/** Write (or clear, with null) this workflow's own `runtime:` block. */
+export async function writeWorkflowRuntime(
+  workspaceRoot: string,
+  workflowName: string,
+  runtime: RuntimeConfig | null,
+): Promise<void> {
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
+  if (!(await exists(lp))) throw new NotFoundError(`workflow not found: ${workflowName}`);
+  const existing = await readWorkflowYaml(lp);
+  if (runtime) existing.runtime = runtime;
+  else delete existing.runtime;
+  await writeFile(path.join(lp, WORKFLOW_YAML), yaml.dump(existing, { lineWidth: -1 }), 'utf8');
+}
+
 export async function updateWorkflowStates(
-  boardPath: string,
+  workspaceRoot: string,
   workflowName: string,
   newStates: WorkflowState[],
   opts: { force?: boolean } = {},
 ): Promise<void> {
   validateStates(newStates);
-  const lp = workflowPath(boardPath, workflowName);
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
   const oldStates = await readWorkflowStates(lp);
   const newDirs = new Set(newStates.map(s => s.dir));
   for (const s of oldStates) {
@@ -207,32 +283,70 @@ export async function updateWorkflowStates(
     await mkdir(path.join(lp, s.dir), { recursive: true });
   }
   const existing = await readWorkflowYaml(lp);
-  await writeFile(path.join(lp, WORKFLOW_YAML), yaml.dump({ ...existing, states: newStates }), 'utf8');
+  await writeFile(
+    path.join(lp, WORKFLOW_YAML),
+    yaml.dump({ ...existing, states: newStates }, { lineWidth: -1 }),
+    'utf8',
+  );
   // Removed-state folders are NOT deleted from disk in this slice; tickets become orphaned.
 }
 
-export async function renameWorkflow(boardPath: string, oldSlug: string, newDisplayName: string): Promise<string> {
+export async function renameWorkflow(
+  workspaceRoot: string,
+  oldSlug: string,
+  newDisplayName: string,
+): Promise<string> {
   if (!newDisplayName || !newDisplayName.trim()) {
     throw new InvalidInputError('workflow name required');
   }
   const newSlug = slugifyWorkflowName(newDisplayName);
   if (!newSlug) throw new InvalidInputError(`invalid workflow name: ${newDisplayName}`);
-  const oldPath = workflowPath(boardPath, oldSlug);
-  if (!(await exists(oldPath))) throw new NotFoundError(`workflow not found: ${oldSlug}`);
+  const entry = await getWorkflowEntry(workspaceRoot, oldSlug);
+  if (!(await exists(entry.path))) throw new NotFoundError(`workflow not found: ${oldSlug}`);
+
+  let lp = entry.path;
   if (newSlug !== oldSlug) {
-    const newPath = workflowPath(boardPath, newSlug);
-    if (await exists(newPath)) throw new ConflictError(`workflow exists: ${newSlug}`);
-    await rename(oldPath, newPath);
+    const taken = await listWorkflowEntries(workspaceRoot);
+    if (taken.some(w => w.workflowName === newSlug)) {
+      throw new ConflictError(`workflow exists: ${newSlug}`);
+    }
+    // The id is the entry's basename, so renaming the id means moving the
+    // directory and rewriting the registry entry that points at it. Both must
+    // happen or the registry dangles.
+    const newPath = path.join(path.dirname(entry.path), newSlug);
+    if (await exists(newPath)) throw new ConflictError(`workflow directory exists: ${newSlug}`);
+    await rename(entry.path, newPath);
+    lp = newPath;
+
+    const meta = await readWorkspace(workspaceRoot);
+    const idx = meta.config.workflows.findIndex(
+      e => path.resolve(workspaceRoot, e) === path.resolve(entry.path),
+    );
+    const old = meta.config.workflows[idx];
+    if (idx !== -1 && old !== undefined) {
+      meta.config.workflows[idx] = path.isAbsolute(old)
+        ? newPath
+        : path.join(path.dirname(old), newSlug);
+      await writeWorkspace(workspaceRoot, meta.config);
+    }
   }
-  const lp = workflowPath(boardPath, newSlug);
+
   const existing = await readWorkflowYaml(lp);
   existing.name = newDisplayName;
-  await writeFile(path.join(lp, WORKFLOW_YAML), yaml.dump(existing), 'utf8');
+  await writeFile(path.join(lp, WORKFLOW_YAML), yaml.dump(existing, { lineWidth: -1 }), 'utf8');
   return newSlug;
 }
 
-export async function deleteWorkflowFolder(boardPath: string, workflowName: string): Promise<void> {
-  const lp = workflowPath(boardPath, workflowName);
-  if (!(await exists(lp))) throw new NotFoundError(`workflow not found: ${workflowName}`);
-  await rm(lp, { recursive: true, force: true });
+export async function deleteWorkflowFolder(
+  workspaceRoot: string,
+  workflowName: string,
+): Promise<void> {
+  const entry = await getWorkflowEntry(workspaceRoot, workflowName);
+  const registryEntry = (await readWorkspace(workspaceRoot)).config.workflows.find(
+    e => path.resolve(workspaceRoot, e) === path.resolve(entry.path),
+  );
+  await rm(entry.path, { recursive: true, force: true });
+  // Deregistered even when the directory was already gone, so deleting a
+  // registered-but-missing workflow clears the stub rather than failing.
+  if (registryEntry) await removeWorkflowFromWorkspace(workspaceRoot, registryEntry);
 }
