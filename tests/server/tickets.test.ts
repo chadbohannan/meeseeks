@@ -12,21 +12,17 @@ async function setup() {
   cleanups.push(tp.cleanup);
   const srv = await bootTestServer(tp.root);
   cleanups.push(srv.cleanup);
-  const board = await (await fetch(`${srv.url}/api/boards`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name: 'B' }),
-  })).json() as { board: { boardId: string } };
-  await fetch(`${srv.url}/api/boards/${board.board.boardId}/workflows`, {
+  await fetch(`${srv.url}/api/workflows`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name: 'work', states: STATES }),
   });
-  return { srv, boardId: board.board.boardId };
+  return { srv };
 }
 
 describe('ticket routes', () => {
   it('full CRUD lifecycle', async () => {
-    const { srv, boardId } = await setup();
-    const base = `${srv.url}/api/boards/${boardId}/workflows/work/tickets`;
+    const { srv } = await setup();
+    const base = `${srv.url}/api/workflows/work/tickets`;
 
     const created = await (await fetch(base, {
       method: 'POST', headers: { 'content-type': 'application/json' },
@@ -54,14 +50,14 @@ describe('ticket routes', () => {
   });
 
   it('returns 404 for missing ticket', async () => {
-    const { srv, boardId } = await setup();
-    const r = await fetch(`${srv.url}/api/boards/${boardId}/workflows/work/tickets/2026-01-01T0000-x.md`);
+    const { srv } = await setup();
+    const r = await fetch(`${srv.url}/api/workflows/work/tickets/2026-01-01T0000-x.md`);
     expect(r.status).toBe(404);
   });
 
   it('returns 400 on invalid state', async () => {
-    const { srv, boardId } = await setup();
-    const r = await fetch(`${srv.url}/api/boards/${boardId}/workflows/work/tickets`, {
+    const { srv } = await setup();
+    const r = await fetch(`${srv.url}/api/workflows/work/tickets`, {
       method: 'POST', headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ title: 'x', state: 'notreal' }),
     });

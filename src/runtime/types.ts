@@ -1,5 +1,5 @@
 import type { RuntimeStatus, TicketRef, PromptRef, RuntimeSummary } from '../shared/runtime.js';
-import type { PermissionsConfig, ResolvedPermissions } from '../shared/types.js';
+import type { PermissionsConfig, ResolvedPermissions, RuntimeConfig } from '../shared/types.js';
 
 /** The project a runtime works on. Its root is added with --add-dir, not used as cwd. */
 export interface SpawnProject {
@@ -9,25 +9,16 @@ export interface SpawnProject {
   contextContent?: string | null;
 }
 
-export interface BoardRuntimeConfig {
-  runtime?: {
-    harness?: string;
-    provider?: string;
-    model?: string;
-    args?: string[];
-    env?: Record<string, string>;
-  };
-}
-
 export interface SpawnContext {
   runtimeId: string;
-  boardPath: string;
+  /** cwd. `.claude/`, skills, bin, and CLAUDE.md all resolve from here. */
+  workspaceRoot: string;
+  /** A directory inside the workspace; named to the agent, not its cwd. */
   workflowPath: string;
   ticketAbsPath: string;
-  boardContextContent?: string | null;
   processDocContent?: string | null;
   ticketRef: TicketRef;
-  board: BoardRuntimeConfig | null;
+  runtime: RuntimeConfig | null;
   permissions: ResolvedPermissions | null;
   project?: SpawnProject | null;
   model?: string;
@@ -48,13 +39,17 @@ export interface SpawnSpec {
 
 export interface PromptSpawnContext {
   runtimeId: string;
-  boardPath: string;
+  workspaceRoot: string;
   promptRef: PromptRef;
   promptBody: string;
-  board: BoardRuntimeConfig | null;
+  /** From the picked workflow, if any; otherwise the workspace default. */
+  runtime: RuntimeConfig | null;
   permissions: ResolvedPermissions | null;
   project?: SpawnProject | null;
   model?: string;
 }
 
-export type { RuntimeStatus, TicketRef, PromptRef, RuntimeSummary, PermissionsConfig, ResolvedPermissions };
+export type {
+  RuntimeStatus, TicketRef, PromptRef, RuntimeSummary,
+  PermissionsConfig, ResolvedPermissions, RuntimeConfig,
+};

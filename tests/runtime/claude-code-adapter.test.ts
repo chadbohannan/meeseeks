@@ -3,7 +3,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { buildSpawnSpec } from '../../src/runtime/claude-code.js';
 
-const ticketRef = { boardId: 'b', workflowName: 'l', filename: '2026-04-26T1430-x.md' };
+const ticketRef = { workflowName: 'l', filename: '2026-04-26T1430-x.md' };
 
 function addDirsOf(argv: string[]): string[] {
   const out: string[] = [];
@@ -14,14 +14,14 @@ function addDirsOf(argv: string[]): string[] {
 }
 
 describe('buildSpawnSpec', () => {
-  it('produces minimal argv when board.yaml and permissions.yaml are absent', () => {
+  it('produces minimal argv when no runtime block and no permissions are present', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-1',
-      boardPath: '/tmp/p/boards/b',
-      workflowPath: '/tmp/p/boards/b/workflows/l',
-      ticketAbsPath: '/tmp/p/boards/b/workflows/l/todo/2026-04-26T1430-x.md',
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/l',
+      ticketAbsPath: '/tmp/ws/workflows/l/todo/2026-04-26T1430-x.md',
       ticketRef,
-      board: null,
+      runtime: null,
       permissions: null,
     });
     expect(path.basename(spec.argv[0]!)).toBe('claude');
@@ -34,10 +34,10 @@ describe('buildSpawnSpec', () => {
     const body = JSON.parse(spec.settingsFile!.body) as { hooks: { Notification: Array<{ matcher: string }> } };
     expect(body.hooks.Notification.map(h => h.matcher)).toContain('idle_prompt');
     expect(body.hooks.Notification.map(h => h.matcher)).toContain('permission_prompt');
-    expect(spec.env.MEESEEKS_TICKET_PATH).toBe('/tmp/p/boards/b/workflows/l/todo/2026-04-26T1430-x.md');
-    expect(spec.env.MEESEEKS_BOARD_PATH).toBe('/tmp/p/boards/b');
-    expect(spec.env.MEESEEKS_WORKFLOW_PATH).toBe('/tmp/p/boards/b/workflows/l');
-    expect(spec.cwd).toBe('/tmp/p/boards/b');
+    expect(spec.env.MEESEEKS_TICKET_PATH).toBe('/tmp/ws/workflows/l/todo/2026-04-26T1430-x.md');
+    expect(spec.env.MEESEEKS_WORKSPACE_PATH).toBe('/tmp/ws');
+    expect(spec.env.MEESEEKS_WORKFLOW_PATH).toBe('/tmp/ws/workflows/l');
+    expect(spec.cwd).toBe('/tmp/ws');
   });
 
   // Path resolution itself now lives in resolvePermissions (which knows each
@@ -45,12 +45,12 @@ describe('buildSpawnSpec', () => {
   it('translates resolved allowedPaths to repeated --add-dir flags', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-1',
-      boardPath: '/tmp/p/boards/b',
-      workflowPath: '/tmp/p/boards/b/workflows/l',
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/l',
       ticketAbsPath: '/x.md',
       processDocContent: null,
       ticketRef,
-      board: null,
+      runtime: null,
       permissions: {
         allowedPaths: [
           { value: '/tmp/p/my-repo', origins: ['workflow'] },
@@ -63,20 +63,21 @@ describe('buildSpawnSpec', () => {
     expect(addDirsOf(spec.argv)).toEqual(['/tmp/p/my-repo', path.join(os.homedir(), 'notes')]);
   });
 
-  it('adds the project root as --add-dir and keeps cwd on the board', () => {
+  it('adds the project root as --add-dir and keeps cwd on the workspace', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-p',
-      boardPath: '/tmp/p/boards/b',
-      workflowPath: '/tmp/p/boards/b/workflows/l',
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/l',
       ticketAbsPath: '/x.md',
       ticketRef,
-      board: null,
+      runtime: null,
       permissions: null,
       project: { projectId: 'meeseeks', name: 'Meeseeks', root: '/home/u/code/meeseeks', contextContent: null },
     });
     expect(addDirsOf(spec.argv)).toEqual(['/home/u/code/meeseeks']);
-    // cwd deliberately stays on the board so its .claude/ and symlinks resolve.
-    expect(spec.cwd).toBe('/tmp/p/boards/b');
+    // cwd is the workspace root so its single .claude/, skills, bin and
+    // symlinks resolve for every workflow.
+    expect(spec.cwd).toBe('/tmp/ws');
     expect(spec.env.MEESEEKS_PROJECT_ROOT).toBe('/home/u/code/meeseeks');
     expect(spec.env.MEESEEKS_PROJECT_NAME).toBe('Meeseeks');
   });
@@ -84,11 +85,11 @@ describe('buildSpawnSpec', () => {
   it('omits project env vars and --add-dir when no project is assigned', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-np',
-      boardPath: '/tmp/p/boards/b',
-      workflowPath: '/tmp/p/boards/b/workflows/l',
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/l',
       ticketAbsPath: '/x.md',
       ticketRef,
-      board: null,
+      runtime: null,
       permissions: null,
       project: null,
     });
@@ -100,12 +101,12 @@ describe('buildSpawnSpec', () => {
   it('writes a settings file body containing allow/deny tool rules', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-7',
-      boardPath: '/tmp/p/boards/b',
-      workflowPath: '/tmp/p/boards/b/workflows/l',
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/l',
       ticketAbsPath: '/x.md',
       processDocContent: null,
       ticketRef,
-      board: null,
+      runtime: null,
       permissions: {
         allowedPaths: [],
         allowedTools: [
@@ -125,22 +126,20 @@ describe('buildSpawnSpec', () => {
     expect(spec.argv).toContain(spec.settingsFile!.path);
   });
 
-  it('merges board.yaml runtime.args / env / model into argv + env', () => {
+  it('merges the resolved runtime args / env / model into argv + env', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-1',
-      boardPath: '/tmp/p/boards/b',
-      workflowPath: '/tmp/p/boards/b/workflows/l',
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/l',
       ticketAbsPath: '/x.md',
       processDocContent: null,
       ticketRef,
-      board: {
-        runtime: {
-          harness: 'claude-code',
-          provider: 'anthropic',
-          model: 'claude-opus-4-7',
-          args: ['--debug'],
-          env: { FOO: 'bar' },
-        },
+      runtime: {
+        harness: 'claude-code',
+        provider: 'anthropic',
+        model: 'claude-opus-4-7',
+        args: ['--debug'],
+        env: { FOO: 'bar' },
       },
       permissions: null,
     });
@@ -153,50 +152,62 @@ describe('buildSpawnSpec', () => {
   it('includes preamble in returned object', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-1',
-      boardPath: '/tmp/p/boards/my-board',
-      workflowPath: '/tmp/p/boards/my-board/workflows/dev',
-      ticketAbsPath: '/tmp/p/boards/my-board/workflows/dev/todo/2026-04-26T1430-x.md',
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/dev',
+      ticketAbsPath: '/tmp/ws/workflows/dev/todo/2026-04-26T1430-x.md',
       processDocContent: '# Development Process\n\nFollow TDD methodology.',
-      ticketRef: { boardId: 'my-board', workflowName: 'dev', filename: '2026-04-26T1430-x.md' },
-      board: null,
+      ticketRef: { workflowName: 'dev', filename: '2026-04-26T1430-x.md' },
+      runtime: null,
       permissions: null,
     });
     expect(spec.preamble).toContain('2026-04-26T1430-x.md');
     expect(spec.preamble).toContain('dev');
-    expect(spec.preamble).toContain('my-board');
     expect(spec.preamble).toContain('Follow TDD methodology');
   });
 
-  it('orders preamble parts: board context, then process doc, then ticket context', () => {
+  it('orders preamble parts: process doc, then ticket context', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-2',
-      boardPath: '/tmp/p/boards/my-board',
-      workflowPath: '/tmp/p/boards/my-board/workflows/dev',
-      ticketAbsPath: '/tmp/p/boards/my-board/workflows/dev/todo/t.md',
-      boardContextContent: '# Board Context\n\nBOARD_MARKER',
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/dev',
+      ticketAbsPath: '/tmp/ws/workflows/dev/todo/t.md',
       processDocContent: '# Process\n\nPROCESS_MARKER',
-      ticketRef: { boardId: 'my-board', workflowName: 'dev', filename: 't.md' },
-      board: null,
+      ticketRef: { workflowName: 'dev', filename: 't.md' },
+      runtime: null,
       permissions: null,
     });
-    const boardIdx = spec.preamble.indexOf('BOARD_MARKER');
     const processIdx = spec.preamble.indexOf('PROCESS_MARKER');
     const ticketIdx = spec.preamble.indexOf('You are working on ticket');
-    expect(boardIdx).toBeGreaterThanOrEqual(0);
-    expect(processIdx).toBeGreaterThan(boardIdx);
+    expect(processIdx).toBeGreaterThanOrEqual(0);
     expect(ticketIdx).toBeGreaterThan(processIdx);
   });
 
-  it('orders preamble: project context, board, process, project location, ticket', () => {
+  // The workflow directory has to be stated because it is no longer cwd; an
+  // agent that assumed otherwise would write process files to the workspace root.
+  it('names the workflow directory in the ticket context', () => {
+    const spec = buildSpawnSpec({
+      runtimeId: 'rt-2b',
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/dev',
+      ticketAbsPath: '/tmp/ws/workflows/dev/todo/t.md',
+      processDocContent: null,
+      ticketRef: { workflowName: 'dev', filename: 't.md' },
+      runtime: null,
+      permissions: null,
+    });
+    expect(spec.preamble).toContain('/tmp/ws/workflows/dev');
+    expect(spec.cwd).toBe('/tmp/ws');
+  });
+
+  it('orders preamble: project context, process doc, project location, ticket', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-4',
-      boardPath: '/tmp/p/boards/my-board',
-      workflowPath: '/tmp/p/boards/my-board/workflows/dev',
-      ticketAbsPath: '/tmp/p/boards/my-board/workflows/dev/todo/t.md',
-      boardContextContent: 'BOARD_MARKER',
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/dev',
+      ticketAbsPath: '/tmp/ws/workflows/dev/todo/t.md',
       processDocContent: 'PROCESS_MARKER',
-      ticketRef: { boardId: 'my-board', workflowName: 'dev', filename: 't.md' },
-      board: null,
+      ticketRef: { workflowName: 'dev', filename: 't.md' },
+      runtime: null,
       permissions: null,
       project: {
         projectId: 'meeseeks',
@@ -206,31 +217,28 @@ describe('buildSpawnSpec', () => {
       },
     });
     const projectIdx = spec.preamble.indexOf('PROJECT_MARKER');
-    const boardIdx = spec.preamble.indexOf('BOARD_MARKER');
     const processIdx = spec.preamble.indexOf('PROCESS_MARKER');
     const locationIdx = spec.preamble.indexOf('is rooted at');
     const ticketIdx = spec.preamble.indexOf('You are working on ticket');
     expect(projectIdx).toBe(0);
-    expect(boardIdx).toBeGreaterThan(projectIdx);
-    expect(processIdx).toBeGreaterThan(boardIdx);
+    expect(processIdx).toBeGreaterThan(projectIdx);
     expect(locationIdx).toBeGreaterThan(processIdx);
     expect(ticketIdx).toBeGreaterThan(locationIdx);
     expect(spec.preamble).toContain('/home/u/code/meeseeks');
   });
 
-  it('omits empty parts when only board context is present', () => {
+  it('omits empty parts when only the process doc is present', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-3',
-      boardPath: '/tmp/p/boards/my-board',
-      workflowPath: '/tmp/p/boards/my-board/workflows/dev',
-      ticketAbsPath: '/tmp/p/boards/my-board/workflows/dev/todo/t.md',
-      boardContextContent: 'BOARD_ONLY',
-      processDocContent: null,
-      ticketRef: { boardId: 'my-board', workflowName: 'dev', filename: 't.md' },
-      board: null,
+      workspaceRoot: '/tmp/ws',
+      workflowPath: '/tmp/ws/workflows/dev',
+      ticketAbsPath: '/tmp/ws/workflows/dev/todo/t.md',
+      processDocContent: 'PROCESS_ONLY',
+      ticketRef: { workflowName: 'dev', filename: 't.md' },
+      runtime: null,
       permissions: null,
     });
-    expect(spec.preamble.startsWith('BOARD_ONLY')).toBe(true);
+    expect(spec.preamble.startsWith('PROCESS_ONLY')).toBe(true);
     expect(spec.preamble).not.toContain('\n\n\n');
   });
 });

@@ -24,7 +24,11 @@ function childToPty(child: ChildProcessWithoutNullStreams): PtyLike {
   };
 }
 
+/** Captures what the supervisor actually asked for, so spawn-shaping is observable. */
+let lastSpawn: { args: string[]; cwd?: string; env?: Record<string, string> } | null = null;
+
 const stubSpawn: SpawnFn = (_f, args, opts) => {
+  lastSpawn = { args: args ?? [], cwd: opts?.cwd, env: opts?.env };
   const child = childSpawn('node', [STUB, ...(args ?? []).filter(a => a.startsWith('--scripted='))], {
     cwd: opts?.cwd, env: opts?.env, stdio: ['pipe', 'pipe', 'pipe'],
   }) as ChildProcessWithoutNullStreams;
@@ -52,16 +56,12 @@ async function setup(opts: SetupOpts = { project: 'proj' }) {
   cleanups.push(srv.cleanup);
   // override supervisor spawnFn for tests
   (srv.state.supervisor as unknown as { spawnFn: SpawnFn }).spawnFn = stubSpawn;
-  const board = await (await fetch(`${srv.url}/api/boards`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ name: 'B' }),
-  })).json() as { board: { boardId: string } };
-  await fetch(`${srv.url}/api/boards/${board.board.boardId}/workflows`, {
+  await fetch(`${srv.url}/api/workflows`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ name: 'work', states: STATES }),
   });
 
-  const boardPath = path.join(tp.root, 'boards', board.board.boardId);
+  const workflowPath = path.join(tp.root, 'workflows', 'work');
   const repoRoot = path.join(tp.root, 'repo');
   await mkdir(repoRoot, { recursive: true });
 
@@ -83,18 +83,18 @@ async function setup(opts: SetupOpts = { project: 'proj' }) {
   }
   if (opts.workflowPermissions) {
     await writeFile(
-      path.join(boardPath, 'workflows', 'work', 'permissions.yaml'),
+      path.join(workflowPath, 'permissions.yaml'),
       yaml.dump({ allowedPaths: [], allowedTools: [], deniedTools: [], ...opts.workflowPermissions }),
       'utf8',
     );
   }
 
-  const ticket = await (await fetch(`${srv.url}/api/boards/${board.board.boardId}/workflows/work/tickets`, {
+  const ticket = await (await fetch(`${srv.url}/api/workflows/work/tickets`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ title: 'X', state: 'todo', project: opts.project }),
   })).json() as { ticket: { filename: string } };
   return {
-    srv, boardId: board.board.boardId, filename: ticket.ticket.filename, repoRoot, boardPath,
+    srv, filename: ticket.ticket.filename, repoRoot, workflowPath, root: tp.root,
   };
 }
 
@@ -116,8 +116,8 @@ async function waitForStatus(
 
 describe('runtime routes', () => {
   it('refuses to start a runtime for an unassigned ticket', async () => {
-    const { srv, boardId, filename } = await setup({ project: undefined });
-    const res = await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' });
+    const { srv, filename } = await setup({ project: undefined });
+    const res = await fetch(`${srv.url}/api/tickets/work/${filename}/runtime`, { method: 'POST' });
     expect(res.status).toBe(400);
     const body = await res.json() as { error: { message: string } };
     expect(body.error.message).toContain('no project assigned');
@@ -127,22 +127,47 @@ describe('runtime routes', () => {
   });
 
   it('refuses to start a runtime for a ticket naming an unknown project', async () => {
-    const { srv, boardId, filename } = await setup({ project: 'proj' });
+    const { srv, filename } = await setup({ project: 'proj' });
     await fetch(`${srv.url}/api/projects/proj`, { method: 'DELETE' });
-    const res = await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' });
+    const res = await fetch(`${srv.url}/api/tickets/work/${filename}/runtime`, { method: 'POST' });
     expect(res.status).toBe(400);
     const body = await res.json() as { error: { message: string } };
     expect(body.error.message).toContain("unknown project 'proj'");
   });
 
+  it("spawns with the workflow's own runtime and cwd at the workspace root", async () => {
+    const { srv, filename, root } = await setup({ project: 'proj' });
+    await fetch(`${srv.url}/api/workflows/work`, {
+      method: 'PATCH', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        runtime: {
+          harness: 'claude-code', provider: 'anthropic', model: 'test-model-x',
+          args: ['--flag-from-workflow'], env: { FROM_WORKFLOW: '1' },
+        },
+      }),
+    });
+    lastSpawn = null;
+    const res = await fetch(`${srv.url}/api/tickets/work/${filename}/runtime`, { method: 'POST' });
+    expect(res.status).toBe(200);
+    expect(lastSpawn).not.toBeNull();
+    expect(lastSpawn!.args).toContain('test-model-x');
+    expect(lastSpawn!.args).toContain('--flag-from-workflow');
+    expect(lastSpawn!.env!.FROM_WORKFLOW).toBe('1');
+    // cwd is the workspace root, not the workflow directory — one .claude/
+    // serves every workflow.
+    expect(lastSpawn!.cwd).toBe(root);
+    expect(lastSpawn!.env!.MEESEEKS_WORKSPACE_PATH).toBe(root);
+    expect(lastSpawn!.env!.MEESEEKS_WORKFLOW_PATH).toBe(path.join(root, 'workflows', 'work'));
+  });
+
   it('permissions preview unions project and workflow, tagging each entry origin', async () => {
-    const { srv, boardId, filename, repoRoot, boardPath } = await setup({
+    const { srv, filename, repoRoot, workflowPath } = await setup({
       project: 'proj',
       projectPermissions: { allowedTools: ['Read'], deniedTools: ['Fetch'], allowedPaths: ['./vendor'] },
       workflowPermissions: { allowedTools: ['Read'], deniedTools: ['Write', 'Bash'], allowedPaths: ['../shared'] },
     });
 
-    const res = await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/permissions`);
+    const res = await fetch(`${srv.url}/api/tickets/work/${filename}/permissions`);
     expect(res.status).toBe(200);
     const body = await res.json() as {
       projectId: string | null;
@@ -168,15 +193,15 @@ describe('runtime routes', () => {
     // Each source resolved its own relative path against its own base.
     const paths = body.permissions.allowedPaths.map(e => e.value);
     expect(paths).toContain(path.resolve(repoRoot, './vendor'));
-    expect(paths).toContain(path.resolve(path.join(boardPath, 'workflows', 'work'), '../shared'));
+    expect(paths).toContain(path.resolve(workflowPath, '../shared'));
   });
 
   it('permissions preview tolerates an unassigned ticket and returns workflow-only rules', async () => {
-    const { srv, boardId, filename } = await setup({
+    const { srv, filename } = await setup({
       project: undefined,
       workflowPermissions: { deniedTools: ['Write'] },
     });
-    const res = await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/permissions`);
+    const res = await fetch(`${srv.url}/api/tickets/work/${filename}/permissions`);
     expect(res.status).toBe(200);
     const body = await res.json() as {
       projectId: string | null;
@@ -189,8 +214,8 @@ describe('runtime routes', () => {
   });
 
   it('spawns a runtime for a ticket and lists it', async () => {
-    const { srv, boardId, filename } = await setup();
-    const res = await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' });
+    const { srv, filename } = await setup();
+    const res = await fetch(`${srv.url}/api/tickets/work/${filename}/runtime`, { method: 'POST' });
     expect(res.status).toBe(200);
     const body = await res.json() as { runtime: { runtimeId: string } };
     expect(body.runtime.runtimeId).toBeTruthy();
@@ -207,15 +232,15 @@ describe('runtime routes', () => {
   });
 
   it('returns existing live runtime for the same ticket on second spawn', async () => {
-    const { srv, boardId, filename } = await setup();
-    const a = await (await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
-    const b = await (await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
+    const { srv, filename } = await setup();
+    const a = await (await fetch(`${srv.url}/api/tickets/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
+    const b = await (await fetch(`${srv.url}/api/tickets/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
     expect(b.runtime.runtimeId).toBe(a.runtime.runtimeId);
   });
 
   it('notify route: drives supervisor state from idle to awaiting-user', async () => {
-    const { srv, boardId, filename } = await setup();
-    const spawn = await (await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
+    const { srv, filename } = await setup();
+    const spawn = await (await fetch(`${srv.url}/api/tickets/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
     const { runtimeId } = spawn.runtime;
     // stub default (init,assistant,result) drives runtime to idle
     await waitForStatus(srv, runtimeId, 'idle');
@@ -227,8 +252,8 @@ describe('runtime routes', () => {
   });
 
   it('notify route: drives supervisor state from idle to idle (no-op re-assertion)', async () => {
-    const { srv, boardId, filename } = await setup();
-    const spawn = await (await fetch(`${srv.url}/api/tickets/${boardId}/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
+    const { srv, filename } = await setup();
+    const spawn = await (await fetch(`${srv.url}/api/tickets/work/${filename}/runtime`, { method: 'POST' })).json() as { runtime: { runtimeId: string } };
     const { runtimeId } = spawn.runtime;
     await waitForStatus(srv, runtimeId, 'idle');
     const res = await fetch(`${srv.url}/internal/runtime/${runtimeId}/notify?state=idle`);

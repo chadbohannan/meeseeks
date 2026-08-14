@@ -3,7 +3,6 @@ import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
 import { InvalidInputError } from '../../storage/errors.js';
 import { listFiles, readFile, writeFile, deleteFile } from '../../storage/files.js';
-import { getBoard } from '../../storage/workspace.js';
 import path from 'node:path';
 import type {
   ListFilesResponse,
@@ -21,12 +20,12 @@ const NAMESPACE_DIRS: Record<string, string> = {
 
 const ALLOWED_NAMESPACES = new Set(['skills', 'bin']);
 
-function getFullPath(boardPath: string, namespace: string, filepath: string): string {
+function getFullPath(workspaceRoot: string, namespace: string, filepath: string): string {
   const namespaceDir = NAMESPACE_DIRS[namespace];
   if (!namespaceDir) {
     throw new InvalidInputError(`unsupported namespace: ${namespace}`);
   }
-  return path.join(boardPath, namespaceDir, filepath);
+  return path.join(workspaceRoot, namespaceDir, filepath);
 }
 
 export async function registerFileRoutes(
@@ -37,27 +36,26 @@ export async function registerFileRoutes(
 
   // List files in namespace
   app.get<{
-    Params: { boardId: string; namespace: string };
-  }>('/api/boards/:boardId/files/:namespace', async (req, reply) => {
-    const { boardId, namespace } = req.params;
+    Params: { namespace: string };
+  }>('/api/files/:namespace', async (req, reply) => {
+    const { namespace } = req.params;
 
     if (!ALLOWED_NAMESPACES.has(namespace)) {
       throw new InvalidInputError(`Namespace "${namespace}" is not supported`);
     }
 
     const open = state.require();
-    const board = await getBoard(open.meta.path, boardId);
 
-    const files = await listFiles(board.path, namespace);
+    const files = await listFiles(open.meta.path, namespace);
     const response: ListFilesResponse = { files };
     return reply.send(response);
   });
 
   // Read file content
   app.get<{
-    Params: { boardId: string; namespace: string; '*': string };
-  }>('/api/boards/:boardId/files/:namespace/*', async (req, reply) => {
-    const { boardId, namespace } = req.params;
+    Params: { namespace: string; '*': string };
+  }>('/api/files/:namespace/*', async (req, reply) => {
+    const { namespace } = req.params;
     const filepath = req.params['*'];
 
     if (!filepath) {
@@ -69,20 +67,19 @@ export async function registerFileRoutes(
     }
 
     const open = state.require();
-    const board = await getBoard(open.meta.path, boardId);
 
-    const content = await readFile(board.path, namespace, filepath);
-    const fullPath = getFullPath(board.path, namespace, filepath);
+    const content = await readFile(open.meta.path, namespace, filepath);
+    const fullPath = getFullPath(open.meta.path, namespace, filepath);
     const response: ReadFileResponse = { content, path: fullPath };
     return reply.send(response);
   });
 
   // Create new file
   app.post<{
-    Params: { boardId: string; namespace: string; '*': string };
+    Params: { namespace: string; '*': string };
     Body: { content: string };
-  }>('/api/boards/:boardId/files/:namespace/*', async (req, reply) => {
-    const { boardId, namespace } = req.params;
+  }>('/api/files/:namespace/*', async (req, reply) => {
+    const { namespace } = req.params;
     const filepath = req.params['*'];
     const { content } = req.body;
 
@@ -99,20 +96,19 @@ export async function registerFileRoutes(
     }
 
     const open = state.require();
-    const board = await getBoard(open.meta.path, boardId);
 
-    await writeFile(board.path, namespace, filepath, content);
-    const fullPath = getFullPath(board.path, namespace, filepath);
+    await writeFile(open.meta.path, namespace, filepath, content);
+    const fullPath = getFullPath(open.meta.path, namespace, filepath);
     const response: WriteFileResponse = { ok: true, path: fullPath };
     return reply.send(response);
   });
 
   // Update existing file
   app.patch<{
-    Params: { boardId: string; namespace: string; '*': string };
+    Params: { namespace: string; '*': string };
     Body: { content: string };
-  }>('/api/boards/:boardId/files/:namespace/*', async (req, reply) => {
-    const { boardId, namespace } = req.params;
+  }>('/api/files/:namespace/*', async (req, reply) => {
+    const { namespace } = req.params;
     const filepath = req.params['*'];
     const { content } = req.body;
 
@@ -129,21 +125,20 @@ export async function registerFileRoutes(
     }
 
     const open = state.require();
-    const board = await getBoard(open.meta.path, boardId);
 
     // Verify file exists before updating
-    await readFile(board.path, namespace, filepath);
+    await readFile(open.meta.path, namespace, filepath);
 
-    await writeFile(board.path, namespace, filepath, content);
+    await writeFile(open.meta.path, namespace, filepath, content);
     const response: PatchFileResponse = { ok: true };
     return reply.send(response);
   });
 
   // Delete file
   app.delete<{
-    Params: { boardId: string; namespace: string; '*': string };
-  }>('/api/boards/:boardId/files/:namespace/*', async (req, reply) => {
-    const { boardId, namespace } = req.params;
+    Params: { namespace: string; '*': string };
+  }>('/api/files/:namespace/*', async (req, reply) => {
+    const { namespace } = req.params;
     const filepath = req.params['*'];
 
     if (!filepath) {
@@ -155,9 +150,8 @@ export async function registerFileRoutes(
     }
 
     const open = state.require();
-    const board = await getBoard(open.meta.path, boardId);
 
-    await deleteFile(board.path, namespace, filepath);
+    await deleteFile(open.meta.path, namespace, filepath);
     return reply.send({ ok: true });
   });
 }

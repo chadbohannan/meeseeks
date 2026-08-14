@@ -6,7 +6,7 @@ import { RingBuffer } from './ring-buffer.js';
 import { StreamParser, type ParseEvent } from './stream-parser.js';
 import { buildSpawnSpec, buildPromptSpawnSpec } from './claude-code.js';
 import type { RuntimeStatus, RuntimeSummary, TicketRef, PromptRef } from '../shared/runtime.js';
-import type { BoardRuntimeConfig, ResolvedPermissions, SpawnProject } from './types.js';
+import type { RuntimeConfig, ResolvedPermissions, SpawnProject } from './types.js';
 import { spawn as childSpawn } from 'node:child_process';
 
 export interface PtyLike {
@@ -26,13 +26,12 @@ export type SpawnFn = (
 
 export interface SpawnInput {
   runtimeId: string;
-  boardPath: string;
+  workspaceRoot: string;
   workflowPath: string;
   ticketAbsPath: string;
-  boardContextContent?: string | null;
   processDocContent?: string | null;
   ticketRef: TicketRef;
-  board: BoardRuntimeConfig | null;
+  runtime: RuntimeConfig | null;
   permissions: ResolvedPermissions | null;
   project?: SpawnProject | null;
   model?: string;
@@ -41,10 +40,10 @@ export interface SpawnInput {
 
 export interface PromptSpawnInput {
   runtimeId: string;
-  boardPath: string;
+  workspaceRoot: string;
   promptRef: PromptRef;
   promptBody: string;
-  board: BoardRuntimeConfig | null;
+  runtime: RuntimeConfig | null;
   permissions: ResolvedPermissions | null;
   project?: SpawnProject | null;
   model?: string;

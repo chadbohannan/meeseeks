@@ -337,7 +337,12 @@ export async function renameWorkflow(
   return newSlug;
 }
 
-export async function deleteWorkflowFolder(
+/**
+ * Drop the registry entry, leaving the directory on disk. This is the default
+ * removal: a workflow holds tickets, and unregistering is reversible where
+ * deleting the files is not.
+ */
+export async function deregisterWorkflow(
   workspaceRoot: string,
   workflowName: string,
 ): Promise<void> {
@@ -345,8 +350,16 @@ export async function deleteWorkflowFolder(
   const registryEntry = (await readWorkspace(workspaceRoot)).config.workflows.find(
     e => path.resolve(workspaceRoot, e) === path.resolve(entry.path),
   );
-  await rm(entry.path, { recursive: true, force: true });
-  // Deregistered even when the directory was already gone, so deleting a
-  // registered-but-missing workflow clears the stub rather than failing.
+  // Cleared even when the directory is already gone, so a registered-but-
+  // missing stub can still be removed rather than being stuck in the registry.
   if (registryEntry) await removeWorkflowFromWorkspace(workspaceRoot, registryEntry);
+}
+
+export async function deleteWorkflowFolder(
+  workspaceRoot: string,
+  workflowName: string,
+): Promise<void> {
+  const entry = await getWorkflowEntry(workspaceRoot, workflowName);
+  await deregisterWorkflow(workspaceRoot, workflowName);
+  await rm(entry.path, { recursive: true, force: true });
 }

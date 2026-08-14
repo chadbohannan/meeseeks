@@ -6,14 +6,15 @@ import yaml from 'js-yaml';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
 import { ConflictError, InvalidInputError, NotFoundError } from '../../storage/errors.js';
-import { getBoard } from '../../storage/workspace.js';
 import {
   listPrompts, readPrompt, writePrompt, deletePrompt, promptExists,
   appendRunLog, listRunLogs,
 } from '../../storage/prompts.js';
 import { getProject } from '../../storage/project.js';
+import { resolveWorkflowPath, resolveWorkflowRuntime } from '../../storage/workflow.js';
+import { readWorkspace } from '../../storage/workspace.js';
 import { resolvePermissions, type PermissionSource } from '../../runtime/permissions.js';
-import type { BoardRuntimeConfig, PermissionsConfig, SpawnProject } from '../../runtime/types.js';
+import type { PermissionsConfig, SpawnProject } from '../../runtime/types.js';
 
 interface Deps { state: ServerState; hub: WsHub }
 
@@ -28,79 +29,61 @@ async function readYaml<T>(file: string): Promise<T | null> {
 }
 
 export async function registerPromptRoutes(app: FastifyInstance, { state }: Deps): Promise<void> {
-  app.get<{ Params: { boardId: string } }>(
-    '/api/boards/:boardId/prompts',
-    async (req) => {
-      const open = state.require();
-      const board = await getBoard(open.meta.path, req.params.boardId);
-      const prompts = await listPrompts(board.path);
-      return { prompts };
-    },
-  );
+  app.get('/api/prompts', async () => {
+    const open = state.require();
+    return { prompts: await listPrompts(open.meta.path) };
+  });
 
-  app.get<{ Params: { boardId: string; name: string } }>(
-    '/api/boards/:boardId/prompts/:name',
-    async (req) => {
-      const open = state.require();
-      const board = await getBoard(open.meta.path, req.params.boardId);
-      const result = await readPrompt(board.path, req.params.name);
-      return { prompt: result };
-    },
-  );
+  app.get<{ Params: { name: string } }>('/api/prompts/:name', async (req) => {
+    const open = state.require();
+    return { prompt: await readPrompt(open.meta.path, req.params.name) };
+  });
 
-  app.put<{ Params: { boardId: string; name: string }; Body: { body: string } }>(
-    '/api/boards/:boardId/prompts/:name',
+  app.put<{ Params: { name: string }; Body: { body: string } }>(
+    '/api/prompts/:name',
     async (req) => {
       if (typeof req.body?.body !== 'string') {
         throw new InvalidInputError('body must be a string');
       }
       const open = state.require();
-      const board = await getBoard(open.meta.path, req.params.boardId);
-      await writePrompt(board.path, req.params.name, req.body.body);
+      await writePrompt(open.meta.path, req.params.name, req.body.body);
       return { prompt: { name: req.params.name, body: req.body.body } };
     },
   );
 
-  app.delete<{ Params: { boardId: string; name: string } }>(
-    '/api/boards/:boardId/prompts/:name',
-    async (req) => {
-      const open = state.require();
-      const board = await getBoard(open.meta.path, req.params.boardId);
-      await deletePrompt(board.path, req.params.name);
-      return { ok: true };
-    },
-  );
+  app.delete<{ Params: { name: string } }>('/api/prompts/:name', async (req) => {
+    const open = state.require();
+    await deletePrompt(open.meta.path, req.params.name);
+    return { ok: true };
+  });
 
-  app.post<{ Params: { boardId: string; name: string }; Body: { model?: string; projectId?: string } }>(
-    '/api/boards/:boardId/prompts/:name/run',
-    async (req) => {
-      const { boardId, name } = req.params;
+  app.post<{
+    Params: { name: string };
+    Body: { model?: string; projectId?: string; workflowName?: string };
+  }>('/api/prompts/:name/run', async (req) => {
+      const { name } = req.params;
       const open = state.require();
-      const board = await getBoard(open.meta.path, boardId);
-      if (!(await promptExists(board.path, name))) {
+      const wsRoot = open.meta.path;
+      if (!(await promptExists(wsRoot, name))) {
         throw new NotFoundError(`prompt not found: ${name}`);
       }
-      const { body } = await readPrompt(board.path, name);
+      const { body } = await readPrompt(wsRoot, name);
 
       const existing = state.supervisor.list().find(r =>
         r.kind === 'prompt' &&
-        r.promptRef?.boardId === boardId &&
         r.promptRef?.name === name &&
         r.status !== 'exited' && r.status !== 'errored');
       if (existing) {
         throw new ConflictError(`prompt already running: ${name}`);
       }
 
-      const boardCfg = await readYaml<BoardRuntimeConfig>(path.join(board.path, 'board.yaml'));
-      const boardPermissions = await readYaml<PermissionsConfig>(path.join(board.path, 'permissions.yaml'));
-
-      // A prompt without a project is allowed — a board-only prompt like
+      // A prompt without a project is allowed — a workspace-level prompt like
       // "lint the wiki" is legitimate — but a named one must exist.
       let project: SpawnProject | null = null;
       const sources: PermissionSource[] = [];
       const projectId = req.body?.projectId;
       if (projectId) {
-        const detail = await getProject(open.meta.path, projectId).catch(() => null);
+        const detail = await getProject(wsRoot, projectId).catch(() => null);
         if (!detail) throw new InvalidInputError(`unknown project '${projectId}'`);
         project = {
           projectId: detail.projectId,
@@ -110,15 +93,27 @@ export async function registerPromptRoutes(app: FastifyInstance, { state }: Deps
         };
         sources.push({ origin: 'project', base: detail.root, config: detail.permissions });
       }
-      sources.push({ origin: 'workflow', base: board.path, config: boardPermissions });
+
+      // The workflow is optional here, unlike on a ticket. Picking one opts the
+      // run into that workflow's permissions and runtime; picking none leaves
+      // the run with only the project's, plus the workspace default runtime.
+      const workflowName = req.body?.workflowName;
+      let runtime = (await readWorkspace(wsRoot)).config.runtime ?? null;
+      if (workflowName) {
+        const wfPath = await resolveWorkflowPath(wsRoot, workflowName).catch(() => null);
+        if (!wfPath) throw new InvalidInputError(`unknown workflow '${workflowName}'`);
+        const wfPermissions = await readYaml<PermissionsConfig>(path.join(wfPath, 'permissions.yaml'));
+        sources.push({ origin: 'workflow', base: wfPath, config: wfPermissions });
+        runtime = (await resolveWorkflowRuntime(wsRoot, workflowName)).runtime;
+      }
 
       const runtimeId = randomUUID();
       const summary = await state.supervisor.spawnPrompt({
         runtimeId,
-        boardPath: board.path,
-        promptRef: { boardId, name },
+        workspaceRoot: wsRoot,
+        promptRef: { name },
         promptBody: body,
-        board: boardCfg,
+        runtime,
         permissions: resolvePermissions(sources),
         project,
         model: req.body?.model,
@@ -133,7 +128,7 @@ export async function registerPromptRoutes(app: FastifyInstance, { state }: Deps
         if (e.status !== 'exited' && e.status !== 'errored') return;
         state.supervisor.off('runtime-message', onMessage);
         state.supervisor.off('runtime-status', onStatus);
-        void appendRunLog(board.path, name, {
+        void appendRunLog(wsRoot, name, {
           runtimeId,
           startedAt: summary.startedAt,
           exitedAt: new Date().toISOString(),
@@ -149,13 +144,8 @@ export async function registerPromptRoutes(app: FastifyInstance, { state }: Deps
     },
   );
 
-  app.get<{ Params: { boardId: string; name: string } }>(
-    '/api/boards/:boardId/prompts/:name/logs',
-    async (req) => {
-      const open = state.require();
-      const board = await getBoard(open.meta.path, req.params.boardId);
-      const logs = await listRunLogs(board.path, req.params.name);
-      return { logs };
-    },
-  );
+  app.get<{ Params: { name: string } }>('/api/prompts/:name/logs', async (req) => {
+    const open = state.require();
+    return { logs: await listRunLogs(open.meta.path, req.params.name) };
+  });
 }

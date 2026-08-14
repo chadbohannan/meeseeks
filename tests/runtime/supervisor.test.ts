@@ -54,12 +54,12 @@ describe('RuntimeSupervisor', () => {
     sup.on('runtime-status', (s) => events.push(s));
     const summary = await sup.spawn({
       runtimeId: 'rt-1',
-      boardPath: tmp,
+      workspaceRoot: tmp,
       workflowPath: path.join(tmp, 'workflow'),
       ticketAbsPath: path.join(tmp, 'workflow', 'todo', 't.md'),
       processDocContent: null,
-      ticketRef: { boardId: 'b', workflowName: 'workflow', filename: 't.md' },
-      board: null,
+      ticketRef: { workflowName: 'workflow', filename: 't.md' },
+      runtime: null,
       permissions: null,
       adapterArgsOverride: ['--scripted=init,assistant,result'],
     });
@@ -76,9 +76,9 @@ describe('RuntimeSupervisor', () => {
     const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192 });
     await sup.spawn({
       runtimeId: 'rt-2',
-      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
-      board: null, permissions: null,
+      workspaceRoot: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { workflowName: 'l', filename: 't.md' },
+      runtime: null, permissions: null,
       adapterArgsOverride: ['--scripted=init,result'],
     });
     await waitFor(() => {
@@ -94,9 +94,9 @@ describe('RuntimeSupervisor', () => {
     sup.on('runtime-status', (s) => exits.push(s));
     await sup.spawn({
       runtimeId: 'rt-3',
-      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
-      board: null, permissions: null,
+      workspaceRoot: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { workflowName: 'l', filename: 't.md' },
+      runtime: null, permissions: null,
       adapterArgsOverride: ['--scripted=init'],
     });
     await new Promise(r => setTimeout(r, 100));
@@ -108,9 +108,9 @@ describe('RuntimeSupervisor', () => {
     const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192, termKillMs: 200 });
     await sup.spawn({
       runtimeId: 'rt-4',
-      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
-      board: null,
+      workspaceRoot: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { workflowName: 'l', filename: 't.md' },
+      runtime: null,
       permissions: { allowedPaths: [], allowedTools: [{ value: 'Bash', origins: ['workflow'] }], deniedTools: [] },
       adapterArgsOverride: ['--scripted=init'],
     });
@@ -142,9 +142,9 @@ describe('RuntimeSupervisor', () => {
     const silentSup = new RuntimeSupervisor({ spawnFn: silentSpawn, ringBytes: 8192, startingDebounceMs: 100 });
     await silentSup.spawn({
       runtimeId: 'rt-debounce',
-      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
-      board: null, permissions: null,
+      workspaceRoot: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { workflowName: 'l', filename: 't.md' },
+      runtime: null, permissions: null,
     });
     expect(silentSup.get('rt-debounce')?.status).toBe('starting');
     // Emit non-JSON TUI data to trigger the debounce timer
@@ -174,9 +174,9 @@ describe('RuntimeSupervisor', () => {
     const sup = new RuntimeSupervisor({ spawnFn: captureSpawn, ringBytes: 8192, startingDebounceMs: 60_000 });
     await sup.spawn({
       runtimeId: 'rt-resize',
-      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
-      board: null, permissions: null,
+      workspaceRoot: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { workflowName: 'l', filename: 't.md' },
+      runtime: null, permissions: null,
     });
     expect(sup.get('rt-resize')?.status).toBe('starting');
     const ok = sup.resize('rt-resize', 96, 24);
@@ -201,9 +201,9 @@ describe('RuntimeSupervisor', () => {
     const sup = new RuntimeSupervisor({ spawnFn: captureSpawn, ringBytes: 8192, startingDebounceMs: 50 });
     await sup.spawn({
       runtimeId: 'rt-reflush',
-      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
-      board: null, permissions: null,
+      workspaceRoot: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { workflowName: 'l', filename: 't.md' },
+      runtime: null, permissions: null,
     });
     sup.resize('rt-reflush', 110, 40);
     expect(resizes).toEqual([{ cols: 110, rows: 40 }]);
@@ -219,9 +219,9 @@ describe('RuntimeSupervisor', () => {
     sup.on('runtime-status', (s) => statuses.push(s.status));
     await sup.spawn({
       runtimeId: 'rt-notify',
-      boardPath: tmp, workflowPath: tmp, ticketAbsPath: tmp,
-      processDocContent: null, ticketRef: { boardId: 'b', workflowName: 'l', filename: 't.md' },
-      board: null, permissions: null,
+      workspaceRoot: tmp, workflowPath: tmp, ticketAbsPath: tmp,
+      processDocContent: null, ticketRef: { workflowName: 'l', filename: 't.md' },
+      runtime: null, permissions: null,
       adapterArgsOverride: ['--scripted=init'],
     });
     // Wait for idle from StreamParser init event
@@ -243,12 +243,12 @@ describe('RuntimeSupervisor', () => {
     const sup = new RuntimeSupervisor({ spawnFn: stubSpawn, ringBytes: 8192 });
     const summary = await sup.spawn({
       runtimeId: 'rt-preamble',
-      boardPath: tmp,
+      workspaceRoot: tmp,
       workflowPath: path.join(tmp, 'workflow'),
       ticketAbsPath: path.join(tmp, 'workflow', 'todo', 'my-ticket.md'),
       processDocContent: null,
-      ticketRef: { boardId: 'b', workflowName: 'workflow', filename: 'my-ticket.md' },
-      board: null,
+      ticketRef: { workflowName: 'workflow', filename: 'my-ticket.md' },
+      runtime: null,
       permissions: null,
       adapterArgsOverride: ['--scripted=init,result'],
     });

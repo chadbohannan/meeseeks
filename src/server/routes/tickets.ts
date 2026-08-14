@@ -1,11 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
-import { getBoard } from '../../storage/workspace.js';
 import { createTicket, listTickets, readTicket, updateTicket, deleteTicket } from '../../storage/ticket.js';
 import { InvalidInputError } from '../../storage/errors.js';
 
-const BASE = '/api/boards/:boardId/workflows/:workflowName/tickets';
+const BASE = '/api/workflows/:workflowName/tickets';
 
 export async function registerTicketRoutes(
   app: FastifyInstance,
@@ -13,62 +12,57 @@ export async function registerTicketRoutes(
 ): Promise<void> {
   const { state, hub } = deps;
 
-  app.get<{ Params: { boardId: string; workflowName: string } }>(BASE, async (req) => {
+  app.get<{ Params: { workflowName: string } }>(BASE, async (req) => {
     const open = state.require();
-    const board = await getBoard(open.meta.path, req.params.boardId);
-    return { tickets: await listTickets(board.path, req.params.workflowName) };
+    return { tickets: await listTickets(open.meta.path, req.params.workflowName) };
   });
 
   app.post<{
-    Params: { boardId: string; workflowName: string };
+    Params: { workflowName: string };
     Body: { title: string; state: string; body?: string; project?: string };
   }>(BASE, async (req) => {
     const open = state.require();
-    const board = await getBoard(open.meta.path, req.params.boardId);
     const body = req.body ?? {} as { title?: string; state?: string; body?: string; project?: string };
     if (!body.title || !body.state) throw new InvalidInputError('title and state required');
-    const ticket = await createTicket(board.path, req.params.workflowName, {
+    const ticket = await createTicket(open.meta.path, req.params.workflowName, {
       title: body.title, state: body.state, body: body.body, project: body.project,
     });
     hub.broadcast({
       type: 'ticket-changed',
-      payload: { boardId: board.boardId, workflowName: req.params.workflowName, filename: ticket.filename, state: ticket.state, kind: 'created' },
+      payload: { workflowName: req.params.workflowName, filename: ticket.filename, state: ticket.state, kind: 'created' },
     });
     return { ticket };
   });
 
-  app.get<{ Params: { boardId: string; workflowName: string; filename: string } }>(
+  app.get<{ Params: { workflowName: string; filename: string } }>(
     `${BASE}/:filename`,
     async (req) => {
       const open = state.require();
-      const board = await getBoard(open.meta.path, req.params.boardId);
-      return { ticket: await readTicket(board.path, req.params.workflowName, req.params.filename) };
+      return { ticket: await readTicket(open.meta.path, req.params.workflowName, req.params.filename) };
     },
   );
 
   app.patch<{
-    Params: { boardId: string; workflowName: string; filename: string };
+    Params: { workflowName: string; filename: string };
     Body: { title?: string; body?: string; state?: string; color?: string; project?: string };
   }>(`${BASE}/:filename`, async (req) => {
     const open = state.require();
-    const board = await getBoard(open.meta.path, req.params.boardId);
-    const ticket = await updateTicket(board.path, req.params.workflowName, req.params.filename, req.body ?? {});
+    const ticket = await updateTicket(open.meta.path, req.params.workflowName, req.params.filename, req.body ?? {});
     hub.broadcast({
       type: 'ticket-changed',
-      payload: { boardId: board.boardId, workflowName: req.params.workflowName, filename: ticket.filename, state: ticket.state, kind: 'updated' },
+      payload: { workflowName: req.params.workflowName, filename: ticket.filename, state: ticket.state, kind: 'updated' },
     });
     return { ticket };
   });
 
-  app.delete<{ Params: { boardId: string; workflowName: string; filename: string } }>(
+  app.delete<{ Params: { workflowName: string; filename: string } }>(
     `${BASE}/:filename`,
     async (req) => {
       const open = state.require();
-      const board = await getBoard(open.meta.path, req.params.boardId);
-      await deleteTicket(board.path, req.params.workflowName, req.params.filename);
+      await deleteTicket(open.meta.path, req.params.workflowName, req.params.filename);
       hub.broadcast({
         type: 'ticket-changed',
-        payload: { boardId: board.boardId, workflowName: req.params.workflowName, filename: req.params.filename, state: '__deleted__', kind: 'deleted' },
+        payload: { workflowName: req.params.workflowName, filename: req.params.filename, state: '__deleted__', kind: 'deleted' },
       });
       return { ok: true };
     },

@@ -6,12 +6,11 @@ import yaml from 'js-yaml';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
 import { NotFoundError, InvalidInputError } from '../../storage/errors.js';
-import { getBoard } from '../../storage/workspace.js';
-import { readBoardContextContent } from '../../storage/board.js';
+import { resolveWorkflowPath, resolveWorkflowRuntime } from '../../storage/workflow.js';
 import { findTicketFile, readTicket } from '../../storage/ticket.js';
 import { getProject } from '../../storage/project.js';
 import { resolvePermissions, type PermissionSource } from '../../runtime/permissions.js';
-import type { BoardRuntimeConfig, PermissionsConfig, SpawnProject } from '../../runtime/types.js';
+import type { PermissionsConfig, SpawnProject } from '../../runtime/types.js';
 import type { ResolvedPermissions } from '../../shared/types.js';
 
 interface Deps { state: ServerState; hub: WsHub }
@@ -108,28 +107,26 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
     return {};
   });
 
-  app.post<{ Params: { boardId: string; workflowName: string; filename: string }; Body: { model?: string } }>(
-    '/api/tickets/:boardId/:workflowName/:filename/runtime',
+  app.post<{ Params: { workflowName: string; filename: string }; Body: { model?: string } }>(
+    '/api/tickets/:workflowName/:filename/runtime',
     async (req) => {
       const open = state.require();
-      const { boardId, workflowName, filename } = req.params;
-      const board = await getBoard(open.meta.path, boardId);
-      const workflowPath = path.join(board.path, 'workflows', workflowName);
+      const { workflowName, filename } = req.params;
+      const wsRoot = open.meta.path;
+      const workflowPath = await resolveWorkflowPath(wsRoot, workflowName);
       const found = await findTicketFile(workflowPath, filename);
       if (!found) throw new NotFoundError(`ticket ${filename} not found`);
-      const ticket = await readTicket(board.path, workflowName, filename);
+      const ticket = await readTicket(wsRoot, workflowName, filename);
       const { project, permissions } = await ticketRuntimeContext(
-        open.meta.path, workflowPath, ticket.project, true,
+        wsRoot, workflowPath, ticket.project, true,
       );
 
-      const boardCfg = await readYaml<BoardRuntimeConfig>(path.join(board.path, 'board.yaml'));
+      const { runtime } = await resolveWorkflowRuntime(wsRoot, workflowName);
       const processDocPath = path.join(workflowPath, 'PROCESS.md');
       const processDocContent = await readFile(processDocPath, 'utf8').catch(() => null);
-      const boardContextContent = await readBoardContextContent(board.path).catch(() => null);
 
       const existing = state.supervisor.list().find(r =>
         r.kind === 'ticket' &&
-        r.ticketRef?.boardId === boardId &&
         r.ticketRef?.workflowName === workflowName &&
         r.ticketRef?.filename === filename &&
         r.status !== 'exited' && r.status !== 'errored');
@@ -138,13 +135,12 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
       const runtimeId = randomUUID();
       const summary = await state.supervisor.spawn({
         runtimeId,
-        boardPath: board.path,
+        workspaceRoot: wsRoot,
         workflowPath,
         ticketAbsPath: found.abs,
-        boardContextContent,
         processDocContent,
-        ticketRef: { boardId, workflowName, filename },
-        board: boardCfg,
+        ticketRef: { workflowName, filename },
+        runtime,
         permissions,
         project,
         model: req.body?.model,
@@ -156,16 +152,16 @@ export async function registerRuntimeRoutes(app: FastifyInstance, { state }: Dep
   // Preview: what a spawn *would* use. Deliberately calls the same
   // ticketRuntimeContext the spawn path calls — a preview computed by a
   // parallel implementation would eventually disagree with reality.
-  app.get<{ Params: { boardId: string; workflowName: string; filename: string } }>(
-    '/api/tickets/:boardId/:workflowName/:filename/permissions',
+  app.get<{ Params: { workflowName: string; filename: string } }>(
+    '/api/tickets/:workflowName/:filename/permissions',
     async (req) => {
       const open = state.require();
-      const { boardId, workflowName, filename } = req.params;
-      const board = await getBoard(open.meta.path, boardId);
-      const workflowPath = path.join(board.path, 'workflows', workflowName);
-      const ticket = await readTicket(board.path, workflowName, filename);
+      const { workflowName, filename } = req.params;
+      const wsRoot = open.meta.path;
+      const workflowPath = await resolveWorkflowPath(wsRoot, workflowName);
+      const ticket = await readTicket(wsRoot, workflowName, filename);
       const { project, permissions } = await ticketRuntimeContext(
-        open.meta.path, workflowPath, ticket.project, false,
+        wsRoot, workflowPath, ticket.project, false,
       );
       return {
         projectId: ticket.project ?? null,

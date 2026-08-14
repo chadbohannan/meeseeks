@@ -14,20 +14,21 @@ function resolveHarnessBin(): string {
 const HARNESS_BIN = resolveHarnessBin();
 
 /**
- * The sentence that tells the agent where to work. cwd stays on the board so
- * the board's .claude/ directory, skills, and symlinks keep resolving, so the
- * project root has to be stated rather than implied by the process.
+ * The sentence that tells the agent where to work. cwd is the workspace root so
+ * that one .claude/ directory, its skills, and its bin serve every workflow —
+ * which means neither the project root nor the workflow directory is implied by
+ * the process, and both have to be stated.
  */
 function projectLocationSentence(project: SpawnProject): string {
   return `Project \`${project.name}\` is rooted at \`${project.root}\`. ` +
-    `Your working directory is the board folder; perform code work in the project root.`;
+    `Your working directory is the Meeseeks workspace; perform code work in the project root.`;
 }
 
 export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   const argv: string[] = [HARNESS_BIN];
   argv.push('--verbose');
 
-  const model = ctx.model ?? ctx.board?.runtime?.model;
+  const model = ctx.model ?? ctx.runtime?.model;
   if (model) argv.push('--model', model);
 
   if (ctx.project) argv.push('--add-dir', ctx.project.root);
@@ -64,25 +65,27 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   if (allowedTools.length > 0 || deniedTools.length > 0) {
     settingsObj.permissions = { allow: allowedTools, deny: deniedTools };
   }
-  const filePath = path.join(ctx.boardPath, '.meeseeks', `session-${ctx.runtimeId}.json`);
+  const filePath = path.join(ctx.workspaceRoot, '.meeseeks', `session-${ctx.runtimeId}.json`);
   const settingsFile: SpawnSpec['settingsFile'] = {
     path: filePath,
     body: JSON.stringify(settingsObj, null, 2),
   };
   argv.push('--settings', filePath);
 
-  for (const a of ctx.board?.runtime?.args ?? []) argv.push(a);
+  for (const a of ctx.runtime?.args ?? []) argv.push(a);
 
-  const boardName = path.basename(ctx.boardPath);
+  // The workflow directory is stated explicitly because it is no longer the
+  // working directory — an agent that assumed cwd was its workflow would write
+  // process files into the workspace root.
   const ticketContext =
-    `You are working on ticket \`${ctx.ticketRef.filename}\` in workflow \`${ctx.ticketRef.workflowName}\` of board \`${boardName}\`. ` +
+    `You are working on ticket \`${ctx.ticketRef.filename}\` in workflow ` +
+    `\`${ctx.ticketRef.workflowName}\`, whose directory is \`${ctx.workflowPath}\`. ` +
     `Ticket file: \`${ctx.ticketAbsPath}\`.`;
   // Most stable segment first (project context is the most cacheable), most
   // specific last. The two generated sentences sit adjacent at the end so the
   // agent reads *where* to work and *what* to work on together.
   const preamble = [
     ctx.project?.contextContent,
-    ctx.boardContextContent,
     ctx.processDocContent,
     ctx.project ? projectLocationSentence(ctx.project) : null,
     ticketContext,
@@ -97,16 +100,16 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   const env: Record<string, string> = {
     ...inherited,
     MEESEEKS_TICKET_PATH: ctx.ticketAbsPath,
-    MEESEEKS_BOARD_PATH: ctx.boardPath,
+    MEESEEKS_WORKSPACE_PATH: ctx.workspaceRoot,
     MEESEEKS_WORKFLOW_PATH: ctx.workflowPath,
     ...(ctx.project
       ? { MEESEEKS_PROJECT_ROOT: ctx.project.root, MEESEEKS_PROJECT_NAME: ctx.project.name }
       : {}),
-    ...(ctx.board?.runtime?.env ?? {}),
+    ...(ctx.runtime?.env ?? {}),
   };
-  if (ctx.board?.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.board.runtime.provider;
+  if (ctx.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.runtime.provider;
 
-  return { argv, env, cwd: ctx.boardPath, preamble, settingsFile };
+  return { argv, env, cwd: ctx.workspaceRoot, preamble, settingsFile };
 }
 
 export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
@@ -115,7 +118,7 @@ export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
   argv.push('--output-format', 'stream-json');
   argv.push('--verbose');
 
-  const model = ctx.model ?? ctx.board?.runtime?.model;
+  const model = ctx.model ?? ctx.runtime?.model;
   if (model) argv.push('--model', model);
 
   if (ctx.project) argv.push('--add-dir', ctx.project.root);
@@ -132,7 +135,7 @@ export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
   }
   let settingsFile: SpawnSpec['settingsFile'] = null;
   if (Object.keys(settingsObj).length > 0) {
-    const filePath = path.join(ctx.boardPath, '.meeseeks', `prompt-${ctx.runtimeId}.json`);
+    const filePath = path.join(ctx.workspaceRoot, '.meeseeks', `prompt-${ctx.runtimeId}.json`);
     settingsFile = { path: filePath, body: JSON.stringify(settingsObj, null, 2) };
     argv.push('--settings', filePath);
   }
@@ -147,7 +150,7 @@ export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
     argv.push('--append-system-prompt', systemPrompt);
   }
 
-  for (const a of ctx.board?.runtime?.args ?? []) argv.push(a);
+  for (const a of ctx.runtime?.args ?? []) argv.push(a);
 
   // Pass the prompt body as the positional argv argument (standard --print invocation).
   argv.push(ctx.promptBody);
@@ -156,14 +159,14 @@ export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
   delete inherited.FORCE_COLOR;
   const env: Record<string, string> = {
     ...inherited,
-    MEESEEKS_BOARD_PATH: ctx.boardPath,
+    MEESEEKS_WORKSPACE_PATH: ctx.workspaceRoot,
     MEESEEKS_PROMPT_NAME: ctx.promptRef.name,
     ...(ctx.project
       ? { MEESEEKS_PROJECT_ROOT: ctx.project.root, MEESEEKS_PROJECT_NAME: ctx.project.name }
       : {}),
-    ...(ctx.board?.runtime?.env ?? {}),
+    ...(ctx.runtime?.env ?? {}),
   };
-  if (ctx.board?.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.board.runtime.provider;
+  if (ctx.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.runtime.provider;
 
   const preamble = [
     ctx.project?.contextContent,
@@ -172,5 +175,5 @@ export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
   ]
     .filter((p): p is string => Boolean(p && p.length > 0))
     .join('\n\n');
-  return { argv, env, cwd: ctx.boardPath, preamble, settingsFile };
+  return { argv, env, cwd: ctx.workspaceRoot, preamble, settingsFile };
 }

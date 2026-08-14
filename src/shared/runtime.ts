@@ -8,13 +8,11 @@ export type RuntimeStatus =
   | 'errored';
 
 export interface TicketRef {
-  boardId: string;
   workflowName: string;
   filename: string;
 }
 
 export interface PromptRef {
-  boardId: string;
   name: string;
 }
 

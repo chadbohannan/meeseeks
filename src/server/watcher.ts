@@ -3,7 +3,7 @@ import path from 'node:path';
 import type { WorkspaceMeta } from '../shared/types.js';
 import type { ChangeKind, WsEvent } from '../shared/events.js';
 import type { WsHub } from './ws.js';
-import { slugifyBoardPath, slugifyProjectPath } from '../storage/paths.js';
+import { slugifyWorkflowPath, slugifyProjectPath } from '../storage/paths.js';
 import { PROJECTS_DIR } from '../storage/project.js';
 
 export interface WatcherHandle {
@@ -11,7 +11,7 @@ export interface WatcherHandle {
 }
 
 interface PendingChange {
-  type: 'board' | 'workflow' | 'ticket';
+  type: 'workflow' | 'ticket';
   payload: WsEvent['payload'];
   timer: NodeJS.Timeout;
   kind: ChangeKind;
@@ -46,8 +46,7 @@ export function startWatcher(meta: WorkspaceMeta, hub: WsHub): WatcherHandle {
     if (!rel || rel.startsWith('..')) return;
     const parts = rel.split(path.sep);
 
-    // projects/<slug>.yaml — must be handled before the board fallthrough
-    // below, which would otherwise read this as a board named 'projects'.
+    // projects/<slug>.yaml
     if (parts[0] === PROJECTS_DIR) {
       if (parts.length !== 2) return;
       const filename = parts[1]!;
@@ -61,62 +60,52 @@ export function startWatcher(meta: WorkspaceMeta, hub: WsHub): WatcherHandle {
       return;
     }
 
-    const workflowsIdx = parts.indexOf('workflows');
-    const promptsIdx = parts.indexOf('prompts');
-    if (workflowsIdx === -1 && promptsIdx !== -1) {
-      // <boardEntry>/prompts/<file>.md
-      if (parts.length === promptsIdx + 2) {
-        const boardEntry = parts.slice(0, promptsIdx).join('/');
-        const boardId = slugifyBoardPath(boardEntry);
-        const filename = parts[promptsIdx + 1]!;
-        if (!boardId || !filename.endsWith('.md')) return;
-        emit(`prompt:${boardId}:${filename}`, {
-          type: 'prompts-changed',
-          payload: { boardId, name: filename, kind },
-        });
-      }
-      return;
-    }
-    if (workflowsIdx === -1) {
-      // Skip top-level workspace config files (e.g. project.yaml itself).
-      // Board-level changes need at least <boardEntry>/<file>.
-      if (parts.length < 2) return;
-      const boardEntry = parts.slice(0, parts.length - 1).join('/');
-      const boardId = slugifyBoardPath(boardEntry);
-      if (!boardId) return;
-      emit(`board:${boardId}`, { type: 'board-changed', payload: { boardId, kind: 'updated' } });
-      return;
-    }
-    const boardEntry = parts.slice(0, workflowsIdx).join('/');
-    const boardId = slugifyBoardPath(boardEntry);
-    if (parts.length === workflowsIdx + 2) {
-      // <board>/workflows/<workflow>  -- workflow folder itself
-      const workflowName = parts[workflowsIdx + 1]!;
-      emit(`workflow:${boardId}:${workflowName}`, {
-        type: 'workflow-changed', payload: { boardId, workflowName, kind },
+    // prompts/<file>.md
+    if (parts[0] === 'prompts') {
+      if (parts.length !== 2) return;
+      const filename = parts[1]!;
+      if (!filename.endsWith('.md')) return;
+      emit(`prompt:${filename}`, {
+        type: 'prompts-changed',
+        payload: { name: filename, kind },
       });
       return;
     }
-    if (parts.length === workflowsIdx + 3) {
-      // <board>/workflows/<workflow>/<file-or-state>
-      const workflowName = parts[workflowsIdx + 1]!;
-      const last = parts[workflowsIdx + 2]!;
+
+    // Everything below lives under workflows/. There is deliberately no
+    // catch-all branch: the board-era fallthrough classified any
+    // `<dir>/<file>` as a board change, which is what previously mistook
+    // `projects/x.yaml` for a board and is now impossible to reintroduce.
+    if (parts[0] !== 'workflows') return;
+
+    const workflowName = parts[1] ? slugifyWorkflowPath(parts[1]) : '';
+    if (!workflowName) return;
+
+    if (parts.length === 2) {
+      // workflows/<workflow> — the directory itself
+      emit(`workflow:${workflowName}`, {
+        type: 'workflow-changed', payload: { workflowName, kind },
+      });
+      return;
+    }
+    if (parts.length === 3) {
+      // workflows/<workflow>/<file-or-state>
+      const last = parts[2]!;
       if (['workflow.yaml', 'PROCESS.md', 'permissions.yaml'].includes(last)) {
-        emit(`workflow:${boardId}:${workflowName}`, {
-          type: 'workflow-changed', payload: { boardId, workflowName, kind: 'updated' },
+        emit(`workflow:${workflowName}`, {
+          type: 'workflow-changed', payload: { workflowName, kind: 'updated' },
         });
       }
       return;
     }
-    if (parts.length === workflowsIdx + 4) {
-      // <board>/workflows/<workflow>/<state>/<file>.md
-      const workflowName = parts[workflowsIdx + 1]!;
-      const state = parts[workflowsIdx + 2]!;
-      const filename = parts[workflowsIdx + 3]!;
+    if (parts.length === 4) {
+      // workflows/<workflow>/<state>/<file>.md
+      const state = parts[2]!;
+      const filename = parts[3]!;
       if (!filename.endsWith('.md')) return;
-      emit(`ticket:${boardId}:${workflowName}:${filename}`, {
+      emit(`ticket:${workflowName}:${filename}`, {
         type: 'ticket-changed',
-        payload: { boardId, workflowName, filename, state, kind },
+        payload: { workflowName, filename, state, kind },
       });
     }
   }

@@ -1,9 +1,12 @@
 import type { FastifyInstance } from 'fastify';
 import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
-import { getBoard } from '../../storage/workspace.js';
-import { createWorkflow, readWorkflowDetail, renameWorkflow, updateWorkflowStates, deleteWorkflowFolder, writeProcessDoc } from '../../storage/workflow.js';
+import {
+  createWorkflow, listWorkflows, readWorkflowDetail, renameWorkflow, updateWorkflowStates,
+  deleteWorkflowFolder, deregisterWorkflow, writeProcessDoc, writeWorkflowRuntime,
+} from '../../storage/workflow.js';
 import { InvalidInputError } from '../../storage/errors.js';
+import type { RuntimeConfig, WorkflowState } from '../../shared/types.js';
 
 export async function registerWorkflowRoutes(
   app: FastifyInstance,
@@ -11,58 +14,82 @@ export async function registerWorkflowRoutes(
 ): Promise<void> {
   const { state, hub } = deps;
 
-  app.post<{
-    Params: { boardId: string };
-    Body: { name: string; states: Array<{ dir: string; name: string }> };
-  }>('/api/boards/:boardId/workflows', async (req) => {
+  app.get('/api/workflows', async () => {
     const open = state.require();
-    const board = await getBoard(open.meta.path, req.params.boardId);
-    const body = req.body ?? {} as { name?: string; states?: Array<{ dir: string; name: string }> };
-    if (!body.name || !Array.isArray(body.states)) throw new InvalidInputError('name and states required');
-    const slug = await createWorkflow(board.path, body.name, body.states);
-    hub.broadcast({ type: 'workflow-changed', payload: { boardId: board.boardId, workflowName: slug, kind: 'created' } });
-    return { workflow: await readWorkflowDetail(board.path, slug) };
+    return { workflows: await listWorkflows(open.meta.path) };
   });
 
-  app.get<{ Params: { boardId: string; workflowName: string } }>(
-    '/api/boards/:boardId/workflows/:workflowName',
+  app.post<{
+    Body: { name: string; states: WorkflowState[]; runtime?: RuntimeConfig };
+  }>('/api/workflows', async (req) => {
+    const open = state.require();
+    const body = req.body ?? {} as { name?: string; states?: WorkflowState[] };
+    if (!body.name || !Array.isArray(body.states)) {
+      throw new InvalidInputError('name and states required');
+    }
+    const slug = await createWorkflow(open.meta.path, body.name, body.states, {
+      runtime: req.body?.runtime,
+    });
+    hub.broadcast({ type: 'workflow-changed', payload: { workflowName: slug, kind: 'created' } });
+    return { workflow: await readWorkflowDetail(open.meta.path, slug) };
+  });
+
+  app.get<{ Params: { workflowName: string } }>(
+    '/api/workflows/:workflowName',
     async (req) => {
       const open = state.require();
-      const board = await getBoard(open.meta.path, req.params.boardId);
-      return { workflow: await readWorkflowDetail(board.path, req.params.workflowName) };
+      return { workflow: await readWorkflowDetail(open.meta.path, req.params.workflowName) };
     },
   );
 
   app.patch<{
-    Params: { boardId: string; workflowName: string };
-    Body: { name?: string; states?: Array<{ dir: string; name: string }>; force?: boolean; processDoc?: string };
-  }>('/api/boards/:boardId/workflows/:workflowName', async (req) => {
+    Params: { workflowName: string };
+    Body: {
+      name?: string; states?: WorkflowState[]; force?: boolean;
+      processDoc?: string; runtime?: RuntimeConfig | null;
+    };
+  }>('/api/workflows/:workflowName', async (req) => {
     const open = state.require();
-    const board = await getBoard(open.meta.path, req.params.boardId);
     let currentName = req.params.workflowName;
     if (req.body?.states) {
-      await updateWorkflowStates(board.path, currentName, req.body.states, { force: req.body.force });
+      await updateWorkflowStates(open.meta.path, currentName, req.body.states, {
+        force: req.body.force,
+      });
     }
     if (req.body?.processDoc !== undefined) {
-      await writeProcessDoc(board.path, currentName, req.body.processDoc);
+      await writeProcessDoc(open.meta.path, currentName, req.body.processDoc);
     }
+    // `runtime: null` clears the workflow's own block so it falls back to the
+    // workspace default; omitting the key leaves whatever is there.
+    if (req.body?.runtime !== undefined) {
+      await writeWorkflowRuntime(open.meta.path, currentName, req.body.runtime);
+    }
+    // Renaming last: it can move the directory, and the writes above address
+    // the workflow by its pre-rename id.
     if (req.body?.name) {
-      currentName = await renameWorkflow(board.path, currentName, req.body.name);
+      currentName = await renameWorkflow(open.meta.path, currentName, req.body.name);
     }
-    hub.broadcast({ type: 'workflow-changed', payload: { boardId: board.boardId, workflowName: currentName, kind: 'updated' } });
-    return { workflow: await readWorkflowDetail(board.path, currentName) };
+    hub.broadcast({
+      type: 'workflow-changed',
+      payload: { workflowName: currentName, kind: 'updated' },
+    });
+    return { workflow: await readWorkflowDetail(open.meta.path, currentName) };
   });
 
   app.delete<{
-    Params: { boardId: string; workflowName: string };
+    Params: { workflowName: string };
     Body: { deleteFiles?: boolean };
-  }>('/api/boards/:boardId/workflows/:workflowName', async (req) => {
+  }>('/api/workflows/:workflowName', async (req) => {
     const open = state.require();
-    const board = await getBoard(open.meta.path, req.params.boardId);
     if (req.body?.deleteFiles) {
-      await deleteWorkflowFolder(board.path, req.params.workflowName);
+      await deleteWorkflowFolder(open.meta.path, req.params.workflowName);
+    } else {
+      await deregisterWorkflow(open.meta.path, req.params.workflowName);
     }
-    hub.broadcast({ type: 'workflow-changed', payload: { boardId: board.boardId, workflowName: req.params.workflowName, kind: 'deleted' } });
+    hub.broadcast({
+      type: 'workflow-changed',
+      payload: { workflowName: req.params.workflowName, kind: 'deleted' },
+    });
     return { ok: true };
   });
 }
