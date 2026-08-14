@@ -14,17 +14,31 @@ import { registerPromptRoutes } from './routes/prompts.js';
 import { readWorkspace } from '../storage/workspace.js';
 import { startWatcher } from './watcher.js';
 import path from 'node:path';
-import { existsSync } from 'node:fs';
+import os from 'node:os';
+import { existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
 const PORT = Number(process.env.MEESEEKS_PORT ?? 5174);
 const HOST = process.env.MEESEEKS_HOST ?? '127.0.0.1';
 
+/**
+ * XDG default so a bare `meeseeks` doesn't fall back to cwd — which, run from
+ * inside a checkout, silently turned the source tree into the workspace it
+ * supervised. Only this default is auto-created; a path passed explicitly
+ * still has to exist, so a typo fails loudly instead of spawning a workspace.
+ */
+function defaultWorkspaceDir(): string {
+  const dataHome = process.env.XDG_DATA_HOME ?? path.join(os.homedir(), '.local', 'share');
+  return path.join(dataHome, 'meeseeks');
+}
+
 async function main(): Promise<void> {
   const argPath = process.argv[2];
-  const workspaceDir = path.resolve(argPath ?? process.cwd());
+  const workspaceDir = argPath ? path.resolve(argPath) : defaultWorkspaceDir();
 
-  if (!existsSync(workspaceDir)) {
+  if (!argPath) {
+    mkdirSync(workspaceDir, { recursive: true });
+  } else if (!existsSync(workspaceDir)) {
     console.error(`meeseeks: directory does not exist: ${workspaceDir}`);
     process.exit(1);
   }

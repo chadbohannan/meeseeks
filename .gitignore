@@ -10,9 +10,10 @@ coverage/
 settings.json
 .claude/settings.local.json
 
-# Live workspace data. This repository is also the workspace it supervises, so
-# a running server writes its state right here; none of it is source. The first
-# two are the board-era names, kept for anyone with an unmigrated checkout.
+# Live workspace data. The default workspace root is now XDG (~/.local/share/meeseeks),
+# not this checkout, but `meeseeks .` still points a server at the repo directly, so
+# these stay ignored as a backstop. The first two are the board-era names, kept for
+# anyone with an unmigrated checkout.
 boards/
 project.yaml
 workspace.yaml
