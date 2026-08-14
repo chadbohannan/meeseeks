@@ -10,5 +10,10 @@
       "@shared/*": ["src/shared/*"]
     }
   },
+  // `exclude` must be restated: it is not merged from the base config, and the
+  // base excludes src/web to keep it out of the server build. Inheriting that
+  // exclusion here silently reduced this project to src/shared only, so the
+  // SPA went untypechecked.
+  "exclude": ["dist/**", "node_modules/**"],
   "include": ["src/web/**/*", "src/shared/**/*"]
 }

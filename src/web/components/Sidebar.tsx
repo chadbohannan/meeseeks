@@ -1,35 +1,35 @@
 import { useState } from 'react';
 import { useNavigate, useParams, useLocation, NavLink } from 'react-router-dom';
-import { useBoards, useBoard, useTickets, useProjects } from '../hooks/queries.js';
+import { useWorkflows, useTickets, useProjects } from '../hooks/queries.js';
 import { useRuntimesStore } from '../store/runtimes.js';
-import { useUi, boardCollapseKey, workflowCollapseKey } from '../store/ui.js';
+import { useUi, workflowCollapseKey } from '../store/ui.js';
 import { RuntimeStatusDot } from './RuntimeStatusDot.js';
-import { NewBoardModal } from './NewBoardModal.js';
-import type { BoardSummary, WorkflowSummary } from '@shared/types.js';
+import { NewWorkflowModal } from './NewWorkflowModal.js';
+import type { WorkflowSummary } from '@shared/types.js';
 import type { RuntimeSummary } from '@shared/runtime.js';
 
 export function Sidebar() {
-  const boards = useBoards();
+  const workflows = useWorkflows();
   const projects = useProjects();
-  const [showNewBoard, setShowNewBoard] = useState(false);
+  const [showNew, setShowNew] = useState(false);
   const unavailable = (projects.data?.projects ?? []).filter(p => !p.available).length;
 
   return (
     <nav className="flex flex-col h-full w-full bg-slate-950 border-r border-slate-800 overflow-y-auto text-sm">
       <div className="flex items-center justify-between px-3 py-2 border-b border-slate-800">
-        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Boards</span>
+        <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Workflows</span>
         <button
           className="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
-          onClick={() => setShowNewBoard(true)}
-        >+ Board</button>
+          onClick={() => setShowNew(true)}
+        >+ Workflow</button>
       </div>
       <div className="flex-1 overflow-y-auto py-1">
-        {boards.isLoading && <p className="px-3 py-2 text-slate-500">Loading…</p>}
-        {boards.data?.boards.map((b) => (
-          <BoardNode key={b.boardId} board={b} />
+        {workflows.isLoading && <p className="px-3 py-2 text-slate-500">Loading…</p>}
+        {workflows.data?.workflows.map((w) => (
+          <WorkflowNode key={w.workflowName} workflow={w} />
         ))}
-        {boards.data && boards.data.boards.length === 0 && (
-          <p className="px-3 py-4 text-slate-500 text-center">No boards yet</p>
+        {workflows.data && workflows.data.workflows.length === 0 && (
+          <p className="px-3 py-4 text-slate-500 text-center">No workflows yet</p>
         )}
       </div>
       <NavLink
@@ -47,58 +47,8 @@ export function Sidebar() {
           </span>
         )}
       </NavLink>
-      <NewBoardModal open={showNewBoard} onClose={() => setShowNewBoard(false)} />
+      <NewWorkflowModal open={showNew} onClose={() => setShowNew(false)} />
     </nav>
-  );
-}
-
-function BoardNode({ board }: { board: BoardSummary }) {
-  const { boardId: activeBoardId } = useParams();
-  const navigate = useNavigate();
-  const workflowActive = useIsWorkflowActive();
-  const isActive = activeBoardId === board.boardId;
-  const isBoardOnly = isActive && !workflowActive;
-
-  const boardDetail = useBoard(board.boardId);
-
-  const userCollapsed = useUi((s) => !!s.collapsed[boardCollapseKey(board.boardId)]);
-  const toggleCollapsed = useUi((s) => s.toggleCollapsed);
-  const runtimes = useRuntimesStore((s) => s.byId);
-  const hasActiveRuntime = Object.values(runtimes).some(
-    (r) => r.kind === 'ticket' && r.ticketRef?.boardId === board.boardId && isRuntimeActive(r),
-  );
-  const effectiveCollapsed = userCollapsed && !hasActiveRuntime;
-  const workflows = boardDetail.data?.board.workflows ?? [];
-
-  return (
-    <div>
-      <div
-        className={`flex items-center gap-1 px-2 py-1.5 cursor-pointer hover:bg-slate-800 ${
-          isBoardOnly ? 'bg-slate-800 text-white' : 'text-slate-300'
-        }`}
-        onClick={() => navigate(`/boards/${encodeURIComponent(board.boardId)}`)}
-      >
-        <CollapseToggle
-          collapsed={effectiveCollapsed}
-          visible={workflows.length > 0}
-          onToggle={() => toggleCollapsed(boardCollapseKey(board.boardId))}
-        />
-        <span className={`truncate flex-1 ${!board.available ? 'opacity-50' : ''}`}>
-          {board.name}
-        </span>
-      </div>
-      {boardDetail.data && !effectiveCollapsed && (
-        <div className="ml-3">
-          {workflows.map((workflow) => (
-            <WorkflowNode
-              key={workflow.workflowName}
-              boardId={board.boardId}
-              workflow={workflow}
-            />
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -129,18 +79,12 @@ function CollapseToggle({
   );
 }
 
-function useIsWorkflowActive() {
-  const location = useLocation();
-  return /\/boards\/[^/]+\/workflows\//.test(location.pathname);
-}
-
 function useActiveState() {
-  const { boardId, workflowName } = useParams<{ boardId?: string; workflowName?: string }>();
+  const { workflowName } = useParams<{ workflowName?: string }>();
   const location = useLocation();
   const stateMatch = location.pathname.match(/\/state\/([^/]+)/);
   const ticketMatch = location.pathname.match(/\/tickets\/([^/]+)/);
   return {
-    boardId,
     workflowName,
     stateDir: stateMatch?.[1] ? decodeURIComponent(stateMatch[1]) : undefined,
     filename: ticketMatch?.[1] ? decodeURIComponent(ticketMatch[1]) : undefined,
@@ -151,42 +95,49 @@ function isRuntimeActive(r: RuntimeSummary) {
   return r.status === 'running' || r.status === 'starting' || r.status === 'idle' || r.status === 'awaiting-user';
 }
 
-function WorkflowNode({ boardId, workflow }: { boardId: string; workflow: WorkflowSummary }) {
+function WorkflowNode({ workflow }: { workflow: WorkflowSummary }) {
   const active = useActiveState();
   const navigate = useNavigate();
-  const isActive = active.boardId === boardId && active.workflowName === workflow.workflowName;
+  const isActive = active.workflowName === workflow.workflowName;
 
   const runtimes = useRuntimesStore((s) => s.byId);
   const workflowRuntimes = Object.values(runtimes).filter(
-    (r) => r.kind === 'ticket' && r.ticketRef?.boardId === boardId && r.ticketRef?.workflowName === workflow.workflowName && isRuntimeActive(r),
+    (r) => r.kind === 'ticket' && r.ticketRef?.workflowName === workflow.workflowName && isRuntimeActive(r),
   );
   const hasActiveRuntime = workflowRuntimes.length > 0;
 
-  const tickets = useTickets(hasActiveRuntime ? boardId : undefined, hasActiveRuntime ? workflow.workflowName : undefined);
+  const tickets = useTickets(hasActiveRuntime ? workflow.workflowName : undefined);
   const ticketsByFilename = new Map(
     (tickets.data?.tickets ?? []).map((t) => [t.filename, t]),
   );
 
-  const userCollapsed = useUi((s) => !!s.collapsed[workflowCollapseKey(boardId, workflow.workflowName)]);
+  const userCollapsed = useUi((s) => !!s.collapsed[workflowCollapseKey(workflow.workflowName)]);
   const toggleCollapsed = useUi((s) => s.toggleCollapsed);
   const effectiveCollapsed = userCollapsed && !hasActiveRuntime;
+
+  const base = `/workflows/${encodeURIComponent(workflow.workflowName)}`;
 
   return (
     <div>
       <div
-        className={`flex items-center gap-1 px-2 py-1 cursor-pointer hover:bg-slate-800 ${
+        className={`flex items-center gap-1 px-2 py-1.5 cursor-pointer hover:bg-slate-800 ${
           isActive && !active.stateDir && !active.filename ? 'bg-slate-800 text-white' : 'text-slate-300'
         }`}
-        onClick={() => navigate(`/boards/${encodeURIComponent(boardId)}/workflows/${encodeURIComponent(workflow.workflowName)}`)}
+        onClick={() => navigate(base)}
       >
         <CollapseToggle
           collapsed={effectiveCollapsed}
           visible={workflow.states.length > 0}
-          onToggle={() => toggleCollapsed(workflowCollapseKey(boardId, workflow.workflowName))}
+          onToggle={() => toggleCollapsed(workflowCollapseKey(workflow.workflowName))}
         />
-        <span className="truncate flex-1">
+        <span className={`truncate flex-1 ${!workflow.available ? 'opacity-50' : ''}`}>
           {workflow.displayName}
         </span>
+        {/* Registered in workspace.yaml but missing on disk. Shown rather than
+            hidden so a mistyped or half-deleted entry is visible. */}
+        {!workflow.available && (
+          <span className="text-amber-400 text-xs shrink-0" title="Directory missing on disk">!</span>
+        )}
       </div>
       {!effectiveCollapsed && (
       <div className="ml-5">
@@ -195,7 +146,7 @@ function WorkflowNode({ boardId, workflow }: { boardId: string; workflow: Workfl
           const isStateActive = active.stateDir === st.dir && active.workflowName === workflow.workflowName;
           const stateRuntimes = workflowRuntimes.filter((r) => {
             if (!r.ticketRef) return false;
-            const ticket = ticketsByFilename.get(r.ticketRef!.filename);
+            const ticket = ticketsByFilename.get(r.ticketRef.filename);
             return ticket?.state === st.dir;
           });
           return (
@@ -204,9 +155,7 @@ function WorkflowNode({ boardId, workflow }: { boardId: string; workflow: Workfl
                 className={`flex items-center gap-1 px-2 py-0.5 cursor-pointer hover:bg-slate-800 text-xs ${
                   isStateActive ? 'bg-slate-800 text-white' : 'text-slate-400'
                 }`}
-                onClick={() =>
-                  navigate(`/boards/${encodeURIComponent(boardId)}/workflows/${encodeURIComponent(workflow.workflowName)}/state/${encodeURIComponent(st.dir)}`)
-                }
+                onClick={() => navigate(`${base}/state/${encodeURIComponent(st.dir)}`)}
               >
                 <span className="truncate flex-1">{st.name}</span>
                 <span className="text-slate-500 tabular-nums">{count}</span>
@@ -221,9 +170,7 @@ function WorkflowNode({ boardId, workflow }: { boardId: string; workflow: Workfl
                       isTicketActive ? 'bg-slate-800 text-white' : 'text-slate-400'
                     }`}
                     style={{ border: `2px solid ${ticket?.color || "#6b7280"}` }}
-                    onClick={() =>
-                      navigate(`/boards/${encodeURIComponent(boardId)}/workflows/${encodeURIComponent(workflow.workflowName)}/tickets/${encodeURIComponent(r.ticketRef!.filename)}`)
-                    }
+                    onClick={() => navigate(`${base}/tickets/${encodeURIComponent(r.ticketRef!.filename)}`)}
                   >
                     <span className="truncate whitespace-nowrap">{ticket?.title ?? r.ticketRef!.filename}</span>
                     <RuntimeStatusDot status={r.status} className="shrink-0 ml-auto h-3 w-3" />

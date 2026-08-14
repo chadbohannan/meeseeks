@@ -19,18 +19,17 @@ export function useWsInvalidation(): void {
     const client = getWsClient();
     const unsubscribe = client.subscribe((event: WsEvent) => {
       switch (event.type) {
-        case 'board-changed':
-          qc.invalidateQueries({ queryKey: ['boards'] });
-          qc.invalidateQueries({ queryKey: ['board', event.payload.boardId] });
-          return;
         case 'workflow-changed':
-          qc.invalidateQueries({ queryKey: ['board', event.payload.boardId] });
-          qc.invalidateQueries({ queryKey: ['workflow', event.payload.boardId, event.payload.workflowName] });
-          qc.invalidateQueries({ queryKey: ['tickets', event.payload.boardId, event.payload.workflowName] });
+          qc.invalidateQueries({ queryKey: ['workflows'] });
+          qc.invalidateQueries({ queryKey: ['workflow', event.payload.workflowName] });
+          qc.invalidateQueries({ queryKey: ['tickets', event.payload.workflowName] });
           return;
         case 'ticket-changed':
-          qc.invalidateQueries({ queryKey: ['tickets', event.payload.boardId, event.payload.workflowName] });
-          qc.invalidateQueries({ queryKey: ['ticket', event.payload.boardId, event.payload.workflowName, event.payload.filename] });
+          // The workflows list carries per-state ticket counts, so a ticket
+          // appearing or moving changes the sidebar too.
+          qc.invalidateQueries({ queryKey: ['workflows'] });
+          qc.invalidateQueries({ queryKey: ['tickets', event.payload.workflowName] });
+          qc.invalidateQueries({ queryKey: ['ticket', event.payload.workflowName, event.payload.filename] });
           return;
         case 'project-changed':
           qc.invalidateQueries({ queryKey: ['projects'] });
@@ -40,8 +39,8 @@ export function useWsInvalidation(): void {
           qc.invalidateQueries({ queryKey: ['ticket-permissions'] });
           return;
         case 'prompts-changed':
-          qc.invalidateQueries({ queryKey: ['prompts', event.payload.boardId] });
-          qc.invalidateQueries({ queryKey: ['prompt', event.payload.boardId, event.payload.name] });
+          qc.invalidateQueries({ queryKey: ['prompts'] });
+          qc.invalidateQueries({ queryKey: ['prompt', event.payload.name] });
           return;
       }
     });

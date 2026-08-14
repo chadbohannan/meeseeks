@@ -1,9 +1,8 @@
 import type {
-  CreateBoardRequest, PatchBoardRequest, DeleteBoardRequest,
   CreateWorkflowRequest, PatchWorkflowRequest, DeleteWorkflowRequest,
   CreateTicketRequest, PatchTicketRequest, ListTicketsResponse,
   ApiErrorBody,
-  WorkspaceMeta, BoardSummary, BoardDetail, WorkflowDetail, TicketDetail,
+  WorkspaceMeta, WorkflowSummary, WorkflowDetail, TicketDetail,
   ListFilesResponse, ReadFileResponse, WriteFileRequest, WriteFileResponse,
   PatchFileRequest, PatchFileResponse, FileNode,
   ListPromptsResponse, GetPromptResponse, PutPromptRequest, ListPromptLogsResponse,
@@ -42,7 +41,7 @@ const enc = encodeURIComponent;
 
 export const api = {
   // Workspace
-  workspace: () => request<{ workspace: WorkspaceMeta | null }>('GET', '/api/workspace'),
+  workspace: () => request<{ workspace: WorkspaceMeta | null; workflows: WorkflowSummary[] }>('GET', '/api/workspace'),
 
   // Models
   listModels: () => request<ListModelsResponse>('GET', '/api/models'),
@@ -55,78 +54,72 @@ export const api = {
   patchProject: (id: string, req: PatchProjectRequest) =>
     request<GetProjectResponse>('PATCH', `/api/projects/${enc(id)}`, req),
   deleteProject: (id: string) => request<{ ok: boolean }>('DELETE', `/api/projects/${enc(id)}`),
-  ticketPermissions: (boardId: string, workflowName: string, filename: string) =>
+  ticketPermissions: (workflowName: string, filename: string) =>
     request<{ projectId: string | null; projectResolved: boolean; permissions: ResolvedPermissions | null }>(
-      'GET', `/api/tickets/${enc(boardId)}/${enc(workflowName)}/${enc(filename)}/permissions`),
-
-  // Boards
-  listBoards: () => request<{ boards: BoardSummary[] }>('GET', '/api/boards'),
-  createBoard: (req: CreateBoardRequest) => request<{ board: BoardSummary }>('POST', '/api/boards', req),
-  getBoard: (id: string) => request<{ board: BoardDetail }>('GET', `/api/boards/${enc(id)}`),
-  patchBoard: (id: string, req: PatchBoardRequest) => request<{ ok: true }>('PATCH', `/api/boards/${enc(id)}`, req),
-  deleteBoard: (id: string, req: DeleteBoardRequest) => request<{ ok: true }>('DELETE', `/api/boards/${enc(id)}`, req),
+      'GET', `/api/tickets/${enc(workflowName)}/${enc(filename)}/permissions`),
 
   // Workflows
-  createWorkflow: (boardId: string, req: CreateWorkflowRequest) =>
-    request<{ workflow: WorkflowDetail }>('POST', `/api/boards/${enc(boardId)}/workflows`, req),
-  getWorkflow: (boardId: string, workflowName: string) =>
-    request<{ workflow: WorkflowDetail }>('GET', `/api/boards/${enc(boardId)}/workflows/${enc(workflowName)}`),
-  patchWorkflow: (boardId: string, workflowName: string, req: PatchWorkflowRequest) =>
-    request<{ workflow: WorkflowDetail }>('PATCH', `/api/boards/${enc(boardId)}/workflows/${enc(workflowName)}`, req),
-  deleteWorkflow: (boardId: string, workflowName: string, req: DeleteWorkflowRequest) =>
-    request<{ ok: true }>('DELETE', `/api/boards/${enc(boardId)}/workflows/${enc(workflowName)}`, req),
+  listWorkflows: () => request<{ workflows: WorkflowSummary[] }>('GET', '/api/workflows'),
+  createWorkflow: (req: CreateWorkflowRequest) =>
+    request<{ workflow: WorkflowDetail }>('POST', '/api/workflows', req),
+  getWorkflow: (workflowName: string) =>
+    request<{ workflow: WorkflowDetail }>('GET', `/api/workflows/${enc(workflowName)}`),
+  patchWorkflow: (workflowName: string, req: PatchWorkflowRequest) =>
+    request<{ workflow: WorkflowDetail }>('PATCH', `/api/workflows/${enc(workflowName)}`, req),
+  deleteWorkflow: (workflowName: string, req: DeleteWorkflowRequest) =>
+    request<{ ok: true }>('DELETE', `/api/workflows/${enc(workflowName)}`, req),
 
   // Tickets
-  listTickets: (boardId: string, workflowName: string) =>
-    request<ListTicketsResponse>('GET', `/api/boards/${enc(boardId)}/workflows/${enc(workflowName)}/tickets`),
-  createTicket: (boardId: string, workflowName: string, req: CreateTicketRequest) =>
-    request<{ ticket: TicketDetail }>('POST', `/api/boards/${enc(boardId)}/workflows/${enc(workflowName)}/tickets`, req),
-  getTicket: (boardId: string, workflowName: string, filename: string) =>
-    request<{ ticket: TicketDetail }>('GET', `/api/boards/${enc(boardId)}/workflows/${enc(workflowName)}/tickets/${enc(filename)}`),
-  patchTicket: (boardId: string, workflowName: string, filename: string, req: PatchTicketRequest) =>
-    request<{ ticket: TicketDetail }>('PATCH', `/api/boards/${enc(boardId)}/workflows/${enc(workflowName)}/tickets/${enc(filename)}`, req),
-  deleteTicket: (boardId: string, workflowName: string, filename: string) =>
-    request<{ ok: true }>('DELETE', `/api/boards/${enc(boardId)}/workflows/${enc(workflowName)}/tickets/${enc(filename)}`),
+  listTickets: (workflowName: string) =>
+    request<ListTicketsResponse>('GET', `/api/workflows/${enc(workflowName)}/tickets`),
+  createTicket: (workflowName: string, req: CreateTicketRequest) =>
+    request<{ ticket: TicketDetail }>('POST', `/api/workflows/${enc(workflowName)}/tickets`, req),
+  getTicket: (workflowName: string, filename: string) =>
+    request<{ ticket: TicketDetail }>('GET', `/api/workflows/${enc(workflowName)}/tickets/${enc(filename)}`),
+  patchTicket: (workflowName: string, filename: string, req: PatchTicketRequest) =>
+    request<{ ticket: TicketDetail }>('PATCH', `/api/workflows/${enc(workflowName)}/tickets/${enc(filename)}`, req),
+  deleteTicket: (workflowName: string, filename: string) =>
+    request<{ ok: true }>('DELETE', `/api/workflows/${enc(workflowName)}/tickets/${enc(filename)}`),
 
   // Runtimes
   listRuntimes: () => request<ListRuntimesResponse>('GET', '/api/runtimes'),
   getRuntime: (id: string) => request<{ runtime: RuntimeSummary }>('GET', `/api/runtimes/${enc(id)}`),
   getRuntimeSnapshot: (id: string) => request<{ data: string }>('GET', `/api/runtimes/${enc(id)}/snapshot`),
-  spawnRuntime: (boardId: string, workflowName: string, filename: string, model?: string) =>
-    request<SpawnRuntimeResponse>('POST', `/api/tickets/${enc(boardId)}/${enc(workflowName)}/${enc(filename)}/runtime`, model ? { model } : undefined),
+  spawnRuntime: (workflowName: string, filename: string, model?: string) =>
+    request<SpawnRuntimeResponse>('POST', `/api/tickets/${enc(workflowName)}/${enc(filename)}/runtime`, model ? { model } : undefined),
   terminateRuntime: (id: string) => request<Record<string, never>>('DELETE', `/api/runtimes/${enc(id)}`),
 
   // Files
-  listFiles: (boardId: string, namespace: string) =>
-    request<ListFilesResponse>('GET', `/api/boards/${enc(boardId)}/files/${enc(namespace)}`),
-  readFile: (boardId: string, namespace: string, filepath: string) =>
-    request<ReadFileResponse>('GET', `/api/boards/${enc(boardId)}/files/${enc(namespace)}/${enc(filepath)}`),
-  createFile: (boardId: string, namespace: string, filepath: string, req: WriteFileRequest) =>
-    request<WriteFileResponse>('POST', `/api/boards/${enc(boardId)}/files/${enc(namespace)}/${enc(filepath)}`, req),
-  patchFile: (boardId: string, namespace: string, filepath: string, req: PatchFileRequest) =>
-    request<PatchFileResponse>('PATCH', `/api/boards/${enc(boardId)}/files/${enc(namespace)}/${enc(filepath)}`, req),
-  deleteFile: (boardId: string, namespace: string, filepath: string) =>
-    request<{ ok: boolean }>('DELETE', `/api/boards/${enc(boardId)}/files/${enc(namespace)}/${enc(filepath)}`),
+  listFiles: (namespace: string) =>
+    request<ListFilesResponse>('GET', `/api/files/${enc(namespace)}`),
+  readFile: (namespace: string, filepath: string) =>
+    request<ReadFileResponse>('GET', `/api/files/${enc(namespace)}/${enc(filepath)}`),
+  createFile: (namespace: string, filepath: string, req: WriteFileRequest) =>
+    request<WriteFileResponse>('POST', `/api/files/${enc(namespace)}/${enc(filepath)}`, req),
+  patchFile: (namespace: string, filepath: string, req: PatchFileRequest) =>
+    request<PatchFileResponse>('PATCH', `/api/files/${enc(namespace)}/${enc(filepath)}`, req),
+  deleteFile: (namespace: string, filepath: string) =>
+    request<{ ok: boolean }>('DELETE', `/api/files/${enc(namespace)}/${enc(filepath)}`),
 
   // Prompts
-  listPrompts: (boardId: string) =>
-    request<ListPromptsResponse>('GET', `/api/boards/${enc(boardId)}/prompts`),
-  getPrompt: (boardId: string, name: string) =>
-    request<GetPromptResponse>('GET', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`),
-  putPrompt: (boardId: string, name: string, req: PutPromptRequest) =>
-    request<GetPromptResponse>('PUT', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`, req),
-  deletePrompt: (boardId: string, name: string) =>
-    request<{ ok: boolean }>('DELETE', `/api/boards/${enc(boardId)}/prompts/${enc(name)}`),
-  runPrompt: (boardId: string, name: string, opts?: { model?: string; projectId?: string }) => {
+  listPrompts: () => request<ListPromptsResponse>('GET', '/api/prompts'),
+  getPrompt: (name: string) =>
+    request<GetPromptResponse>('GET', `/api/prompts/${enc(name)}`),
+  putPrompt: (name: string, req: PutPromptRequest) =>
+    request<GetPromptResponse>('PUT', `/api/prompts/${enc(name)}`, req),
+  deletePrompt: (name: string) =>
+    request<{ ok: boolean }>('DELETE', `/api/prompts/${enc(name)}`),
+  runPrompt: (name: string, opts?: { model?: string; projectId?: string; workflowName?: string }) => {
     const body: Record<string, string> = {};
     if (opts?.model) body.model = opts.model;
     if (opts?.projectId) body.projectId = opts.projectId;
+    if (opts?.workflowName) body.workflowName = opts.workflowName;
     return request<SpawnRuntimeResponse>(
       'POST',
-      `/api/boards/${enc(boardId)}/prompts/${enc(name)}/run`,
+      `/api/prompts/${enc(name)}/run`,
       Object.keys(body).length > 0 ? body : undefined,
     );
   },
-  getPromptLogs: (boardId: string, name: string) =>
-    request<ListPromptLogsResponse>('GET', `/api/boards/${enc(boardId)}/prompts/${enc(name)}/logs`),
+  getPromptLogs: (name: string) =>
+    request<ListPromptLogsResponse>('GET', `/api/prompts/${enc(name)}/logs`),
 };

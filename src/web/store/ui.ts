@@ -44,9 +44,9 @@ function saveJson(key: string, value: unknown) {
 interface UiState {
   collapsed: Record<string, boolean>;
   toggleCollapsed(key: string): void;
-  /** Project filter per board, so a filter survives navigation. */
+  /** Project filter per workflow, so a filter survives navigation. */
   projectFilter: Record<string, string>;
-  setProjectFilter(boardId: string, value: string): void;
+  setProjectFilter(workflowName: string, value: string): void;
   /** Last project explicitly chosen anywhere; seeds the new-ticket default. */
   lastProject: string | null;
   setLastProject(projectId: string | null): void;
@@ -64,11 +64,11 @@ export const useUi = create<UiState>((set) => ({
     }),
 
   projectFilter: loadJson<Record<string, string>>(FILTER_KEY, {}),
-  setProjectFilter: (boardId, value) =>
+  setProjectFilter: (workflowName, value) =>
     set((s) => {
       const next = { ...s.projectFilter };
-      if (value === PROJECT_FILTER_ALL) delete next[boardId];
-      else next[boardId] = value;
+      if (value === PROJECT_FILTER_ALL) delete next[workflowName];
+      else next[workflowName] = value;
       saveJson(FILTER_KEY, next);
       return { projectFilter: next };
     }),
@@ -81,6 +81,7 @@ export const useUi = create<UiState>((set) => ({
     }),
 }));
 
-export const boardCollapseKey = (boardId: string) => `board:${boardId}`;
-export const workflowCollapseKey = (boardId: string, workflowName: string) =>
-  `workflow:${boardId}/${workflowName}`;
+// Persisted keys from the board era ('workflow:<boardId>/<name>') simply do not
+// match these, which fails safe: an unmatched collapse key reads as expanded and
+// an unmatched filter key reads as "All".
+export const workflowCollapseKey = (workflowName: string) => `workflow:${workflowName}`;

@@ -7,12 +7,12 @@ import { useUi, PROJECT_FILTER_ALL, PROJECT_FILTER_UNASSIGNED } from '../store/u
 import { toast } from 'sonner';
 
 export function StateRoute() {
-  const { boardId, workflowName, stateDir } = useParams<{ boardId: string; workflowName: string; stateDir: string }>();
-  const workflow = useWorkflow(boardId, workflowName);
-  const tickets = useTickets(boardId, workflowName);
-  const create = useCreateTicket(boardId!, workflowName!);
+  const { workflowName, stateDir } = useParams<{ workflowName: string; stateDir: string }>();
+  const workflow = useWorkflow(workflowName);
+  const tickets = useTickets(workflowName);
+  const create = useCreateTicket(workflowName!);
   const [newTitle, setNewTitle] = useState('');
-  const filter = useUi(s => s.projectFilter[boardId ?? ''] ?? PROJECT_FILTER_ALL);
+  const filter = useUi(s => s.projectFilter[workflowName ?? ''] ?? PROJECT_FILTER_ALL);
   const setProjectFilter = useUi(s => s.setProjectFilter);
   const lastProject = useUi(s => s.lastProject);
   const setLastProject = useUi(s => s.setLastProject);
@@ -24,7 +24,7 @@ export function StateRoute() {
     : filter;
   const [newProject, setNewProject] = useState<string | undefined>(filterProject ?? lastProject ?? undefined);
 
-  if (!boardId || !workflowName || !stateDir) return <Navigate to="/boards" replace />;
+  if (!workflowName || !stateDir) return <Navigate to="/workflows" replace />;
   if (tickets.isLoading || workflow.isLoading) return <div className="p-8 text-slate-500">Loading…</div>;
 
   const stateName = workflow.data?.workflow.states.find((s) => s.dir === stateDir)?.name ?? stateDir;
@@ -35,9 +35,9 @@ export function StateRoute() {
   return (
     <div className="p-6">
       <div className="flex items-center gap-3 mb-4">
-        <Link to={`/boards/${encodeURIComponent(boardId)}/workflows/${encodeURIComponent(workflowName)}`} className="text-slate-400 hover:text-white text-lg font-semibold">{workflow.data?.workflow.displayName ?? workflowName}</Link>
+        <Link to={`/workflows/${encodeURIComponent(workflowName)}`} className="text-slate-400 hover:text-white text-lg font-semibold">{workflow.data?.workflow.displayName ?? workflowName}</Link>
         <h2 className="text-lg font-semibold">{stateName}</h2>
-        <ProjectFilter value={filter} onChange={(v) => setProjectFilter(boardId, v)} />
+        <ProjectFilter value={filter} onChange={(v) => setProjectFilter(workflowName, v)} />
         {hiddenCount > 0 && filtered.length > 0 && (
           <span className="text-xs text-slate-400">{hiddenCount} hidden</span>
         )}
@@ -67,7 +67,7 @@ export function StateRoute() {
         <div className="mb-4">
           <FilteredEmptyNotice
             hiddenCount={hiddenCount}
-            onClear={() => setProjectFilter(boardId, PROJECT_FILTER_ALL)}
+            onClear={() => setProjectFilter(workflowName, PROJECT_FILTER_ALL)}
           />
         </div>
       )}
@@ -76,7 +76,7 @@ export function StateRoute() {
       )}
       <div className="grid gap-3 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {filtered.map((t) => (
-          <TicketCard key={t.filename} boardId={boardId} workflowName={workflowName} ticket={t} />
+          <TicketCard key={t.filename} workflowName={workflowName} ticket={t} />
         ))}
       </div>
     </div>

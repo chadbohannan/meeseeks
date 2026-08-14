@@ -1,4 +1,4 @@
-import type { WorkspaceMeta, WorkflowDetail, WorkflowState, TicketSummary, TicketDetail, FileNode, ModelOption, PermissionsConfig, ProjectSummary, ProjectDetail, RuntimeConfig, WorkflowSummary } from './types.js';
+import type { WorkspaceMeta, WorkflowDetail, WorkflowState, TicketSummary, TicketDetail, FileNode, ModelOption, PermissionsConfig, ProjectSummary, ProjectDetail, RuntimeConfig, WorkflowSummary, ResolvedPermissions } from './types.js';
 
 // Models
 export interface ListModelsResponse { models: ModelOption[] }
@@ -61,4 +61,4 @@ export interface ApiErrorBody {
   error: { code: string; message: string };
 }
 
-export type { WorkspaceMeta, WorkflowDetail, TicketSummary, TicketDetail, FileNode, ProjectSummary, ProjectDetail, PermissionsConfig, RuntimeConfig, WorkflowSummary };
+export type { WorkspaceMeta, WorkflowDetail, TicketSummary, TicketDetail, FileNode, ProjectSummary, ProjectDetail, PermissionsConfig, RuntimeConfig, WorkflowSummary, ResolvedPermissions };

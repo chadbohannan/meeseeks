@@ -3,7 +3,7 @@ import { useWsInvalidation } from './hooks/use-ws.js';
 import { useRuntimeWs } from './hooks/use-runtime-ws.js';
 import { AppShell } from './components/AppShell.js';
 import { ErrorBoundary } from './components/ErrorBoundary.js';
-import { BoardEditorRoute } from './routes/BoardEditorRoute.js';
+import { WorkflowEditorRoute } from './routes/WorkflowEditorRoute.js';
 import { WorkflowRoute } from './routes/WorkflowRoute.js';
 import { StateRoute } from './routes/StateRoute.js';
 import { TicketRoute } from './routes/TicketRoute.js';
@@ -18,14 +18,14 @@ export default function App() {
     <ErrorBoundary>
       <Routes>
         <Route element={<AppShell />}>
-          <Route path="/" element={<Navigate to="/boards" replace />} />
-          <Route path="/boards" element={<div className="p-8 text-slate-500">Select a board from the sidebar.</div>} />
+          <Route path="/" element={<Navigate to="/workflows" replace />} />
+          <Route path="/workflows" element={<div className="p-8 text-slate-500">Select a workflow from the sidebar.</div>} />
           <Route path="/projects" element={<ProjectsRoute />} />
           <Route path="/projects/:projectId" element={<ProjectsRoute />} />
-          <Route path="/boards/:boardId" element={<BoardEditorRoute />} />
-          <Route path="/boards/:boardId/workflows/:workflowName" element={<WorkflowRoute />} />
-          <Route path="/boards/:boardId/workflows/:workflowName/state/:stateDir" element={<StateRoute />} />
-          <Route path="/boards/:boardId/workflows/:workflowName/tickets/:filename" element={<TicketRoute />} />
+          <Route path="/workflows/:workflowName" element={<WorkflowRoute />} />
+          <Route path="/workflows/:workflowName/edit" element={<WorkflowEditorRoute />} />
+          <Route path="/workflows/:workflowName/state/:stateDir" element={<StateRoute />} />
+          <Route path="/workflows/:workflowName/tickets/:filename" element={<TicketRoute />} />
         </Route>
       </Routes>
       <Mdi />

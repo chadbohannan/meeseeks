@@ -8,7 +8,6 @@ import { ProjectBadge } from './ProjectControls.js';
 import { useProjects } from '../hooks/queries.js';
 
 interface Props {
-  boardId: string;
   workflowName: string;
   ticket: TicketSummary;
   draggable?: boolean;
@@ -16,19 +15,18 @@ interface Props {
   onDragEnd?: () => void;
 }
 
-export function TicketCard({ boardId, workflowName, ticket, draggable, onDragStart, onDragEnd }: Props) {
+export function TicketCard({ workflowName, ticket, draggable, onDragStart, onDragEnd }: Props) {
   const didDrag = useRef(false);
   const [expanded, setExpanded] = useState(false);
   const { data: projectsData } = useProjects();
   const runtime = useRuntimesStore((s) =>
     Object.values(s.byId).find(r =>
       r.kind === 'ticket' &&
-      r.ticketRef?.boardId === boardId &&
       r.ticketRef?.workflowName === workflowName &&
       r.ticketRef?.filename === ticket.filename));
   return (
     <Link
-      to={`/boards/${encodeURIComponent(boardId)}/workflows/${encodeURIComponent(workflowName)}/tickets/${encodeURIComponent(ticket.filename)}`}
+      to={`/workflows/${encodeURIComponent(workflowName)}/tickets/${encodeURIComponent(ticket.filename)}`}
       className="relative block bg-slate-800 hover:bg-slate-700 rounded p-3 mb-2 overflow-hidden" style={{ border: ticket.color ? `2px solid ${ticket.color}` : "2px solid #6b7280" }}
       draggable={draggable}
       onClick={(e) => { if (didDrag.current) { e.preventDefault(); didDrag.current = false; } }}

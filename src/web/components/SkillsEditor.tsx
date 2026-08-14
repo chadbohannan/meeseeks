@@ -14,7 +14,6 @@ Write your skill documentation here in Markdown.
 `;
 
 interface SkillsEditorProps {
-  boardId: string;
 }
 
 interface SkillMeta {
@@ -24,14 +23,14 @@ interface SkillMeta {
 
 function parseSkillMeta(content: string): SkillMeta {
   const match = /^---\s*\nname:\s*(.+?)\s*\ndescription:\s*(.+?)\s*\n---/m.exec(content);
-  return match
+  return match && match[1] && match[2]
     ? { name: match[1], description: match[2] }
     : { name: 'Untitled', description: 'No description' };
 }
 
 function splitFrontmatter(content: string): { frontmatter: string; body: string } {
   const match = /^(---\s*\n[\s\S]*?\n---)\s*\n?/.exec(content);
-  if (!match) return { frontmatter: '', body: content };
+  if (!match || !match[1]) return { frontmatter: '', body: content };
   return { frontmatter: match[1], body: content.slice(match[0].length) };
 }
 
@@ -40,13 +39,13 @@ function reassemble(frontmatter: string, body: string): string {
   return frontmatter + '\n\n' + body;
 }
 
-export function SkillsEditor({ boardId }: SkillsEditorProps) {
-  const { data: fileList, isLoading, error } = useSkillFiles(boardId);
+export function SkillsEditor({}: Record<string, never>) {
+  const { data: fileList, isLoading, error } = useSkillFiles();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [fileNameError, setFileNameError] = useState<string | null>(null);
-  const createMutation = useCreateSkillFile(boardId);
+  const createMutation = useCreateSkillFile();
 
   const handleCreateClick = () => {
     setIsCreating(true);
@@ -161,7 +160,6 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
             <FileListItem
               key={filename}
               filename={filename}
-              boardId={boardId}
               isSelected={selectedFile === filename}
               onClick={() => setSelectedFile(filename)}
             />
@@ -173,7 +171,6 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
       <div className="flex-1 overflow-hidden">
         {selectedFile ? (
           <FileEditor
-            boardId={boardId}
             filename={selectedFile}
             onDeleted={() => setSelectedFile(null)}
           />
@@ -189,13 +186,12 @@ export function SkillsEditor({ boardId }: SkillsEditorProps) {
 
 interface FileListItemProps {
   filename: string;
-  boardId: string;
   isSelected: boolean;
   onClick: () => void;
 }
 
-function FileListItem({ filename, boardId, isSelected, onClick }: FileListItemProps) {
-  const { data } = useSkillFile(boardId, filename);
+function FileListItem({ filename, isSelected, onClick }: FileListItemProps) {
+  const { data } = useSkillFile(filename);
   const content = data?.content;
   const meta = content ? parseSkillMeta(content) : { name: filename, description: '' };
 
@@ -216,16 +212,15 @@ function FileListItem({ filename, boardId, isSelected, onClick }: FileListItemPr
 }
 
 interface FileEditorProps {
-  boardId: string;
   filename: string;
   onDeleted: () => void;
 }
 
-function FileEditor({ boardId, filename, onDeleted }: FileEditorProps) {
-  const { data, isLoading } = useSkillFile(boardId, filename);
+function FileEditor({ filename, onDeleted }: FileEditorProps) {
+  const { data, isLoading } = useSkillFile(filename);
   const content = data?.content;
-  const patchMutation = usePatchSkillFile(boardId, filename);
-  const deleteMutation = useDeleteSkillFile(boardId);
+  const patchMutation = usePatchSkillFile(filename);
+  const deleteMutation = useDeleteSkillFile();
   const [frontmatter, setFrontmatter] = useState('');
   const [body, setBody] = useState('');
   const [dirty, setDirty] = useState(false);

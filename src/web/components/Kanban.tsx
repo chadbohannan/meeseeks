@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { useState, useRef } from 'react';
 import { useTickets, useMoveTicket } from '../hooks/queries.js';
 import type { WorkflowDetail, TicketSummary } from '@shared/types.js';
@@ -6,15 +7,15 @@ import { ProjectFilter, FilteredEmptyNotice, matchesProjectFilter } from './Proj
 import { useUi, PROJECT_FILTER_ALL } from '../store/ui.js';
 import { toast } from 'sonner';
 
-interface Props { boardId: string; workflow: WorkflowDetail }
+interface Props { workflow: WorkflowDetail }
 
-export function Kanban({ boardId, workflow }: Props) {
-  const tickets = useTickets(boardId, workflow.workflowName);
-  const moveTicket = useMoveTicket(boardId, workflow.workflowName);
+export function Kanban({ workflow }: Props) {
+  const tickets = useTickets(workflow.workflowName);
+  const moveTicket = useMoveTicket(workflow.workflowName);
   const dragRef = useRef<{ filename: string; fromState: string } | null>(null);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
 
-  const filter = useUi(s => s.projectFilter[boardId] ?? PROJECT_FILTER_ALL);
+  const filter = useUi(s => s.projectFilter[workflow.workflowName] ?? PROJECT_FILTER_ALL);
   const setProjectFilter = useUi(s => s.setProjectFilter);
 
   const all = tickets.data?.tickets ?? [];
@@ -45,16 +46,21 @@ export function Kanban({ boardId, workflow }: Props) {
   return (
     <div className="flex flex-col h-full">
       <div className="flex items-center gap-3 px-4 pt-3 shrink-0">
-        <ProjectFilter value={filter} onChange={(v) => setProjectFilter(boardId, v)} />
+        <h2 className="text-lg font-semibold">{workflow.displayName}</h2>
+        <ProjectFilter value={filter} onChange={(v) => setProjectFilter(workflow.workflowName, v)} />
         {hiddenCount > 0 && visible.length > 0 && (
           <span className="text-xs text-slate-400">{hiddenCount} hidden by filter</span>
         )}
+        <Link
+          to={`/workflows/${encodeURIComponent(workflow.workflowName)}/edit`}
+          className="ml-auto text-xs px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
+        >Configure</Link>
       </div>
       {hiddenCount > 0 && visible.length === 0 && (
         <div className="px-4 pt-2 shrink-0">
           <FilteredEmptyNotice
             hiddenCount={hiddenCount}
-            onClear={() => setProjectFilter(boardId, PROJECT_FILTER_ALL)}
+            onClear={() => setProjectFilter(workflow.workflowName, PROJECT_FILTER_ALL)}
           />
         </div>
       )}
@@ -78,7 +84,6 @@ export function Kanban({ boardId, workflow }: Props) {
               {items.map((t) => (
                 <TicketCard
                   key={t.filename}
-                  boardId={boardId}
                   workflowName={workflow.workflowName}
                   ticket={t}
                   draggable
@@ -93,7 +98,7 @@ export function Kanban({ boardId, workflow }: Props) {
           <div className="flex-1 min-w-0 bg-amber-950/30 rounded p-2">
             <h3 className="text-sm font-semibold mb-2 px-1 text-amber-400">Orphaned ({orphaned.length})</h3>
             {orphaned.map((t) => (
-              <TicketCard key={t.filename} boardId={boardId} workflowName={workflow.workflowName} ticket={t} />
+              <TicketCard key={t.filename} workflowName={workflow.workflowName} ticket={t} />
             ))}
           </div>
         )}

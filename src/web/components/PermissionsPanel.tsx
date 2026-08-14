@@ -79,7 +79,6 @@ function Body({ permissions }: { permissions: ResolvedPermissions | null }) {
 }
 
 interface Props {
-  boardId: string;
   workflowName: string;
   filename: string;
   active: boolean;
@@ -91,8 +90,8 @@ interface Props {
  * effective policy, and "which file did this rule come from" is otherwise
  * guesswork.
  */
-export function PermissionsPanel({ boardId, workflowName, filename, active }: Props) {
-  const { data, isLoading, error } = useTicketPermissions(boardId, workflowName, filename, active);
+export function PermissionsPanel({ workflowName, filename, active }: Props) {
+  const { data, isLoading, error } = useTicketPermissions(workflowName, filename, active);
 
   if (isLoading) return <p className="text-xs text-slate-500">Resolving…</p>;
   if (error) return <p className="text-xs text-red-400">{(error as Error).message}</p>;

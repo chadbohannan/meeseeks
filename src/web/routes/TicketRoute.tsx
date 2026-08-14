@@ -25,16 +25,16 @@ function bodiesEquivalent(a: string, b: string): boolean {
 // authored against an Identity captured at edit time, so an in-flight or
 // debounced save always lands at the file the user was editing — even if the
 // route has since navigated to a different ticket.
-type Identity = { boardId: string; workflowName: string; filename: string };
+type Identity = { workflowName: string; filename: string };
 function sameIdentity(a: Identity, b: Identity): boolean {
-  return a.boardId === b.boardId && a.workflowName === b.workflowName && a.filename === b.filename;
+  return a.workflowName === b.workflowName && a.filename === b.filename;
 }
 
 export function TicketRoute() {
-  const { boardId, workflowName, filename } = useParams<{ boardId: string; workflowName: string; filename: string }>();
-  const workflow = useWorkflow(boardId, workflowName);
-  const ticket = useTicket(boardId, workflowName, filename);
-  const del = useDeleteTicket(boardId!, workflowName!, filename!);
+  const { workflowName, filename } = useParams<{ workflowName: string; filename: string }>();
+  const workflow = useWorkflow(workflowName);
+  const ticket = useTicket(workflowName, filename);
+  const del = useDeleteTicket(workflowName!, filename!);
   const qc = useQueryClient();
   const navigate = useNavigate();
   const spawn = useSpawnRuntime();
@@ -42,7 +42,7 @@ export function TicketRoute() {
   const runtime = useRuntimesStore((s) =>
     Object.values(s.byId).find(r =>
       r.kind === 'ticket' &&
-      r.ticketRef?.boardId === boardId && r.ticketRef?.workflowName === workflowName && r.ticketRef?.filename === filename));
+      r.ticketRef?.workflowName === workflowName && r.ticketRef?.filename === filename));
 
   const activeRuntime =
     runtime && !['exited', 'errored', 'terminating'].includes(runtime.status)
@@ -101,7 +101,7 @@ export function TicketRoute() {
   const performSave = useCallback(async (identity: Identity, fields: PatchTicketRequest) => {
     savesInFlightRef.current++;
     try {
-      const res = await api.patchTicket(identity.boardId, identity.workflowName, identity.filename, fields);
+      const res = await api.patchTicket(identity.workflowName, identity.filename, fields);
       // Only update the echo-tracking refs if the save was for the currently
       // displayed ticket. A late-arriving response for the previous ticket must
       // not poison the new ticket's conflict-detection state.
@@ -112,8 +112,8 @@ export function TicketRoute() {
         conflictNotifiedRef.current = false;
         if (fields.body !== undefined && bodyRef.current === fields.body) setDirty(false);
       }
-      qc.invalidateQueries({ queryKey: ['tickets', identity.boardId, identity.workflowName] });
-      qc.invalidateQueries({ queryKey: ['board', identity.boardId] });
+      qc.invalidateQueries({ queryKey: ['tickets', identity.workflowName] });
+      qc.invalidateQueries({ queryKey: ['workflows'] });
     } catch (err) { toast.error((err as Error).message); }
     finally { savesInFlightRef.current--; }
   }, [qc]);
@@ -146,7 +146,7 @@ export function TicketRoute() {
     }, 3000);
   }, [performSave, title, state, color]);
 
-  // Identity-change handler. When the route's (boardId, workflowName, filename)
+  // Identity-change handler. When the route's (workflowName, filename)
   // tuple shifts — e.g. user clicks a different ticket — flush any pending
   // save against the outgoing identity, then reset local state so the load
   // effect below can populate the new ticket fresh. This replaces both the
@@ -154,8 +154,8 @@ export function TicketRoute() {
   // dirty-bail in the load effect (which used to strand the old body under
   // the new ticket's header).
   useEffect(() => {
-    if (!boardId || !workflowName || !filename) return;
-    const next: Identity = { boardId, workflowName, filename };
+    if (!workflowName || !filename) return;
+    const next: Identity = { workflowName, filename };
     const prev = identityRef.current;
     if (prev && !sameIdentity(prev, next)) {
       // Don't await: the pending snapshot already carries the old identity, so
@@ -172,7 +172,7 @@ export function TicketRoute() {
       conflictNotifiedRef.current = false;
     }
     identityRef.current = next;
-  }, [boardId, workflowName, filename, flushPendingSave]);
+  }, [workflowName, filename, flushPendingSave]);
 
   // Final-chance flush on real unmount (route exit, not in-route navigation).
   const flushRef = useRef(flushPendingSave);
@@ -230,14 +230,14 @@ export function TicketRoute() {
     await performSave(id, { title, body, state, color });
   }, [dirty, flushPendingSave, performSave, title, body, state, color]);
 
-  if (!boardId || !workflowName || !filename) return null;
+  if (!workflowName || !filename) return null;
   if (ticket.isLoading) return <div className="p-8 text-slate-500">Loading ticket…</div>;
   if (!ticket.data) return <div className="p-8 text-red-400">Ticket not found.</div>;
 
   const states = workflow.data?.workflow.states ?? [];
 
   const stateName = states.find((s) => s.dir === ticket.data.ticket.state)?.name ?? ticket.data.ticket.state;
-  const stateUrl = `/boards/${encodeURIComponent(boardId)}/workflows/${encodeURIComponent(workflowName)}/state/${encodeURIComponent(ticket.data.ticket.state)}`;
+  const stateUrl = `/workflows/${encodeURIComponent(workflowName)}/state/${encodeURIComponent(ticket.data.ticket.state)}`;
 
   const accent = color ?? '#6b7280';
 
@@ -257,7 +257,7 @@ export function TicketRoute() {
     <div className="p-6 h-full flex flex-col" style={{ border: `2px solid ${accent}` }}>
       <nav className="text-sm text-slate-400 mb-3 shrink-0 flex items-center justify-between">
         <span className="flex items-center gap-1">
-          <button className="hover:text-white" onClick={() => navigate(`/boards/${encodeURIComponent(boardId)}/workflows/${encodeURIComponent(workflowName)}`)}>{workflow.data?.workflow.displayName ?? workflowName}</button>
+          <button className="hover:text-white" onClick={() => navigate(`/workflows/${encodeURIComponent(workflowName)}`)}>{workflow.data?.workflow.displayName ?? workflowName}</button>
           <span className="text-slate-600">/</span>
           <button className="hover:text-white" onClick={() => navigate(stateUrl)}>{stateName}</button>
         </span>
@@ -283,7 +283,7 @@ export function TicketRoute() {
               // An empty string clears the assignment server-side; undefined
               // would mean "leave unchanged".
               await performSave(id, { title, body, state, color, project: next ?? '' });
-              qc.invalidateQueries({ queryKey: ['ticket-permissions', id.boardId, id.workflowName, id.filename] });
+              qc.invalidateQueries({ queryKey: ['ticket-permissions', id.workflowName, id.filename] });
             }}
           />
           <label className="text-slate-400">State</label>
@@ -416,7 +416,7 @@ export function TicketRoute() {
                 title={startBlockedReason ?? 'Start an agent on this ticket'}
                 onClick={async () => {
                   try {
-                    const res = await spawn.mutateAsync({ boardId, workflowName, filename, model });
+                    const res = await spawn.mutateAsync({ workflowName, filename, model });
                     if (res.runtime.status === 'errored') {
                       toast.error(res.runtime.errorMessage ?? 'Failed to start agent');
                     }
@@ -449,7 +449,6 @@ export function TicketRoute() {
         ) : (
           <div className="h-full overflow-y-auto p-4">
             <PermissionsPanel
-              boardId={boardId}
               workflowName={workflowName}
               filename={filename}
               active={tab === 'permissions'}

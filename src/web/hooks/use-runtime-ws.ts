@@ -26,7 +26,6 @@ export function useRuntimeWs(): void {
             if (
               r.runtimeId !== incoming.runtimeId &&
               r.kind === 'ticket' && r.ticketRef &&
-              r.ticketRef.boardId === incoming.ticketRef!.boardId &&
               r.ticketRef.workflowName === incoming.ticketRef!.workflowName &&
               r.ticketRef.filename === incoming.ticketRef!.filename &&
               (r.status === 'exited' || r.status === 'errored' || r.status === 'terminating')

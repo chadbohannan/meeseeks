@@ -8,16 +8,15 @@ set -euo pipefail
 `;
 
 interface BinEditorProps {
-  boardId: string;
 }
 
-export function BinEditor({ boardId }: BinEditorProps) {
-  const { data: fileList, isLoading, error } = useBinFiles(boardId);
+export function BinEditor({}: Record<string, never>) {
+  const { data: fileList, isLoading, error } = useBinFiles();
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [fileNameError, setFileNameError] = useState<string | null>(null);
-  const createMutation = useCreateBinFile(boardId);
+  const createMutation = useCreateBinFile();
 
   const handleCreateClick = () => {
     setIsCreating(true);
@@ -147,7 +146,6 @@ export function BinEditor({ boardId }: BinEditorProps) {
       <div className="flex-1 overflow-hidden">
         {selectedFile ? (
           <BinFileEditor
-            boardId={boardId}
             filename={selectedFile}
             onDeleted={() => setSelectedFile(null)}
           />
@@ -162,16 +160,15 @@ export function BinEditor({ boardId }: BinEditorProps) {
 }
 
 interface BinFileEditorProps {
-  boardId: string;
   filename: string;
   onDeleted: () => void;
 }
 
-function BinFileEditor({ boardId, filename, onDeleted }: BinFileEditorProps) {
-  const { data, isLoading } = useBinFile(boardId, filename);
+function BinFileEditor({ filename, onDeleted }: BinFileEditorProps) {
+  const { data, isLoading } = useBinFile(filename);
   const content = data?.content;
-  const patchMutation = usePatchBinFile(boardId, filename);
-  const deleteMutation = useDeleteBinFile(boardId);
+  const patchMutation = usePatchBinFile(filename);
+  const deleteMutation = useDeleteBinFile();
   const [editContent, setEditContent] = useState('');
   const [dirty, setDirty] = useState(false);
 

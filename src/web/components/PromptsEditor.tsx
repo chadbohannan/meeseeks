@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { toast } from 'sonner';
 import {
   usePrompts, usePrompt, usePutPrompt, useDeletePrompt, useRunPrompt, usePromptLogs, useModels,
+  useWorkflows,
 } from '../hooks/queries.js';
 import type { PromptRunLog } from '@shared/api.js';
 import { api } from '../lib/api.js';
@@ -18,10 +19,10 @@ function slugify(name: string): string {
   return (slug || 'untitled') + '.md';
 }
 
-interface Props { boardId: string }
 
-export function PromptsEditor({ boardId }: Props) {
-  const { data, isLoading } = usePrompts(boardId);
+
+export function PromptsEditor() {
+  const { data, isLoading } = usePrompts();
   const [selected, setSelected] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
@@ -36,7 +37,7 @@ export function PromptsEditor({ boardId }: Props) {
       return;
     }
     try {
-      await api.putPrompt(boardId, slug, { body: '' });
+      await api.putPrompt(slug, { body: '' });
       setSelected(slug);
       setCreating(false);
       setNewName('');
@@ -103,7 +104,7 @@ export function PromptsEditor({ boardId }: Props) {
 
       <div className="flex-1 overflow-hidden">
         {selected ? (
-          <PromptEditor key={selected} boardId={boardId} name={selected} onDeleted={() => setSelected(null)} />
+          <PromptEditor key={selected} name={selected} onDeleted={() => setSelected(null)} />
         ) : (
           <div className="h-full flex items-center justify-center text-slate-500">
             Select a prompt to edit or create a new one
@@ -114,11 +115,11 @@ export function PromptsEditor({ boardId }: Props) {
   );
 }
 
-function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: string; onDeleted: () => void }) {
-  const { data, isLoading } = usePrompt(boardId, name);
-  const put = usePutPrompt(boardId, name);
-  const del = useDeletePrompt(boardId);
-  const run = useRunPrompt(boardId);
+function PromptEditor({ name, onDeleted }: { name: string; onDeleted: () => void }) {
+  const { data, isLoading } = usePrompt(name);
+  const put = usePutPrompt(name);
+  const del = useDeletePrompt();
+  const run = useRunPrompt();
   const openModal = usePromptsStore((s) => s.openModal);
   const runtimes = useRuntimesStore((s) => s.byId);
   const { data: modelsData } = useModels();
@@ -126,11 +127,16 @@ function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: str
   const [body, setBody] = useState('');
   const [dirty, setDirty] = useState(false);
   const [model, setModel] = useState('');
-  // Prompts are board-scoped but may target any project. Unlike tickets, a
-  // project-less prompt run is legitimate (e.g. "lint the wiki").
+  // Prompts live at the workspace root and may target any project. Unlike
+  // tickets, a project-less prompt run is legitimate (e.g. "lint the wiki").
   const lastProject = useUi(st => st.lastProject);
   const setLastProject = useUi(st => st.setLastProject);
   const [promptProject, setPromptProject] = useState<string | undefined>(lastProject ?? undefined);
+  // Picking a workflow opts this run into that workflow's permissions and
+  // runtime. Optional by design: a prompt is not filed in a workflow the way a
+  // ticket is, so requiring one would be inventing a relationship.
+  const { data: workflowsData } = useWorkflows();
+  const [promptWorkflow, setPromptWorkflow] = useState<string | undefined>(undefined);
   const [tab, setTab] = useState<'editor' | 'log'>('editor');
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bodyInitializedRef = useRef(false);
@@ -144,9 +150,9 @@ function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: str
   }, [models, model]);
 
   const liveRuntime = useMemo(() => Object.values(runtimes).find(r =>
-    r.kind === 'prompt' && r.promptRef?.boardId === boardId && r.promptRef?.name === name &&
+    r.kind === 'prompt' && r.promptRef?.name === name &&
     r.status !== 'exited' && r.status !== 'errored'
-  ), [runtimes, boardId, name]);
+  ), [runtimes, name]);
 
   useEffect(() => {
     if (!data) return;
@@ -178,7 +184,7 @@ function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: str
         await put.mutateAsync(body);
         setDirty(false);
       }
-      const res = await run.mutateAsync({ name, model, projectId: promptProject });
+      const res = await run.mutateAsync({ name, model, projectId: promptProject, workflowName: promptWorkflow });
       if (promptProject) setLastProject(promptProject);
       openModal(res.runtime.runtimeId);
     } catch (err) { toast.error((err as Error).message); }
@@ -215,8 +221,20 @@ function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: str
             value={promptProject}
             onChange={setPromptProject}
             disabled={!!liveRuntime}
-            unassignedLabel="Board only"
+            unassignedLabel="No project"
           />
+          <select
+            className="bg-slate-800 rounded px-2 py-1 text-xs text-slate-300 disabled:opacity-50"
+            value={promptWorkflow ?? ''}
+            disabled={!!liveRuntime}
+            title="Optional. A chosen workflow contributes its permissions and runtime to this run."
+            onChange={(e) => setPromptWorkflow(e.target.value === '' ? undefined : e.target.value)}
+          >
+            <option value="">No workflow</option>
+            {(workflowsData?.workflows ?? []).map(w => (
+              <option key={w.workflowName} value={w.workflowName}>{w.displayName}</option>
+            ))}
+          </select>
           <select
             className="bg-slate-800 rounded px-2 py-1 text-xs text-slate-300"
             value={model}
@@ -253,14 +271,14 @@ function PromptEditor({ boardId, name, onDeleted }: { boardId: string; name: str
           />
         </div>
       ) : (
-        <RunLog boardId={boardId} name={name} />
+        <RunLog name={name} />
       )}
     </div>
   );
 }
 
-function RunLog({ boardId, name }: { boardId: string; name: string }) {
-  const { data, isLoading } = usePromptLogs(boardId, name);
+function RunLog({ name }: { name: string }) {
+  const { data, isLoading } = usePromptLogs(name);
   const [expanded, setExpanded] = useState<string | null>(null);
   const logs = data?.logs ?? [];
 
