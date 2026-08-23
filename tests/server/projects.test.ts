@@ -184,6 +184,32 @@ describe('cloning on create', () => {
     expect(detail.root).toBe(repo);
   });
 
+  // Denials are the half of a permission set that exists to hold a floor;
+  // dropping them because the request also carried grants is the bad failure.
+  it('unions the copied permissions with the ones in the request', async () => {
+    const { srv, repo } = await boot();
+    await post(srv, {
+      name: 'Source',
+      root: repo,
+      permissions: {
+        allowedPaths: [], allowedTools: ['Bash(npm test *)'], deniedTools: ['Bash(rm *)'],
+      },
+    });
+
+    await post(srv, {
+      name: 'Clone',
+      root: repo,
+      copyFrom: 'source',
+      permissions: {
+        allowedPaths: [], allowedTools: ['Read(/repo/**)', 'Bash(npm test *)'], deniedTools: [],
+      },
+    });
+
+    const detail = (await json(await fetch(`${srv.url}/api/projects/clone`))).project as ProjectDetail;
+    expect(detail.permissions?.allowedTools).toEqual(['Bash(npm test *)', 'Read(/repo/**)']);
+    expect(detail.permissions?.deniedTools).toEqual(['Bash(rm *)']);
+  });
+
   it('lets an explicit choice in the request beat the copied value', async () => {
     const { srv, repo } = await boot();
     await post(srv, { name: 'Source', root: repo, color: '#123456' });

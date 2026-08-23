@@ -119,7 +119,7 @@ function ProjectEditor({ projectId }: { projectId: string }) {
           />
           <p className="text-[10px] text-slate-500 mt-0.5">
             Passed to the agent as --add-dir and named in its preamble. The agent&apos;s working
-            directory stays on the board.
+            directory stays on the workspace root.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -237,7 +237,7 @@ export function ProjectsRoute() {
         >+ Project</button>
       </div>
       <p className="text-sm text-slate-500 mb-4">
-        A project is a codebase configuration. Tickets on any board can be assigned to any project.
+        A project is a codebase configuration. Tickets in any workflow can be assigned to any project.
       </p>
 
       <NewProjectModal

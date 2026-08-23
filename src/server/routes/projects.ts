@@ -9,6 +9,22 @@ import {
 import { detectProjectDefaults } from '../../storage/detect.js';
 import { InvalidInputError } from '../../storage/errors.js';
 import type { DetectProjectRequest } from '../../shared/api.js';
+import type { PermissionsConfig } from '../../shared/types.js';
+
+/** Union two optional permission sets, preserving order and dropping duplicates. */
+function unionPermissions(
+  a: PermissionsConfig | undefined,
+  b: PermissionsConfig | undefined,
+): PermissionsConfig | undefined {
+  if (!a) return b;
+  if (!b) return a;
+  const merge = (x: string[], y: string[]) => [...new Set([...x, ...y])];
+  return {
+    allowedPaths: merge(a.allowedPaths, b.allowedPaths),
+    allowedTools: merge(a.allowedTools, b.allowedTools),
+    deniedTools: merge(a.deniedTools, b.deniedTools),
+  };
+}
 
 export async function registerProjectRoutes(
   app: FastifyInstance,
@@ -26,14 +42,16 @@ export async function registerProjectRoutes(
     const body = req.body ?? {} as Partial<CreateProjectInput & { copyFrom?: string }>;
     if (!body.name) throw new InvalidInputError('name required');
     if (!body.root) throw new InvalidInputError('root required');
-    // Copied values fill only the fields the request left empty, so an explicit
-    // choice in the form always beats the source project's.
     const copied = body.copyFrom
       ? await readClonableProjectConfig(open.meta.path, body.copyFrom)
       : {};
     const project = await createProject(open.meta.path, {
       ...(body as CreateProjectInput),
-      permissions: body.permissions ?? copied.permissions,
+      // Permissions from the two sources are unioned, not chosen between. A
+      // request carrying accepted detections would otherwise silently drop the
+      // copied set — including its denials, which are the half that exists to
+      // hold a floor. Scalar fields have no such union, so there the request wins.
+      permissions: unionPermissions(copied.permissions, body.permissions),
       color: body.color ?? copied.color,
     });
     hub.broadcast({ type: 'project-changed', payload: { projectId: project.projectId, kind: 'created' } });

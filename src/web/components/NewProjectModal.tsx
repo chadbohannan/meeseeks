@@ -88,14 +88,16 @@ export function NewProjectModal({ open, onClose, onCreated }: Props) {
           </select>
           <span className="block text-[11px] text-slate-500 mt-1">
             Copies that project&apos;s permissions and badge colour. Its root and context are
-            specific to its own codebase, so neither is copied. Anything you accept below wins.
+            specific to its own codebase, so neither is copied. Anything you accept below is added
+            to the copied permissions, not swapped for them.
           </span>
         </label>
         <DetectionChecklist root={root} onAccept={setAccepted} />
         {accepted && (
           <p className="text-[11px] text-emerald-400">
             {accepted.allowedTools.length} grant{accepted.allowedTools.length === 1 ? '' : 's'}
-            {accepted.contextFile ? ' and a context file' : ''} will be written when you create it.
+            {accepted.contextFile ? ` and ${accepted.contextFile}` : ''} will be written when you
+            create it.
           </p>
         )}
         <div className="flex justify-end gap-2 pt-2">

@@ -183,8 +183,17 @@ Everything else is either content or identity:
   codebase is the single thing a copy must never produce, and a context document
   describing one codebase is wrong for any other.
 
-Copied values fill only the fields the request left empty, so an explicit choice in the
-form — or a detection the user accepted — always beats the source's.
+Permissions from the two tiers are **unioned, not chosen between**. Running the form
+proved why: with a source project selected *and* detections accepted, an
+explicit-wins rule silently dropped the copied set — including its `deniedTools`,
+which is the half that exists to hold a floor. Scalar fields like the badge colour
+have no union to fall back on, so there the request still wins.
+
+Where two proposals compete for one field, the first accepted wins rather than the
+last. A repository can carry both a `CLAUDE.md` and an `AGENTS.md`, and `contextFile`
+holds one path; detection proposes `CLAUDE.md` first, so the outcome matches the order
+the user was reading. The confirmation line names the file it will write for the same
+reason.
 
 ## References
 

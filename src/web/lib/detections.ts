@@ -23,7 +23,11 @@ export interface AcceptedDetections {
 export function partitionAccepted(accepted: Detection[]): AcceptedDetections {
   const out: AcceptedDetections = { allowedTools: [] };
   for (const d of accepted) {
-    if (d.kind === 'context') out.contextFile = d.value;
+    // A repo can carry both a CLAUDE.md and an AGENTS.md, and there is one
+    // contextFile field. The first accepted one wins rather than the last:
+    // detection proposes CLAUDE.md first, so the winner is predictable from
+    // the order the user was reading.
+    if (d.kind === 'context') out.contextFile ??= d.value;
     else if (d.kind === 'permission') out.allowedTools.push(d.value);
   }
   return out;

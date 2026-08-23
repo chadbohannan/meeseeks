@@ -32,6 +32,16 @@ describe('partitionAccepted', () => {
     expect('allowedPaths' in out).toBe(false);
   });
 
+  // One contextFile field, and a repo can carry both files; the first accepted
+  // wins so the outcome matches the order the user was reading.
+  it('keeps the first context proposal when two are accepted', () => {
+    const out = partitionAccepted([
+      d({ kind: 'context', value: '/repo/CLAUDE.md' }),
+      d({ kind: 'context', value: '/repo/AGENTS.md' }),
+    ]);
+    expect(out.contextFile).toBe('/repo/CLAUDE.md');
+  });
+
   it('accepts nothing when nothing was ticked', () => {
     expect(partitionAccepted([])).toEqual({ allowedTools: [] });
   });

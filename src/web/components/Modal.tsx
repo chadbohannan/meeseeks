@@ -11,7 +11,14 @@ export function Modal({ title, open, onClose, children }: Props) {
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-slate-900 rounded shadow-lg p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+      {/* Capped and scrollable: a tall body — the new-project form with a
+          detection checklist open, say — otherwise runs off the bottom of the
+          viewport, taking the submit and cancel buttons with it and leaving no
+          way to reach them. */}
+      <div
+        className="bg-slate-900 rounded shadow-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold">{title}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-100">&times;</button>
