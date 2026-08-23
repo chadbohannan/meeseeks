@@ -1,4 +1,4 @@
-.PHONY: help install dev dev-tailnet dev-server dev-web build build-server build-web \
+.PHONY: help install dev dev-server dev-web build build-server build-web \
        start test test-watch typecheck clean distclean \
        wiki-lint wiki-links
 
@@ -7,9 +7,7 @@ WEB_SRC    := $(shell find src/web -name '*.ts' -o -name '*.tsx' -o -name '*.css
 
 DEV_SERVER := npx tsx watch --exclude 'boards/**' --exclude 'wiki/**' src/server/index.ts
 DEV_WEB    := npx vite
-DEV_BOTH    = npx concurrently -n server,web -c blue,magenta "$(DEV_SERVER)" "$(DEV_WEB)"
-
-TAILSCALE_IP = $(shell tailscale ip -4 2>/dev/null | head -1)
+DEV_BOTH   := npx concurrently -n server,web -c blue,magenta "$(DEV_SERVER)" "$(DEV_WEB)"
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
@@ -25,20 +23,11 @@ install: node_modules ## Install dependencies (npm ci)
 
 # ── Development ─────────────────────────────────────────────────
 
-dev: node_modules ## Run server + web dev concurrently (localhost only)
+dev: node_modules ## Run server + web dev concurrently
+	@echo "Meeseeks dev UI on every interface — http://localhost:5173, http://$$(hostname):5173,"
+	@echo "  or this host's tailnet address. No authentication: the network is the boundary."
+	@echo "  Narrow it with MEESEEKS_DEV_HOST=<address>, e.g. \$$(tailscale ip -4) for tailnet-only."
 	$(DEV_BOTH)
-
-# Binds the UI to this host's tailnet address and nothing else — not 0.0.0.0,
-# which would also expose it on whatever LAN the machine is on. Meeseeks has no
-# authentication, so anyone who can reach it can start agents on this machine;
-# a tailnet is a reasonable trust boundary for that, a coffee-shop network is not.
-dev-tailnet: node_modules ## Run dev servers on this host's tailnet address
-	@test -n "$(TAILSCALE_IP)" || { \
-		echo "no tailscale IPv4 address on this host — is tailscaled running?" >&2; exit 1; }
-	@echo "Meeseeks dev UI: http://$(TAILSCALE_IP):5173  (tailnet only, unauthenticated)"
-	@echo "  from other tailnet devices: http://$$(hostname):5173"
-	@echo "  the bare hostname may resolve to 127.0.1.1 on this machine — use the address above here"
-	MEESEEKS_DEV_HOST=$(TAILSCALE_IP) $(DEV_BOTH)
 
 dev-server: node_modules ## Run server in watch mode
 	$(DEV_SERVER)

@@ -7,40 +7,48 @@ import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /**
- * The dev server binds to loopback unless MEESEEKS_DEV_HOST names an interface
- * to expose it on — `make dev-tailnet` sets it to this host's tailnet address.
+ * The dev server binds every interface by default, so it answers to whatever
+ * the browser used to reach this machine: localhost, the bare hostname (which
+ * Debian maps to 127.0.1.1), the LAN address, or a tailnet address.
  *
  * Only Vite is exposed. The API server stays on 127.0.0.1 and is reached
- * through the proxy below, so exposing the UI does not also put the REST and
- * WebSocket surface on the network in its own right.
+ * through the proxy below, so this does not also put the REST and WebSocket
+ * surface on the network in its own right.
  *
- * The value is an address rather than a boolean on purpose: `host: true` binds
- * every interface, which would put an app with no authentication on whatever
- * LAN or hotspot the machine is also sitting on.
+ * Meeseeks has no authentication and starts agents that run with real
+ * permissions on this machine, so the network it is on is the whole boundary.
+ * MEESEEKS_DEV_HOST narrows the bind when that boundary is not good enough —
+ * `MEESEEKS_DEV_HOST=$(tailscale ip -4) make dev` serves the tailnet and
+ * nothing else, and `MEESEEKS_DEV_HOST=127.0.0.1 make dev` serves only this
+ * machine.
  */
-const devHost = process.env.MEESEEKS_DEV_HOST;
+const devHost = process.env.MEESEEKS_DEV_HOST ?? '0.0.0.0';
 
 /**
- * Host headers to accept when exposed. Vite rejects anything not listed, and
- * the three ways a browser can address this machine produce three different
- * headers:
+ * Host headers to accept. Vite rejects anything not listed, which is what stops
+ * a hostile page from pointing its own domain at this address and driving the
+ * dev server through the visitor's browser. Binding widely makes that check the
+ * remaining line, so it stays on.
  *
- *   100.x.y.z:5173                 an IP literal — allowed by Vite already
- *   quebox.tailfe19c7.ts.net:5173  matched by the `.ts.net` suffix entry
- *   quebox:5173                    matches neither, and needs naming outright
+ * Each way of addressing the machine produces a different header, and a leading
+ * dot is a *suffix* match — which is why the bare hostname has to be named
+ * outright and is not covered by any of the suffix entries:
  *
- * The third is the one people actually type, because MagicDNS hands out the
- * tailnet suffix as a search domain. A leading dot is a suffix match in Vite,
- * so a bare hostname is never covered by one.
+ *   localhost:5173 / 100.x.y.z:5173     allowed by Vite already
+ *   quebox.tailfe19c7.ts.net:5173       `.ts.net`
+ *   quebox.local:5173                   `.local`, for mDNS on a LAN
+ *   quebox:5173                         os.hostname()
  *
- * MEESEEKS_DEV_ALLOWED_HOSTS is the escape hatch for a Tailscale machine name
- * that differs from the system hostname, which is the one case os.hostname()
- * gets wrong.
+ * Both suffixes are safe to allow: neither `ts.net` nor mDNS `.local` can be
+ * registered by someone setting up a rebinding domain.
+ *
+ * MEESEEKS_DEV_ALLOWED_HOSTS covers the rest — an /etc/hosts alias, or a
+ * Tailscale machine name that differs from the system hostname.
  */
 function devAllowedHosts(): string[] {
   const extra = (process.env.MEESEEKS_DEV_ALLOWED_HOSTS ?? '')
     .split(',').map(h => h.trim()).filter(Boolean);
-  return ['.ts.net', os.hostname(), ...extra];
+  return ['.ts.net', '.local', os.hostname(), ...extra];
 }
 
 export default defineConfig({
@@ -52,7 +60,8 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    ...(devHost ? { host: devHost, allowedHosts: devAllowedHosts() } : {}),
+    host: devHost,
+    allowedHosts: devAllowedHosts(),
     proxy: {
       '/api': 'http://localhost:5174',
       '/ws': { target: 'ws://localhost:5174', ws: true },
