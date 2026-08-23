@@ -35,6 +35,35 @@ would put the UI on whatever LAN, hotspot, or conference wifi the machine also h
 to be on. Binding one address means a laptop on the same café network cannot reach it
 at all.
 
+## If your tailnet address changes
+
+The address is looked up fresh on every `make dev-tailnet` — `TAILSCALE_IP` is a
+recursive Make variable, so `tailscale ip -4` runs when the target runs, and nothing is
+cached between invocations. Restarting is all it takes to pick up a new address.
+(Recursive rather than `:=` on purpose: `:=` would shell out to `tailscale` while
+parsing the Makefile, making every `make test` pay for it.)
+
+It is not re-discovered *while running*. Vite binds once at startup, so an address that
+changes mid-session leaves a listening socket on an address the host no longer has;
+restart the target.
+
+Neither failure is silent. With `tailscaled` down, `tailscale ip -4` returns nothing and
+the target stops on its own guard. With an address the host does not hold, the kernel
+refuses the bind:
+
+```
+Error: listen EADDRNOTAVAIL: address not available 100.99.99.99:5173
+```
+
+In practice a node's 100.x address is stable — it survives reboots, wifi-to-cellular
+moves, and going offline and back. It changes when the node is removed and re-authed,
+issued a new machine key, or moved to a different tailnet. **Bookmark the MagicDNS name
+rather than the IP**: MagicDNS follows the node, so a saved link keeps working across a
+change that would strand an IP bookmark.
+
+For a setup that never needs a restart, `tailscale serve` (below) is the answer —
+tailscaled owns the address and Vite never binds to it at all.
+
 ## Understand the trust boundary before using it
 
 **Meeseeks has no authentication.** Anyone who can load the page can create tickets,
