@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { Modal } from './Modal.js';
-import { useCreateProject } from '../hooks/queries.js';
+import { useCreateProject, useProjects } from '../hooks/queries.js';
 import { DetectionChecklist, type AcceptedDetections } from './DetectionChecklist.js';
 import type { PermissionsConfig } from '@shared/types.js';
 
@@ -18,9 +18,11 @@ export function NewProjectModal({ open, onClose, onCreated }: Props) {
   // Accepted proposals are held here until the form is submitted. Detection
   // runs before the project exists, so there is nothing to write them to yet.
   const [accepted, setAccepted] = useState<AcceptedDetections | null>(null);
+  const [copyFrom, setCopyFrom] = useState('');
+  const projects = useProjects();
   const create = useCreateProject();
 
-  const close = () => { setName(''); setRoot(''); setAccepted(null); onClose(); };
+  const close = () => { setName(''); setRoot(''); setAccepted(null); setCopyFrom(''); onClose(); };
 
   return (
     <Modal title="New project" open={open} onClose={close}>
@@ -38,6 +40,7 @@ export function NewProjectModal({ open, onClose, onCreated }: Props) {
             const res = await create.mutateAsync({
               name,
               root,
+              ...(copyFrom ? { copyFrom } : {}),
               ...(permissions ? { permissions } : {}),
               ...(accepted?.contextFile ? { contextFile: accepted.contextFile } : {}),
             });
@@ -69,6 +72,23 @@ export function NewProjectModal({ open, onClose, onCreated }: Props) {
           />
           <span className="block text-[11px] text-slate-500 mt-1">
             The codebase this project points at. Context and permissions can also be added after creating it.
+          </span>
+        </label>
+        <label className="block">
+          <span className="text-sm text-slate-400">Copy configuration from</span>
+          <select
+            className="w-full bg-slate-800 rounded px-2 py-1 mt-1 text-sm"
+            value={copyFrom}
+            onChange={(e) => setCopyFrom(e.target.value)}
+          >
+            <option value="">Nothing — start fresh</option>
+            {(projects.data?.projects ?? []).map(p => (
+              <option key={p.projectId} value={p.projectId}>{p.name}</option>
+            ))}
+          </select>
+          <span className="block text-[11px] text-slate-500 mt-1">
+            Copies that project&apos;s permissions and badge colour. Its root and context are
+            specific to its own codebase, so neither is copied. Anything you accept below wins.
           </span>
         </label>
         <DetectionChecklist root={root} onAccept={setAccepted} />

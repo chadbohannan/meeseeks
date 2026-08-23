@@ -3,6 +3,7 @@ import type { ServerState } from '../state.js';
 import type { WsHub } from '../ws.js';
 import {
   listProjects, getProject, createProject, updateProject, deleteProject,
+  readClonableProjectConfig,
   type CreateProjectInput, type PatchProjectInput,
 } from '../../storage/project.js';
 import { detectProjectDefaults } from '../../storage/detect.js';
@@ -20,12 +21,21 @@ export async function registerProjectRoutes(
     return { projects: await listProjects(open.meta.path) };
   });
 
-  app.post<{ Body: CreateProjectInput }>('/api/projects', async (req) => {
+  app.post<{ Body: CreateProjectInput & { copyFrom?: string } }>('/api/projects', async (req) => {
     const open = state.require();
-    const body = req.body ?? {} as Partial<CreateProjectInput>;
+    const body = req.body ?? {} as Partial<CreateProjectInput & { copyFrom?: string }>;
     if (!body.name) throw new InvalidInputError('name required');
     if (!body.root) throw new InvalidInputError('root required');
-    const project = await createProject(open.meta.path, body as CreateProjectInput);
+    // Copied values fill only the fields the request left empty, so an explicit
+    // choice in the form always beats the source project's.
+    const copied = body.copyFrom
+      ? await readClonableProjectConfig(open.meta.path, body.copyFrom)
+      : {};
+    const project = await createProject(open.meta.path, {
+      ...(body as CreateProjectInput),
+      permissions: body.permissions ?? copied.permissions,
+      color: body.color ?? copied.color,
+    });
     hub.broadcast({ type: 'project-changed', payload: { projectId: project.projectId, kind: 'created' } });
     return { project };
   });

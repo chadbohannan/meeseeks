@@ -157,6 +157,35 @@ entirely. This is seeding, not detection, so it may write without a review step:
 value is a fixed template rather than an inference about the user's machine. A blank
 default would be no safer, only less useful.
 
+## Cloning: configuration, not content
+
+The third tier copies from what already exists in the workspace. `copyFrom` on the two
+create endpoints names a source workflow or project, and the server reads it — the SPA
+never round-trips a permission set it has no other reason to hold, and the resolution
+happens where the source files are.
+
+What is copied is deliberately narrow. A workflow contributes its **own** `runtime:`
+block and its permissions; a project contributes its permissions and badge colour.
+Everything else is either content or identity:
+
+- **States and `PROCESS.md` are not copied.** They are content. Copying them produces a
+  duplicate of the source workflow including the parts nobody got around to writing,
+  and a user creating a second workflow wanted a different process, not the same one
+  twice. Tier 1 already gives them a good starting process.
+- **An inherited runtime is not copied.** `resolveWorkflowRuntime` would hand back the
+  workspace default; writing that into the new workflow converts an inheritance into a
+  declaration that no longer tracks the default. `readClonableWorkflowConfig` reads the
+  workflow's own block for exactly this reason.
+- **An all-empty permissions block is not copied.** Three empty arrays is what every
+  workflow starts with; carrying it over would make the clone look configured when it
+  is not.
+- **A project's `root` and `context` are not copied.** Two projects pointing at one
+  codebase is the single thing a copy must never produce, and a context document
+  describing one codebase is wrong for any other.
+
+Copied values fill only the fields the request left empty, so an explicit choice in the
+form — or a detection the user accepted — always beats the source's.
+
 ## References
 
 | Fact | Source |
@@ -170,4 +199,5 @@ default would be no safer, only less useful.
 | Checklist and proposal row | `src/web/components/DetectionChecklist.tsx`, `SeededValue.tsx` |
 | Accept-folding rules | `src/web/lib/detections.ts` |
 | Absolute `contextFile` exemption | `src/storage/project.ts`, `resolveContext` |
+| Clonable configuration | `readClonableWorkflowConfig`, `readClonableProjectConfig` |
 | Workspace audit (8 sources, 2 useful) | [Onboarding Seeding design](../../../docs/superpowers/specs/2026-08-14-onboarding-seeding-design.md) |

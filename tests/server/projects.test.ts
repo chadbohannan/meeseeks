@@ -163,3 +163,33 @@ describe('POST /api/projects/detect', () => {
     expect((await json(res)).detections).toEqual([]);
   });
 });
+
+describe('cloning on create', () => {
+  it('copies permissions and colour from another project', async () => {
+    const { srv, repo } = await boot();
+    await post(srv, {
+      name: 'Source',
+      root: repo,
+      color: '#123456',
+      permissions: { allowedPaths: [], allowedTools: ['Bash(npm test *)'], deniedTools: [] },
+    });
+
+    const res = await post(srv, { name: 'Clone', root: repo, copyFrom: 'source' });
+    expect(res.status).toBe(200);
+
+    const detail = (await json(await fetch(`${srv.url}/api/projects/clone`))).project as ProjectDetail;
+    expect(detail.color).toBe('#123456');
+    expect(detail.permissions?.allowedTools).toEqual(['Bash(npm test *)']);
+    // The root is the one thing a copy must never bring along on its own.
+    expect(detail.root).toBe(repo);
+  });
+
+  it('lets an explicit choice in the request beat the copied value', async () => {
+    const { srv, repo } = await boot();
+    await post(srv, { name: 'Source', root: repo, color: '#123456' });
+    await post(srv, { name: 'Clone', root: repo, copyFrom: 'source', color: '#abcdef' });
+
+    const detail = (await json(await fetch(`${srv.url}/api/projects/clone`))).project as ProjectDetail;
+    expect(detail.color).toBe('#abcdef');
+  });
+});

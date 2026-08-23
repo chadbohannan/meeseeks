@@ -9,7 +9,7 @@ import {
   removeWorkflowFromWorkspace, writeWorkspace, parseRuntime,
 } from './workspace.js';
 import type {
-  WorkflowSummary, WorkflowDetail, WorkflowState, RuntimeConfig,
+  WorkflowSummary, WorkflowDetail, WorkflowState, RuntimeConfig, PermissionsConfig,
 } from '../shared/types.js';
 
 const WORKFLOW_YAML = 'workflow.yaml';
@@ -61,7 +61,7 @@ export async function createWorkflow(
   workspaceRoot: string,
   workflowName: string,
   states: WorkflowState[],
-  opts: { processDoc?: string; runtime?: RuntimeConfig } = {},
+  opts: { processDoc?: string; runtime?: RuntimeConfig; permissions?: PermissionsConfig } = {},
 ): Promise<string> {
   if (!workflowName || !workflowName.trim()) {
     throw new InvalidInputError('workflow name required');
@@ -84,7 +84,9 @@ export async function createWorkflow(
   if (opts.runtime) config.runtime = opts.runtime;
   await writeFile(path.join(lp, WORKFLOW_YAML), yaml.dump(config, { lineWidth: -1 }), 'utf8');
   await writeFile(path.join(lp, PROCESS_MD), opts.processDoc ?? workflowProcessTemplate(workflowName, states), 'utf8');
-  await writeFile(path.join(lp, PERMISSIONS), yaml.dump({ allowedPaths: [], allowedTools: [], deniedTools: [] }), 'utf8');
+  const permissions: PermissionsConfig = opts.permissions
+    ?? { allowedPaths: [], allowedTools: [], deniedTools: [] };
+  await writeFile(path.join(lp, PERMISSIONS), yaml.dump(permissions), 'utf8');
 
   // Registered only after the directory is fully written, so a crash midway
   // leaves an unregistered directory rather than a registry entry pointing at
@@ -212,6 +214,48 @@ export async function resolveWorkflowRuntime(
   if (own) return { runtime: own, inherited: false };
   const meta = await readWorkspace(workspaceRoot);
   return { runtime: meta.config.runtime ?? null, inherited: meta.config.runtime !== undefined };
+}
+
+/**
+ * The parts of a workflow worth copying into a new one: its own `runtime:`
+ * block and its permissions.
+ *
+ * States and `PROCESS.md` are deliberately absent. Those are content, not
+ * configuration — copying them produces a duplicate of the source workflow
+ * including the parts nobody got around to writing, and a user creating a
+ * second workflow wanted a different process, not the same one twice.
+ *
+ * An *inherited* runtime is not copied either: `resolveWorkflowRuntime` would
+ * hand back the workspace default, and writing that into the new workflow would
+ * convert an inheritance into a declaration that no longer tracks the default.
+ * Reading the workflow's own block is the point.
+ */
+export async function readClonableWorkflowConfig(
+  workspaceRoot: string,
+  workflowName: string,
+): Promise<{ runtime?: RuntimeConfig; permissions?: PermissionsConfig }> {
+  const lp = await resolveWorkflowPath(workspaceRoot, workflowName);
+  if (!(await exists(lp))) throw new NotFoundError(`workflow not found: ${workflowName}`);
+  const out: { runtime?: RuntimeConfig; permissions?: PermissionsConfig } = {};
+  const own = parseRuntime((await readWorkflowYaml(lp)).runtime);
+  if (own) out.runtime = own;
+  const permPath = path.join(lp, PERMISSIONS);
+  if (await exists(permPath)) {
+    const parsed = yaml.load(await readFile(permPath, 'utf8')) as Partial<PermissionsConfig> | null;
+    const list = (v: unknown): string[] =>
+      Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+    const perms: PermissionsConfig = {
+      allowedPaths: list(parsed?.allowedPaths),
+      allowedTools: list(parsed?.allowedTools),
+      deniedTools: list(parsed?.deniedTools),
+    };
+    // An all-empty block is what every workflow starts with; copying it says
+    // nothing and would make the clone look configured when it is not.
+    if (perms.allowedPaths.length || perms.allowedTools.length || perms.deniedTools.length) {
+      out.permissions = perms;
+    }
+  }
+  return out;
 }
 
 export async function readWorkflowDetail(

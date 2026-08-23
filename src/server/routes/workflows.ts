@@ -4,6 +4,7 @@ import type { WsHub } from '../ws.js';
 import {
   createWorkflow, listWorkflows, readWorkflowDetail, renameWorkflow, updateWorkflowStates,
   deleteWorkflowFolder, deregisterWorkflow, writeProcessDoc, writeWorkflowRuntime,
+  readClonableWorkflowConfig,
 } from '../../storage/workflow.js';
 import { InvalidInputError } from '../../storage/errors.js';
 import type { RuntimeConfig, WorkflowState } from '../../shared/types.js';
@@ -20,15 +21,23 @@ export async function registerWorkflowRoutes(
   });
 
   app.post<{
-    Body: { name: string; states: WorkflowState[]; runtime?: RuntimeConfig };
+    Body: { name: string; states: WorkflowState[]; runtime?: RuntimeConfig; copyFrom?: string };
   }>('/api/workflows', async (req) => {
     const open = state.require();
     const body = req.body ?? {} as { name?: string; states?: WorkflowState[] };
     if (!body.name || !Array.isArray(body.states)) {
       throw new InvalidInputError('name and states required');
     }
+    // Cloning resolves here rather than on the client: the source's own runtime
+    // block and permissions are readable from the server, so the SPA never has
+    // to hold a permission set it has no other reason to fetch, and an
+    // inherited runtime cannot be copied in as if it were declared.
+    const copied = body.copyFrom
+      ? await readClonableWorkflowConfig(open.meta.path, body.copyFrom)
+      : {};
     const slug = await createWorkflow(open.meta.path, body.name, body.states, {
-      runtime: req.body?.runtime,
+      runtime: req.body?.runtime ?? copied.runtime,
+      ...(copied.permissions ? { permissions: copied.permissions } : {}),
     });
     hub.broadcast({ type: 'workflow-changed', payload: { workflowName: slug, kind: 'created' } });
     return { workflow: await readWorkflowDetail(open.meta.path, slug) };

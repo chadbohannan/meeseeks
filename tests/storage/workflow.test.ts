@@ -3,7 +3,7 @@ import path from 'node:path';
 import { readFile, access } from 'node:fs/promises';
 import {
   createWorkflow, listWorkflows, readWorkflowDetail, renameWorkflow, updateWorkflowStates,
-  deleteWorkflowFolder, resolveWorkflowRuntime,
+  deleteWorkflowFolder, resolveWorkflowRuntime, readClonableWorkflowConfig,
 } from '../../src/storage/workflow.js';
 import {
   readWorkspace, writeWorkspace, addWorkflowToWorkspace,
@@ -269,5 +269,58 @@ describe('resolveWorkflowRuntime', () => {
     const detail = await readWorkflowDetail(wsRoot, 'work');
     expect(detail.runtime).toEqual(RUNTIME);
     expect(detail.runtimeInherited).toBe(true);
+  });
+});
+
+describe('readClonableWorkflowConfig', () => {
+  const RUNTIME = {
+    harness: 'claude-code', provider: 'anthropic', model: 'opus', args: [], env: {},
+  };
+  const PERMS = { allowedPaths: ['./src'], allowedTools: ['Bash(npm test *)'], deniedTools: [] };
+
+  it('returns the workflow\'s own runtime block and permissions', async () => {
+    const { wsRoot } = await setupWorkspace();
+    await createWorkflow(wsRoot, 'source', STATES, { runtime: RUNTIME, permissions: PERMS });
+
+    const cfg = await readClonableWorkflowConfig(wsRoot, 'source');
+    expect(cfg.runtime).toEqual(RUNTIME);
+    expect(cfg.permissions).toEqual(PERMS);
+  });
+
+  // Copying an inherited block would turn an inheritance into a declaration
+  // that no longer tracks the workspace default.
+  it('does not report an inherited runtime as the workflow\'s own', async () => {
+    const { wsRoot } = await setupWorkspace();
+    const meta = await readWorkspace(wsRoot);
+    await writeWorkspace(wsRoot, { ...meta.config, runtime: RUNTIME });
+    await createWorkflow(wsRoot, 'inheritor', STATES);
+
+    expect((await resolveWorkflowRuntime(wsRoot, 'inheritor')).inherited).toBe(true);
+    expect((await readClonableWorkflowConfig(wsRoot, 'inheritor')).runtime).toBeUndefined();
+  });
+
+  // Every workflow starts with three empty arrays; copying that says nothing
+  // and would make the clone look configured when it is not.
+  it('omits an all-empty permissions block', async () => {
+    const { wsRoot } = await setupWorkspace();
+    await createWorkflow(wsRoot, 'bare', STATES);
+    expect(await readClonableWorkflowConfig(wsRoot, 'bare')).toEqual({});
+  });
+
+  it('throws for a workflow that does not exist', async () => {
+    const { wsRoot } = await setupWorkspace();
+    await expect(readClonableWorkflowConfig(wsRoot, 'nope')).rejects.toThrow(NotFoundError);
+  });
+});
+
+describe('createWorkflow with copied configuration', () => {
+  it('writes the copied permissions to the new workflow', async () => {
+    const { wsRoot } = await setupWorkspace();
+    const perms = { allowedPaths: [], allowedTools: ['Bash(make test *)'], deniedTools: ['Bash(rm *)'] };
+    await createWorkflow(wsRoot, 'clone', STATES, { permissions: perms });
+
+    const written = await readFile(path.join(wsRoot, 'workflows/clone/permissions.yaml'), 'utf8');
+    expect(written).toContain('Bash(make test *)');
+    expect(written).toContain('Bash(rm *)');
   });
 });

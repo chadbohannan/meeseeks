@@ -5,6 +5,7 @@ import path from 'node:path';
 import yaml from 'js-yaml';
 import {
   listProjects, getProject, createProject, updateProject, deleteProject,
+  readClonableProjectConfig,
 } from '../../src/storage/project.js';
 import { readWorkspace } from '../../src/storage/workspace.js';
 import { NotFoundError, InvalidInputError, ConflictError } from '../../src/storage/errors.js';
@@ -296,5 +297,30 @@ describe('contextFile', () => {
     const inline = await getProject(root, 'swap');
     expect(inline.contextFile).toBeNull();
     expect(inline.contextContent).toBe('typed again');
+  });
+});
+
+describe('readClonableProjectConfig', () => {
+  it('returns permissions and colour, and never the root or context', async () => {
+    const root = await workspace();
+    const repo = await repoDir(root);
+    await createProject(root, {
+      name: 'Source',
+      root: repo,
+      color: '#ff0000',
+      context: 'specific to this codebase',
+      permissions: { allowedPaths: [], allowedTools: ['Bash(npm test *)'], deniedTools: [] },
+    });
+
+    const cfg = await readClonableProjectConfig(root, 'source');
+    expect(cfg.color).toBe('#ff0000');
+    expect(cfg.permissions?.allowedTools).toEqual(['Bash(npm test *)']);
+    expect(cfg).not.toHaveProperty('root');
+    expect(cfg).not.toHaveProperty('context');
+  });
+
+  it('throws for a project that does not exist', async () => {
+    const root = await workspace();
+    await expect(readClonableProjectConfig(root, 'nope')).rejects.toThrow(NotFoundError);
   });
 });

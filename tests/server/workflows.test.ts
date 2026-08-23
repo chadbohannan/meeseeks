@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { bootTestServer } from '../helpers/server.js';
 import { makeBareProject } from '../helpers/tmp-project.js';
 import path from 'node:path';
-import { access } from 'node:fs/promises';
+import { access, readFile, writeFile } from 'node:fs/promises';
 import { readWorkspace, writeWorkspace } from '../../src/storage/workspace.js';
 
 const exists = async (p: string) => { try { await access(p); return true; } catch { return false; } };
@@ -126,5 +126,58 @@ describe('workflow routes', () => {
     })).json() as { workflow: { runtime: { model: string }; runtimeInherited: boolean } };
     expect(cleared.workflow.runtime.model).toBe('opus');
     expect(cleared.workflow.runtimeInherited).toBe(true);
+  });
+});
+
+describe('cloning on create', () => {
+  const RUNTIME = {
+    harness: 'claude-code', provider: 'anthropic', model: 'opus', args: [], env: {},
+  };
+
+  async function postWorkflow(srv: { url: string }, body: unknown) {
+    return fetch(`${srv.url}/api/workflows`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  }
+
+  it('copies the source workflow\'s runtime and permissions, but not its states', async () => {
+    const { srv, root } = await setup();
+    await postWorkflow(srv, { name: 'source', states: STATES, runtime: RUNTIME });
+    await writeFile(
+      path.join(root, 'workflows/source/permissions.yaml'),
+      'allowedPaths: []\nallowedTools:\n  - Bash(npm test *)\ndeniedTools: []\n',
+      'utf8',
+    );
+
+    const cloneStates = [{ dir: 'backlog', name: 'Backlog' }, { dir: 'shipped', name: 'Shipped' }];
+    const res = await postWorkflow(srv, { name: 'clone', states: cloneStates, copyFrom: 'source' });
+    expect(res.status).toBe(200);
+    const detail = (await res.json() as any).workflow;
+
+    expect(detail.runtime).toEqual(RUNTIME);
+    expect(detail.runtimeInherited).toBe(false);
+    // States come from the request, never from the source.
+    expect(detail.states).toEqual(cloneStates);
+
+    const perms = await readFile(path.join(root, 'workflows/clone/permissions.yaml'), 'utf8');
+    expect(perms).toContain('Bash(npm test *)');
+  });
+
+  it('does not copy a process document', async () => {
+    const { srv, root } = await setup();
+    await postWorkflow(srv, { name: 'source', states: STATES });
+    await writeFile(path.join(root, 'workflows/source/PROCESS.md'), '# source process\n', 'utf8');
+
+    await postWorkflow(srv, { name: 'clone', states: STATES, copyFrom: 'source' });
+    const doc = await readFile(path.join(root, 'workflows/clone/PROCESS.md'), 'utf8');
+    expect(doc).not.toContain('source process');
+    expect(doc).toContain('clone');
+  });
+
+  it('rejects a copyFrom naming a workflow that does not exist', async () => {
+    const { srv } = await setup();
+    const res = await postWorkflow(srv, { name: 'clone', states: STATES, copyFrom: 'nope' });
+    expect(res.status).toBe(404);
   });
 });

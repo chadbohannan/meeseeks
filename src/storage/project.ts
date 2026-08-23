@@ -166,6 +166,27 @@ export async function getProject(workspaceRoot: string, projectId: string): Prom
   };
 }
 
+/**
+ * The parts of a project worth copying into a new one: its permission set and
+ * its badge colour. Not `root` — two projects pointing at the same codebase is
+ * the one thing a copy must never produce — and not `context`, which describes
+ * a specific codebase and would be wrong for any other.
+ */
+export async function readClonableProjectConfig(
+  workspaceRoot: string,
+  projectId: string,
+): Promise<{ permissions?: PermissionsConfig; color?: string }> {
+  const entries = await resolveEntries(workspaceRoot);
+  const found = entries.find(e => e.projectId === projectId);
+  if (!found) throw new NotFoundError(`no project with id ${projectId}`);
+  const config = await readConfigAt(found.abs);
+  if (!config) throw new NotFoundError(`project config missing: ${found.entry}`);
+  const out: { permissions?: PermissionsConfig; color?: string } = {};
+  if (config.permissions) out.permissions = config.permissions;
+  if (config.color) out.color = config.color;
+  return out;
+}
+
 export interface CreateProjectInput {
   name: string;
   root: string;

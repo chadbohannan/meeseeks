@@ -7,6 +7,8 @@ export interface ListModelsResponse { models: ModelOption[] }
 export interface CreateProjectRequest {
   name: string;
   root: string;
+  /** Copy permissions and badge colour from this project id. */
+  copyFrom?: string;
   color?: string;
   context?: string;
   contextFile?: string;
@@ -26,7 +28,10 @@ export interface ListProjectsResponse { projects: ProjectSummary[] }
 export interface GetProjectResponse { project: ProjectDetail }
 
 // Workflows
-export interface CreateWorkflowRequest { name: string; states: WorkflowState[]; runtime?: RuntimeConfig }
+/** `copyFrom` clones the named workflow's own runtime block and permissions. */
+export interface CreateWorkflowRequest {
+  name: string; states: WorkflowState[]; runtime?: RuntimeConfig; copyFrom?: string;
+}
 export interface PatchWorkflowRequest { name?: string; states?: WorkflowState[]; force?: boolean; processDoc?: string; runtime?: RuntimeConfig | null }
 export interface DeleteWorkflowRequest { deleteFiles?: boolean }
 

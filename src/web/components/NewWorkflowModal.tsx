@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Modal } from './Modal.js';
-import { useCreateWorkflow } from '../hooks/queries.js';
+import { useCreateWorkflow, useWorkflows } from '../hooks/queries.js';
 import { StatesEditor } from './StatesEditor.js';
 import type { WorkflowState } from '@shared/types.js';
 import { toast } from 'sonner';
@@ -20,10 +20,14 @@ export function NewWorkflowModal({ open, onClose }: Props) {
   // directories is what the states list actually does, and renaming a state
   // later orphans the tickets already filed under the old folder.
   const [states, setStates] = useState<WorkflowState[]>(DEFAULT_STATES);
+  // Configuration only — the source's states and PROCESS.md are deliberately
+  // not copied, so the states editor above stays the user's own choice.
+  const [copyFrom, setCopyFrom] = useState('');
+  const workflows = useWorkflows();
   const create = useCreateWorkflow();
   const navigate = useNavigate();
 
-  const reset = () => { setName(''); setStates(DEFAULT_STATES); };
+  const reset = () => { setName(''); setStates(DEFAULT_STATES); setCopyFrom(''); };
   const close = () => { reset(); onClose(); };
 
   return (
@@ -34,7 +38,9 @@ export function NewWorkflowModal({ open, onClose }: Props) {
           e.preventDefault();
           if (states.length === 0) { toast.error('At least one state is required'); return; }
           try {
-            const res = await create.mutateAsync({ name, states });
+            const res = await create.mutateAsync({
+              name, states, ...(copyFrom ? { copyFrom } : {}),
+            });
             toast.success('Workflow created');
             close();
             navigate(`/workflows/${encodeURIComponent(res.workflow.workflowName)}`);
@@ -44,6 +50,25 @@ export function NewWorkflowModal({ open, onClose }: Props) {
         <label className="block">
           <span className="text-sm text-slate-400">Name</span>
           <input className="w-full bg-slate-800 rounded px-2 py-1 mt-1" value={name} onChange={(e) => setName(e.target.value)} required />
+        </label>
+        <label className="block">
+          <span className="text-sm text-slate-400">Copy configuration from</span>
+          <select
+            className="w-full bg-slate-800 rounded px-2 py-1 mt-1 text-sm"
+            value={copyFrom}
+            onChange={(e) => setCopyFrom(e.target.value)}
+          >
+            <option value="">Nothing — start fresh</option>
+            {(workflows.data?.workflows ?? [])
+              .filter(w => w.available)
+              .map(w => (
+                <option key={w.workflowName} value={w.workflowName}>{w.displayName}</option>
+              ))}
+          </select>
+          <span className="block text-[11px] text-slate-500 mt-1">
+            Copies that workflow&apos;s runtime block and permissions. States and its process
+            document are not copied.
+          </span>
         </label>
         <div>
           <span className="text-sm text-slate-400">States</span>
