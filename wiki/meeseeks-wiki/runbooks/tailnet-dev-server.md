@@ -8,15 +8,26 @@ your tailnet:
 make dev-tailnet
 ```
 
-It prints the URL and binds the Vite dev server to this host's Tailscale address:
+It binds the Vite dev server to this host's Tailscale address and prints the URL:
 
 ```
 Meeseeks dev UI: http://100.x.y.z:5173  (tailnet only, unauthenticated)
 ```
 
-The MagicDNS name works too — `http://<host>.<tailnet>.ts.net:5173`. The address is
-also reachable from the machine itself, so nothing is lost by binding there instead of
-loopback; `http://localhost:5173` is simply not the URL any more.
+From any device on the tailnet the bare hostname is enough — `http://quebox:5173` —
+because MagicDNS hands out the tailnet suffix as a search domain. The FQDN
+(`http://quebox.tailfe19c7.ts.net:5173`) is the same thing spelled out, useful on a
+device whose resolver is not using that search domain. The address is also reachable
+from the machine itself, so nothing is lost by binding there instead of loopback;
+`http://localhost:5173` is simply not the URL any more.
+
+That `.ts.net` name is internal, not a public hostname. It resolves through Tailscale's
+resolver to a `100.64.0.0/10` CGNAT address, which is not routable from the internet —
+so even a name that leaked reaches nothing. Two settings change that and both are
+opt-in: enabling HTTPS certificates publishes machine and tailnet names to public DNS
+and Certificate Transparency logs (`tailscale status --json` shows `CertDomains: null`
+when it is off), and `tailscale funnel` is the only feature that puts a port on the
+public internet.
 
 ## What is exposed, and what is not
 
