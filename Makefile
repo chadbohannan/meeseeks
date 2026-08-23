@@ -5,7 +5,12 @@
 SERVER_SRC := $(shell find src/server src/storage src/shared -name '*.ts' 2>/dev/null)
 WEB_SRC    := $(shell find src/web -name '*.ts' -o -name '*.tsx' -o -name '*.css' 2>/dev/null)
 
-DEV_SERVER := npx tsx watch --exclude 'boards/**' --exclude 'wiki/**' src/server/index.ts
+# The excludes name every directory the running server writes into. Without
+# them a ticket move, a prompt run, or an agent editing the wiki restarts the
+# server under the user. `boards/` is gone since the workflow collapse; the
+# directories that replaced it have to be listed by their new names, and
+# `*.pre-migrate/**` covers the backups the migration leaves behind.
+DEV_SERVER := npx tsx watch --exclude 'workflows/**' --exclude 'prompts/**' --exclude 'projects/**' --exclude '*.pre-migrate/**' --exclude 'wiki/**' --exclude '**/.claude/**' src/server/index.ts
 DEV_WEB    := npx vite
 DEV_BOTH   := npx concurrently -n server,web -c blue,magenta "$(DEV_SERVER)" "$(DEV_WEB)"
 
