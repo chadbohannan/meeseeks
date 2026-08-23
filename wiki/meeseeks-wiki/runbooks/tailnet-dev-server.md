@@ -98,9 +98,23 @@ loopback when it is not, so the exposure lives entirely in one env var and the M
 target that fills it from `tailscale ip -4`. There is no second config file and no flag
 to remember.
 
-Vite rejects `Host` headers it was not told about, so the config also sets
-`allowedHosts: ['.ts.net']` — without it, the IP works and the MagicDNS name returns a
-blocked-request error.
+Vite rejects `Host` headers it was not told about, and the three ways to address this
+machine produce three different headers, each needing its own coverage:
+
+| URL | Host header | Why it is allowed |
+| --- | --- | --- |
+| `http://100.x.y.z:5173` | `100.x.y.z:5173` | Vite allows IP literals already |
+| `http://quebox.tailfe19c7.ts.net:5173` | the FQDN | the `.ts.net` suffix entry |
+| `http://quebox:5173` | `quebox:5173` | named outright via `os.hostname()` |
+
+The last one is the trap: a leading dot in `allowedHosts` is a *suffix* match, so
+`.ts.net` never covers a bare hostname — and the bare hostname is what people type,
+since MagicDNS supplies the suffix as a search domain. Missing it produces
+`Blocked request. This host ("quebox") is not allowed.` from Vite while the IP and the
+FQDN both work, which reads like a DNS problem and is not one.
+
+If your Tailscale machine name differs from the system hostname, `os.hostname()` guesses
+wrong; set `MEESEEKS_DEV_ALLOWED_HOSTS=name1,name2` to add names explicitly.
 
 Production has its own seam and does not use this one: `MEESEEKS_HOST` moves the
 Fastify server itself, which serves the built SPA with no Vite in the picture. See
