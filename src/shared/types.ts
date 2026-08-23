@@ -95,6 +95,10 @@ export interface ProjectSummary {
 export interface ProjectDetail extends ProjectSummary {
   configPath: string;    // absolute path to the project's yaml file
   contextContent: string | null;
+  // Reported alongside the content so an editor can tell "this text is inline"
+  // from "this text is a file's current contents" — saving the second as the
+  // first would silently turn a live reference into a stale snapshot.
+  contextFile: string | null;
   permissions: PermissionsConfig | null;
 }
 

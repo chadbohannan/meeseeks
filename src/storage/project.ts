@@ -131,10 +131,21 @@ export async function listProjects(workspaceRoot: string): Promise<ProjectSummar
   return out;
 }
 
+/**
+ * An absolute `contextFile` is exempt from `resolveWithin` for the same reason
+ * `root` is: the document worth pointing at is usually the repository's own
+ * CLAUDE.md or AGENTS.md, which lives outside the workspace by definition. The
+ * harness does not pick that file up on its own — it reads context files from
+ * the working directory, which is the workspace root, while the project root is
+ * only an --add-dir — so naming it here is what gets it into the preamble.
+ * Relative entries keep resolving inside the config's own directory.
+ */
 async function resolveContext(config: ProjectConfig, configPath: string): Promise<string | null> {
   if (config.context !== undefined) return config.context;
   if (config.contextFile) {
-    const abs = resolveWithin(path.dirname(configPath), config.contextFile);
+    const abs = path.isAbsolute(config.contextFile)
+      ? config.contextFile
+      : resolveWithin(path.dirname(configPath), config.contextFile);
     return await readFile(abs, 'utf8').catch(() => null);
   }
   return null;
@@ -150,6 +161,7 @@ export async function getProject(workspaceRoot: string, projectId: string): Prom
     ...toSummary(projectId, config, await isDirectory(config.root)),
     configPath: found.abs,
     contextContent: await resolveContext(config, found.abs),
+    contextFile: config.contextFile ?? null,
     permissions: config.permissions ?? null,
   };
 }
@@ -159,6 +171,7 @@ export interface CreateProjectInput {
   root: string;
   color?: string;
   context?: string;
+  contextFile?: string;
   permissions?: PermissionsConfig;
 }
 
@@ -184,6 +197,7 @@ export async function createProject(
     root,
     color: input.color,
     context: input.context,
+    contextFile: input.contextFile,
     permissions: input.permissions ?? starterPermissions(root),
   };
   await mkdir(path.dirname(abs), { recursive: true });
@@ -197,6 +211,7 @@ export interface PatchProjectInput {
   root?: string;
   color?: string;
   context?: string;
+  contextFile?: string;
   permissions?: PermissionsConfig;
 }
 
@@ -222,7 +237,15 @@ export async function updateProject(
   }
   if (patch.root !== undefined) config.root = resolveProjectRoot(patch.root);
   if (patch.color !== undefined) config.color = patch.color;
-  if (patch.context !== undefined) config.context = patch.context;
+  // Empty string clears either field rather than setting it empty. Inline
+  // context takes precedence over a context file, so an editor switching from
+  // one to the other must be able to unset the one it is leaving behind — and
+  // an empty inline context that shadowed a perfectly good file would be a
+  // silent way to lose the file's content.
+  if (patch.context !== undefined) config.context = patch.context === '' ? undefined : patch.context;
+  if (patch.contextFile !== undefined) {
+    config.contextFile = patch.contextFile === '' ? undefined : patch.contextFile;
+  }
   if (patch.permissions !== undefined) config.permissions = patch.permissions;
 
   await writeFile(found.abs, serialize(config), 'utf8');
@@ -230,6 +253,7 @@ export async function updateProject(
     ...toSummary(projectId, config, await isDirectory(config.root)),
     configPath: found.abs,
     contextContent: await resolveContext(config, found.abs),
+    contextFile: config.contextFile ?? null,
     permissions: config.permissions ?? null,
   };
 }

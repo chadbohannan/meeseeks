@@ -1,7 +1,7 @@
 # Meeseeks — Onboarding Seeding
 
 **Date:** 2026-08-14
-**Status:** Phases 1–2 implemented 2026-08-23; phases 3–4 (UI) not started
+**Status:** Phases 1–3 implemented 2026-08-23; phase 4 (clone) not started
 **Follows:** [Collapsing Boards into Workflows](2026-08-13-workflow-collapse-design.md)
 **Supersedes:** [Onboarding Defaults](2026-06-09-onboarding-defaults-design.md)
 

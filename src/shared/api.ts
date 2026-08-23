@@ -9,6 +9,7 @@ export interface CreateProjectRequest {
   root: string;
   color?: string;
   context?: string;
+  contextFile?: string;
   permissions?: PermissionsConfig;
 }
 export interface PatchProjectRequest {
@@ -16,6 +17,7 @@ export interface PatchProjectRequest {
   root?: string;
   color?: string;
   context?: string;
+  contextFile?: string;
   permissions?: PermissionsConfig;
 }
 export interface DetectProjectRequest { root: string }

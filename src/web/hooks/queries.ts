@@ -27,6 +27,14 @@ export function useCreateProject() {
     },
   });
 }
+/**
+ * Detection is a mutation only in the react-query sense — it writes nothing.
+ * It is not a query because it is triggered by the user asking for it, against
+ * a root they may still be typing, and must be re-runnable on demand.
+ */
+export function useDetectProject() {
+  return useMutation({ mutationFn: (root: string) => api.detectProject(root) });
+}
 export function usePatchProject(projectId: string) {
   const qc = useQueryClient();
   return useMutation({

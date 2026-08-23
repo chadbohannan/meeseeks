@@ -8,6 +8,7 @@ import type {
   ListPromptsResponse, GetPromptResponse, PutPromptRequest, ListPromptLogsResponse,
   ListModelsResponse,
   CreateProjectRequest, PatchProjectRequest, ListProjectsResponse, GetProjectResponse,
+  DetectProjectResponse,
   ProjectSummary, ResolvedPermissions,
 } from '@shared/api.js';
 import type { ListRuntimesResponse, SpawnRuntimeResponse, RuntimeSummary } from '@shared/runtime.js';
@@ -54,6 +55,8 @@ export const api = {
   patchProject: (id: string, req: PatchProjectRequest) =>
     request<GetProjectResponse>('PATCH', `/api/projects/${enc(id)}`, req),
   deleteProject: (id: string) => request<{ ok: boolean }>('DELETE', `/api/projects/${enc(id)}`),
+  detectProject: (root: string) =>
+    request<DetectProjectResponse>('POST', '/api/projects/detect', { root }),
   ticketPermissions: (workflowName: string, filename: string) =>
     request<{ projectId: string | null; projectResolved: boolean; permissions: ResolvedPermissions | null }>(
       'GET', `/api/tickets/${enc(workflowName)}/${enc(filename)}/permissions`),

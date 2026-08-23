@@ -5,6 +5,8 @@ import {
   useProjects, useProject, usePatchProject, useDeleteProject,
 } from '../hooks/queries.js';
 import { NewProjectModal } from '../components/NewProjectModal.js';
+import { DetectionChecklist, type AcceptedDetections } from '../components/DetectionChecklist.js';
+import { mergeAllowedTools } from '../lib/detections.js';
 import type { PermissionsConfig } from '@shared/types.js';
 
 const FALLBACK_COLOR = '#64748b';
@@ -59,7 +61,8 @@ function ProjectEditor({ projectId }: { projectId: string }) {
   const navigate = useNavigate();
 
   const [draft, setDraft] = useState<{
-    name: string; root: string; color: string; context: string; permissions: PermissionsConfig;
+    name: string; root: string; color: string; context: string;
+    contextFile: string | null; permissions: PermissionsConfig;
   } | null>(null);
 
   if (isLoading) return <p className="text-slate-500">Loading…</p>;
@@ -70,7 +73,11 @@ function ProjectEditor({ projectId }: { projectId: string }) {
     name: p.name,
     root: p.root,
     color: p.color ?? FALLBACK_COLOR,
-    context: p.contextContent ?? '',
+    // When a context file is set, contextContent is that file's contents rather
+    // than text the user typed here, so the textarea shows it read-only. Saving
+    // it as inline context would replace a live reference with a stale copy.
+    context: p.contextFile ? '' : (p.contextContent ?? ''),
+    contextFile: p.contextFile,
     permissions: p.permissions ?? { allowedPaths: [], allowedTools: [], deniedTools: [] },
   };
   const set = (patchDraft: Partial<typeof current>) => setDraft({ ...current, ...patchDraft });
@@ -126,14 +133,27 @@ function ProjectEditor({ projectId }: { projectId: string }) {
         </div>
         <div>
           <label className="block text-xs text-slate-400 mb-1">Project context</label>
-          <textarea
-            className="w-full bg-slate-800 rounded px-2 py-1 text-xs font-mono h-32"
-            value={current.context}
-            onChange={(e) => set({ context: e.target.value })}
-            placeholder="What this codebase is, where its docs live…"
-          />
+          {current.contextFile ? (
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className="font-mono text-slate-300 break-all">{current.contextFile}</span>
+              <button
+                type="button"
+                className="px-2 py-0.5 rounded bg-slate-700 text-[10px] shrink-0"
+                onClick={() => set({ contextFile: null })}
+              >Use inline text instead</button>
+            </div>
+          ) : (
+            <textarea
+              className="w-full bg-slate-800 rounded px-2 py-1 text-xs font-mono h-32"
+              value={current.context}
+              onChange={(e) => set({ context: e.target.value })}
+              placeholder="What this codebase is, where its docs live…"
+            />
+          )}
           <p className="text-[10px] text-slate-500 mt-0.5">
-            Prepended to every agent preamble for this project, ahead of board and workflow context.
+            {current.contextFile
+              ? 'Read from this file at spawn time, so edits in the repository take effect without touching the project config.'
+              : 'Prepended to every agent preamble for this project, ahead of workflow context.'}
           </p>
         </div>
       </div>
@@ -145,6 +165,19 @@ function ProjectEditor({ projectId }: { projectId: string }) {
       </p>
       <PermissionsFields value={current.permissions} onChange={(next) => set({ permissions: next })} />
 
+      <div className="mt-3">
+        <DetectionChecklist
+          root={current.root}
+          onAccept={(accepted: AcceptedDetections) => set({
+            permissions: {
+              ...current.permissions,
+              allowedTools: mergeAllowedTools(current.permissions.allowedTools, accepted.allowedTools),
+            },
+            ...(accepted.contextFile ? { contextFile: accepted.contextFile } : {}),
+          })}
+        />
+      </div>
+
       <div className="flex items-center gap-2 mt-5">
         <button
           className="px-3 py-1 rounded bg-blue-600 text-sm disabled:opacity-50"
@@ -155,7 +188,10 @@ function ProjectEditor({ projectId }: { projectId: string }) {
                 name: current.name,
                 root: current.root,
                 color: current.color,
-                context: current.context,
+                // A context file wins over inline text when it is set, so the
+                // two are never sent together: '' clears whichever is unused.
+                context: current.contextFile ? '' : current.context,
+                contextFile: current.contextFile ?? '',
                 permissions: current.permissions,
               });
               setDraft(null);

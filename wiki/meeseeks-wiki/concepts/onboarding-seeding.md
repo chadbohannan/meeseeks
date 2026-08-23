@@ -90,6 +90,48 @@ any other proposal, never an ongoing read. The workflow collapse found exactly s
 file silently adding to Meeseeks-generated permissions; the point of moving those
 grants into the project config is that each grant then has one source.
 
+## The checklist, and what accepting one does
+
+`DetectionChecklist` runs detection on demand and renders each proposal through
+`SeededValue`, which shows the value, its reason, and its evidence on the row rather
+than behind a tooltip — a justification people have to hover to see is one they will
+not read, and a checklist nobody reads has made permissions less considered rather
+than more. Accepting hands the values back to the form, which folds them into its
+draft; the user still has to save. Nothing detection touches is written before that.
+
+Accepted permissions are **unioned** into `allowedTools`, never substituted for it, so
+a grant the user wrote by hand survives an accept. The folding rules live in
+`src/web/lib/detections.ts` as pure functions, imported relatively rather than through
+the `@shared/*` alias so the server tsconfig can pull them into `tests/` — the same
+arrangement `model-options.ts` uses, and the repository's answer to having no DOM test
+harness.
+
+Nothing lands in `allowedPaths`: every proposal the detector makes is a tool pattern,
+and `allowedPaths` is the `--add-dir` list that the project root already covers.
+
+### Why a context file may point outside the workspace
+
+A `context` proposal names the repository's own `CLAUDE.md` or `AGENTS.md`, and
+accepting it sets the project's `contextFile`. That path is exempt from
+`resolveWithin` when absolute, the same exemption `ProjectConfig.root` carries and for
+the same reason: the document worth pointing at lives in the codebase, which is
+outside the workspace by definition.
+
+It is worth being explicit about why this is not redundant with the harness's own
+behaviour. Claude Code reads `CLAUDE.md` from its working directory — and since the
+workflow collapse that directory is the *workspace root*, not the project root. The
+repository's own instructions are therefore **not** picked up natively; the project
+root reaches the agent only as an `--add-dir`. Naming the file in `contextFile` is
+what gets its contents into the preamble.
+
+Inline `context` takes precedence over `contextFile`, which forces two rules that were
+not previously exercised because only a hand-edited YAML could set the file field:
+`updateProject` treats an empty string as *clear* rather than *set to empty* for both
+fields, and `ProjectDetail` reports `contextFile` alongside `contextContent`. Without
+the second, the project editor would load a file's contents into its inline-context
+textarea and save them back as inline text — silently converting a live reference into
+a stale snapshot.
+
 ## Why the starter permissions are curated, not scraped
 
 Auditing this repo's own workspace — the most mature one in existence — found two
@@ -125,4 +167,7 @@ default would be no safer, only less useful.
 | Starter set applied on project create | `src/storage/project.ts`, `createProject` |
 | Detectors, dedupe, and tolerance rules | `src/storage/detect.ts` |
 | Detection endpoint | `src/server/routes/projects.ts`, `POST /api/projects/detect` |
+| Checklist and proposal row | `src/web/components/DetectionChecklist.tsx`, `SeededValue.tsx` |
+| Accept-folding rules | `src/web/lib/detections.ts` |
+| Absolute `contextFile` exemption | `src/storage/project.ts`, `resolveContext` |
 | Workspace audit (8 sources, 2 useful) | [Onboarding Seeding design](../../../docs/superpowers/specs/2026-08-14-onboarding-seeding-design.md) |

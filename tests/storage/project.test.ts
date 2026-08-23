@@ -252,3 +252,49 @@ describe('deleteProject', () => {
     await expect(deleteProject(await workspace(), 'nope')).rejects.toThrow(NotFoundError);
   });
 });
+
+describe('contextFile', () => {
+  // The repo's own CLAUDE.md is outside the workspace by definition, and the
+  // harness does not read it on its own: cwd is the workspace root, and the
+  // project root is only an --add-dir.
+  it('resolves an absolute context file living outside the workspace', async () => {
+    const root = await workspace();
+    const repo = await repoDir(root, 'outside-repo');
+    const doc = path.join(repo, 'CLAUDE.md');
+    await writeYaml(doc, '# how this codebase works');
+
+    await createProject(root, { name: 'Ctx', root: repo, contextFile: doc });
+    const detail = await getProject(root, 'ctx');
+    expect(detail.contextFile).toBe(doc);
+    expect(detail.contextContent).toBe('# how this codebase works');
+  });
+
+  it('reports a missing context file as no content rather than throwing', async () => {
+    const root = await workspace();
+    const repo = await repoDir(root);
+    await createProject(root, { name: 'Gone', root: repo, contextFile: path.join(repo, 'NOPE.md') });
+    const detail = await getProject(root, 'gone');
+    expect(detail.contextContent).toBeNull();
+  });
+
+  it('lets a patch swap between inline context and a context file', async () => {
+    const root = await workspace();
+    const repo = await repoDir(root);
+    const doc = path.join(repo, 'AGENTS.md');
+    await writeYaml(doc, 'from the file');
+
+    await createProject(root, { name: 'Swap', root: repo, context: 'typed by hand' });
+    expect((await getProject(root, 'swap')).contextContent).toBe('typed by hand');
+
+    // Inline context wins while it is set, so switching to a file must clear it.
+    await updateProject(root, 'swap', { context: '', contextFile: doc });
+    const onFile = await getProject(root, 'swap');
+    expect(onFile.contextFile).toBe(doc);
+    expect(onFile.contextContent).toBe('from the file');
+
+    await updateProject(root, 'swap', { contextFile: '', context: 'typed again' });
+    const inline = await getProject(root, 'swap');
+    expect(inline.contextFile).toBeNull();
+    expect(inline.contextContent).toBe('typed again');
+  });
+});
