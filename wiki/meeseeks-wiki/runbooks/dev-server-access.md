@@ -24,19 +24,30 @@ is not fine on conference wifi or a café hotspot.
 
 Two ways to tighten it, in increasing order of effort:
 
-**Narrow the bind.** `MEESEEKS_DEV_HOST` takes an address and the dev server uses it
-instead of the wildcard:
+**Narrow the bind.** Two targets wrap `MEESEEKS_DEV_HOST`, which takes an address and
+is used instead of the wildcard:
 
 ```
-MEESEEKS_DEV_HOST=$(tailscale ip -4) make dev   # tailnet only
-MEESEEKS_DEV_HOST=127.0.0.1 make dev            # this machine only
+make dev-tailnet    # this host's tailnet address only
+make dev-local      # loopback only
 ```
 
-Binding one address has costs worth knowing before reaching for it: `localhost` stops
-working when you bind the tailnet address, the bare hostname stops working too (it
-resolves to `127.0.1.1`, which is no longer bound), and a tailnet address that changes
-needs a restart because the address is read once at startup. The wildcard has none of
-those problems, which is why it is the default.
+`dev-tailnet` reads `tailscale ip -4` when it runs, so a new address is picked up by the
+next invocation and unrelated targets never shell out to tailscale. Any other address
+works directly: `MEESEEKS_DEV_HOST=192.168.1.50 make dev`.
+
+Narrowing costs something, which is why it is not the default. Under `dev-tailnet` only
+the tailnet address answers — `localhost` and the bare hostname are both refused, the
+second because Debian resolves it to `127.0.1.1`, which is no longer bound:
+
+```
+http://100.x.y.z:5173/    200
+http://localhost:5173/    connection refused
+http://quebox:5173/       connection refused
+```
+
+A tailnet address that changes mid-session also needs a restart, since the bind is read
+once at startup. The wildcard has none of these problems.
 
 **Firewall the port.** Leave the wildcard bind and let the host firewall decide which
 interfaces may reach 5173 — for example `ufw allow in on tailscale0 to any port 5173`
