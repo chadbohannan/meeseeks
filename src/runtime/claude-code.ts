@@ -117,6 +117,12 @@ export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
   argv.push('--print');
   argv.push('--output-format', 'stream-json');
   argv.push('--verbose');
+  // A one-shot prompt runs with nobody at the keyboard: a permission prompt in
+  // --print mode has no answerable surface, so the run would stall until it was
+  // killed. Bypassing is the only mode that lets these finish unattended. It also
+  // means deniedTools below stops being enforced by the harness — the settings
+  // file still carries it, but treat a prompt's permissions as advisory.
+  argv.push('--permission-mode', 'bypassPermissions');
 
   const model = ctx.model ?? ctx.runtime?.model;
   if (model) argv.push('--model', model);

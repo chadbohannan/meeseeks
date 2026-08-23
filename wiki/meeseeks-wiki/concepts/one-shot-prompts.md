@@ -8,7 +8,9 @@ Prompt bodies live as Markdown files under `<board>/prompts/*.md`. Filenames are
 
 ## Spawn shape
 
-The adapter `buildPromptSpawnSpec` in `src/runtime/claude-code.ts` differs from the ticket adapter in three ways. It passes `--print --output-format stream-json --verbose`, so the harness runs non-interactively and emits the structured event stream the [`StreamParser`](../components/runtime.md) was designed for. It passes the prompt body as a positional argv argument (not via `--append-system-prompt`), making the body the user turn rather than a system instruction. And it does not generate the `Stop`/`Notification` hooks that ticket runtimes rely on — those are only meaningful in interactive mode where the agent loops between turns. In one-shot mode the agent runs one turn and exits, so lifecycle is driven entirely by the parser (`init` or `turn-start` → `running`) and the child process exit (`exited` if exit code 0, otherwise `errored`).
+The adapter `buildPromptSpawnSpec` in `src/runtime/claude-code.ts` differs from the ticket adapter in four ways. It passes `--print --output-format stream-json --verbose`, so the harness runs non-interactively and emits the structured event stream the [`StreamParser`](../components/runtime.md) was designed for. It passes the prompt body as a positional argv argument (not via `--append-system-prompt`), making the body the user turn rather than a system instruction. And it does not generate the `Stop`/`Notification` hooks that ticket runtimes rely on — those are only meaningful in interactive mode where the agent loops between turns. In one-shot mode the agent runs one turn and exits, so lifecycle is driven entirely by the parser (`init` or `turn-start` → `running`) and the child process exit (`exited` if exit code 0, otherwise `errored`).
+
+And it passes `--permission-mode bypassPermissions`. This is not a convenience: a prompt run has nobody at the keyboard, and a permission prompt in `--print` mode has no surface on which to answer it, so an unbypassed run that touched a gated tool would sit until something killed it. The ticket adapter has the opposite situation — an interactive PTY where the `permission_prompt` Notification hook exists precisely so the UI can raise the question — which is why the flag belongs to this adapter alone. The cost is that `deniedTools` stops being enforced for prompt runs; the resolved permissions are still written into the settings file, but under bypass the harness does not consult them, so treat a prompt's permissions as advisory rather than as a floor.
 
 The supervisor's `spawnPrompt` method in `src/runtime/supervisor.ts` uses Node's `child_process.spawn` with piped stdio rather than `node-pty`. To preserve a uniform internal interface, it wraps the `ChildProcess` in a `PtyLike` shim whose `write` and `resize` are no-ops and whose `onExit` proxies `child.on('exit', ...)`. This keeps the `Runtime` record uniform across kinds at the cost of a small lie — prompt runtimes ignore PTY input and resize calls entirely, but `writeInput` and `resize` will silently succeed against the shim. WebSocket clients filter on `runtime.kind === 'prompt'` to avoid sending input.
 
@@ -41,6 +43,7 @@ The `--print`-mode path was previously called out in [components/runtime.md](../
 | 2026-05-02 | `src/web/components/PromptsEditor.tsx` |
 | 2026-05-02 | `src/web/components/console/PromptRunModal.tsx` |
 | 2026-05-02 | commit `32c8f2b` "implemented one-shot agents" |
+| 2026-08-23 | `--permission-mode bypassPermissions` on prompt runs |
 
 ## Why a running prompt can look hung
 
