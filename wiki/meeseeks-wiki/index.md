@@ -78,6 +78,7 @@
 - [Claude Code Sandboxing](runbooks/claude-code-sandboxing.md) — permission modes, settings precedence, and OS-level sandboxing for orchestrated agents
 - [Board-to-Workflow Migration](runbooks/board-to-workflow-migration.md) — moving an existing workspace off `project.yaml` + `boards/` onto `workspace.yaml` + `workflows/`
 - [Tracing Meeseeks Sessions to LangSmith](runbooks/tracing-meeseeks-sessions-to-langsmith.md) — piping supervised sessions into LangSmith via the supervisor's settings-file seam
+- [Serving the Dev UI on a Tailnet](runbooks/tailnet-dev-server.md) — `make dev-tailnet`, what it exposes and what it deliberately does not
 
 ## Syntheses
 - [Architecture Overview](syntheses/architecture-overview.md) — system decomposition and data flow
