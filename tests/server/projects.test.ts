@@ -1,9 +1,9 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { mkdir } from 'node:fs/promises';
+import { mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { bootTestServer, type TestServer } from '../helpers/server.js';
 import { makeBareProject } from '../helpers/tmp-project.js';
-import type { ProjectSummary, ProjectDetail } from '../../src/shared/types.js';
+import type { Detection, ProjectSummary, ProjectDetail } from '../../src/shared/types.js';
 
 let cleanups: Array<() => Promise<void>> = [];
 afterEach(async () => { for (const c of cleanups.splice(0)) await c(); });
@@ -104,5 +104,62 @@ describe('project routes', () => {
     const ws = await json(await fetch(`${srv.url}/api/workspace`));
     expect(ws.workspace.config.name).toBe('WS');
     expect(ws.workspace.config.projects).toEqual(['projects/coexist.yaml']);
+  });
+});
+
+describe('POST /api/projects/detect', () => {
+  it('returns proposals for a repository root without creating anything', async () => {
+    const { srv, repo } = await boot();
+    await writeFile(
+      path.join(repo, 'package.json'),
+      JSON.stringify({ scripts: { test: 'vitest' } }),
+      'utf8',
+    );
+
+    const res = await fetch(`${srv.url}/api/projects/detect`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ root: repo }),
+    });
+    expect(res.status).toBe(200);
+    const detections = (await json(res)).detections as Detection[];
+    expect(detections.map(d => d.value)).toContain('Bash(npm run test *)');
+
+    // Detection runs before the project exists and must not bring one into being.
+    expect((await json(await fetch(`${srv.url}/api/projects`))).projects).toEqual([]);
+  });
+
+  // `detect` must not be captured as a project id by /api/projects/:projectId.
+  it('is not shadowed by the project detail route', async () => {
+    const { srv, repo } = await boot();
+    await post(srv, { name: 'Detect', root: repo });
+    const res = await fetch(`${srv.url}/api/projects/detect`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ root: repo }),
+    });
+    expect(res.status).toBe(200);
+    expect(Array.isArray((await json(res)).detections)).toBe(true);
+  });
+
+  it('rejects a request with no root', async () => {
+    const { srv } = await boot();
+    const res = await fetch(`${srv.url}/api/projects/detect`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res.status).toBe(400);
+  });
+
+  it('returns an empty list for a root that does not exist', async () => {
+    const { srv } = await boot();
+    const res = await fetch(`${srv.url}/api/projects/detect`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ root: '/definitely/not/here' }),
+    });
+    expect(res.status).toBe(200);
+    expect((await json(res)).detections).toEqual([]);
   });
 });

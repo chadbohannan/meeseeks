@@ -43,6 +43,53 @@ Idempotence comes from the registry rather than a flag: `ensureWorkspaceSeeded` 
 early when `workflows:` is non-empty. A user who deletes the starter workflow does not
 get it back, and a `workspace.yaml` that already exists never reaches the branch at all.
 
+## Detection: proposals, never writes
+
+`detectProjectDefaults` (`src/storage/detect.ts`) reads a project root and returns a
+list of `Detection` proposals. It writes nothing — not to the project config, and not
+to the repository it inspects — and its tests assert the second half of that by
+snapshotting the fixture's sizes and mtimes across a call.
+
+`reason` and `evidence` are required fields on the type rather than optional
+decoration. They are what makes a proposal reviewable: a grant whose basis the user
+cannot see is one they cannot meaningfully accept, and a checklist people click
+through without reading has made permissions *less* considered rather than more.
+This is the same provenance discipline the codebase already applies to
+`WorkflowDetail.runtimeInherited` and to `ResolvedPermissionEntry.origins` — a seeded
+value is simply a third kind of value the user did not type.
+
+**Write and Edit come back unselected.** Read access to a repository and write access
+to it are different decisions, and only the first is implied by registering it.
+The test asserting `preselected: false` on those proposals is the one most worth
+mutation-testing: if flipping that default to `true` does not fail a test, the review
+step is decorative.
+
+Detectors propose from what a file **declares**, not from names Meeseeks expects to
+find. `npm run typecheck` is a convention, not a standard, so the npm detector walks
+the scripts actually present in `package.json` and proposes for those whose names read
+as verification — which is why a repo declaring `test:e2e` gets a proposal and a repo
+declaring only `dev` gets none. The same rule governs the Makefile detector, which
+reads targets off the left of `name:` lines and therefore misses generated and included
+ones: a missing proposal the user can add by hand beats a proposal for a target that
+does not exist.
+
+Detection is deterministic file inspection, never an LLM pass. A model would write
+better prose non-reproducibly, at a cost, over the network, at the moment a new user is
+deciding whether the tool works — and it could not produce the one-line justification
+that makes a proposal reviewable.
+
+`POST /api/projects/detect` is a separate endpoint rather than a step inside project
+creation, for two reasons: it runs *before* the project exists, while the user is still
+typing a path, and it must be re-runnable against an existing project without mutating
+it. It is a POST because the root travels in the body, not because it changes anything.
+The route is registered ahead of `/api/projects/:projectId` so `detect` is not captured
+as a project id.
+
+Importing a repository's own `.claude/settings.json` is a **one-time copy** shown like
+any other proposal, never an ongoing read. The workflow collapse found exactly such a
+file silently adding to Meeseeks-generated permissions; the point of moving those
+grants into the project config is that each grant then has one source.
+
 ## Why the starter permissions are curated, not scraped
 
 Auditing this repo's own workspace — the most mature one in existence — found two
@@ -76,4 +123,6 @@ default would be no safer, only less useful.
 | Idempotence via the registry | `src/storage/seed.ts` |
 | Starter templates and `{root}` placeholder | `src/storage/templates.ts` |
 | Starter set applied on project create | `src/storage/project.ts`, `createProject` |
+| Detectors, dedupe, and tolerance rules | `src/storage/detect.ts` |
+| Detection endpoint | `src/server/routes/projects.ts`, `POST /api/projects/detect` |
 | Workspace audit (8 sources, 2 useful) | [Onboarding Seeding design](../../../docs/superpowers/specs/2026-08-14-onboarding-seeding-design.md) |

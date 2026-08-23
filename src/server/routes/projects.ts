@@ -5,7 +5,9 @@ import {
   listProjects, getProject, createProject, updateProject, deleteProject,
   type CreateProjectInput, type PatchProjectInput,
 } from '../../storage/project.js';
+import { detectProjectDefaults } from '../../storage/detect.js';
 import { InvalidInputError } from '../../storage/errors.js';
+import type { DetectProjectRequest } from '../../shared/api.js';
 
 export async function registerProjectRoutes(
   app: FastifyInstance,
@@ -26,6 +28,23 @@ export async function registerProjectRoutes(
     const project = await createProject(open.meta.path, body as CreateProjectInput);
     hub.broadcast({ type: 'project-changed', payload: { projectId: project.projectId, kind: 'created' } });
     return { project };
+  });
+
+  /**
+   * Detection is its own endpoint rather than a side effect of create: it runs
+   * *before* the project exists, while the user is still typing the path, and
+   * it must be re-runnable against an existing project without mutating it.
+   * The route is a POST because the root travels in the body, not because it
+   * changes anything — nothing is written here.
+   *
+   * Registered ahead of /api/projects/:projectId so `detect` is not captured
+   * as a project id.
+   */
+  app.post<{ Body: DetectProjectRequest }>('/api/projects/detect', async (req) => {
+    state.require();
+    const root = req.body?.root;
+    if (!root) throw new InvalidInputError('root required');
+    return { detections: await detectProjectDefaults(root) };
   });
 
   app.get<{ Params: { projectId: string } }>('/api/projects/:projectId', async (req) => {

@@ -1,4 +1,4 @@
-import type { WorkspaceMeta, WorkflowDetail, WorkflowState, TicketSummary, TicketDetail, FileNode, ModelOption, PermissionsConfig, ProjectSummary, ProjectDetail, RuntimeConfig, WorkflowSummary, ResolvedPermissions } from './types.js';
+import type { WorkspaceMeta, WorkflowDetail, WorkflowState, TicketSummary, TicketDetail, FileNode, ModelOption, PermissionsConfig, ProjectSummary, ProjectDetail, Detection, RuntimeConfig, WorkflowSummary, ResolvedPermissions } from './types.js';
 
 // Models
 export interface ListModelsResponse { models: ModelOption[] }
@@ -18,6 +18,8 @@ export interface PatchProjectRequest {
   context?: string;
   permissions?: PermissionsConfig;
 }
+export interface DetectProjectRequest { root: string }
+export interface DetectProjectResponse { detections: Detection[] }
 export interface ListProjectsResponse { projects: ProjectSummary[] }
 export interface GetProjectResponse { project: ProjectDetail }
 
@@ -61,4 +63,4 @@ export interface ApiErrorBody {
   error: { code: string; message: string };
 }
 
-export type { WorkspaceMeta, WorkflowDetail, TicketSummary, TicketDetail, FileNode, ProjectSummary, ProjectDetail, PermissionsConfig, RuntimeConfig, WorkflowSummary, ResolvedPermissions };
+export type { Detection, WorkspaceMeta, WorkflowDetail, TicketSummary, TicketDetail, FileNode, ProjectSummary, ProjectDetail, PermissionsConfig, RuntimeConfig, WorkflowSummary, ResolvedPermissions };

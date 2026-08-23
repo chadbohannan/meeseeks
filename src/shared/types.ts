@@ -35,6 +35,21 @@ export interface PermissionsConfig {
   deniedTools: string[];
 }
 
+/**
+ * One proposal from inspecting a project root. `reason` and `evidence` are
+ * required rather than decorative: they are what makes a proposal reviewable,
+ * and a grant a user cannot see the basis for is one they cannot meaningfully
+ * accept. `preselected` is the detector's recommendation, never a commitment —
+ * nothing is written until the user accepts it.
+ */
+export interface Detection {
+  kind: 'permission' | 'context' | 'runtime';
+  value: string;
+  reason: string;
+  evidence: string;   // repo-relative path that justified it
+  preselected: boolean;
+}
+
 export type PermissionOrigin = 'project' | 'workflow';
 
 /**
