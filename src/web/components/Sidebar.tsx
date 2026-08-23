@@ -21,7 +21,7 @@ export function Sidebar() {
         <button
           className="text-xs px-2 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-300"
           onClick={() => setShowNew(true)}
-        >+ Workflow</button>
+        >New</button>
       </div>
       <div className="flex-1 overflow-y-auto py-1">
         {workflows.isLoading && <p className="px-3 py-2 text-slate-500">Loading…</p>}
@@ -103,6 +103,11 @@ function useActiveState() {
   };
 }
 
+// Matches the fallbacks the project editor and the ticket card already use, so
+// an uncolored project or ticket looks the same wherever it is drawn.
+const PROJECT_FALLBACK_COLOR = '#64748b';
+const TICKET_FALLBACK_COLOR = '#6b7280';
+
 function isRuntimeActive(r: RuntimeSummary) {
   return r.status === 'running' || r.status === 'starting' || r.status === 'idle' || r.status === 'awaiting-user';
 }
@@ -121,6 +126,13 @@ function WorkflowNode({ workflow }: { workflow: WorkflowSummary }) {
   const tickets = useTickets(hasActiveRuntime ? workflow.workflowName : undefined);
   const ticketsByFilename = new Map(
     (tickets.data?.tickets ?? []).map((t) => [t.filename, t]),
+  );
+  // Active rows carry two colors: the ticket's own on the outer border and its
+  // project's on an inner one, so a glance tells you which codebase a running
+  // agent is working in without reading the title.
+  const projects = useProjects();
+  const projectColors = new Map(
+    (projects.data?.projects ?? []).map((pr) => [pr.projectId, pr.color ?? PROJECT_FALLBACK_COLOR]),
   );
 
   const userCollapsed = useUi((s) => !!s.collapsed[workflowCollapseKey(workflow.workflowName)]);
@@ -175,17 +187,36 @@ function WorkflowNode({ workflow }: { workflow: WorkflowSummary }) {
               {stateRuntimes.map((r) => {
                 const ticket = ticketsByFilename.get(r.ticketRef!.filename);
                 const isTicketActive = active.filename === r.ticketRef!.filename && active.workflowName === workflow.workflowName;
+                const projectColor = ticket?.project
+                  ? projectColors.get(ticket.project) ?? PROJECT_FALLBACK_COLOR
+                  : 'transparent';
                 return (
+                  // The ticket ring is its own element rather than an outline
+                  // or a box-shadow on the row: both of those paint outside the
+                  // row's box, where the sidebar's own scroll container clips
+                  // them.
                   <div
                     key={r.runtimeId}
-                    className={`flex items-center gap-1.5 pl-4 pr-2 py-[7px] my-[5px] rounded-md cursor-pointer hover:bg-slate-800 text-sm ${
-                      isTicketActive ? 'bg-slate-800 text-white' : 'text-slate-400'
-                    }`}
-                    style={{ border: `2px solid ${ticket?.color || "#6b7280"}` }}
-                    onClick={() => navigate(`${base}/tickets/${encodeURIComponent(r.ticketRef!.filename)}`)}
+                    className="my-[5px] mr-[5px] p-[2px] rounded-lg"
+                    style={{ border: `2px solid ${ticket?.color || TICKET_FALLBACK_COLOR}` }}
                   >
-                    <span className="truncate whitespace-nowrap">{ticket?.title ?? r.ticketRef!.filename}</span>
-                    <RuntimeStatusDot status={r.status} className="shrink-0 ml-auto h-3 w-3" />
+                    <div
+                      className={`flex items-start gap-1.5 pl-4 pr-2 py-[7px] rounded-md cursor-pointer hover:bg-slate-800 text-sm ${
+                        isTicketActive ? 'bg-slate-800 text-white' : 'text-slate-400'
+                      }`}
+                      style={{ border: `2px solid ${projectColor}` }}
+                      onClick={() => navigate(`${base}/tickets/${encodeURIComponent(r.ticketRef!.filename)}`)}
+                    >
+                      {/* Active tickets are few and the title is how you tell
+                          them apart, so these wrap rather than truncate. The
+                          state rows above still truncate — those are a fixed,
+                          familiar set. */}
+                      <span className="flex-1 min-w-0 break-words">{ticket?.title ?? r.ticketRef!.filename}</span>
+                      {/* Pinned to the first line of a wrapped title rather
+                          than centred against the whole block, so the dots stay
+                          on a common baseline down the list. */}
+                      <RuntimeStatusDot status={r.status} className="shrink-0 h-3 w-3 mt-[3px]" />
+                    </div>
                   </div>
                 );
               })}

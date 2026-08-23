@@ -79,7 +79,13 @@ export function Kanban({ workflow }: Props) {
               onDrop={(e) => { e.preventDefault(); handleDrop(s.dir); }}
             >
               <h3 className="text-sm font-semibold mb-2 px-1">
-                {s.name} <span className="text-slate-500">({items.length})</span>
+                <Link
+                  to={`/workflows/${encodeURIComponent(workflow.workflowName)}/state/${encodeURIComponent(s.dir)}`}
+                  className="hover:text-blue-400 hover:underline"
+                >
+                  {s.name}
+                </Link>{' '}
+                <span className="text-slate-500">({items.length})</span>
               </h3>
               {items.map((t) => (
                 <TicketCard

@@ -54,6 +54,16 @@ function PermissionsFields({
   );
 }
 
+/**
+ * Where a repository keeps its agent context by convention. Used to seed the
+ * path field when the user switches to file mode by hand, so the common case is
+ * a confirmation rather than a path they have to remember and type.
+ */
+function defaultContextFile(root: string): string {
+  const trimmed = root.trim().replace(/\/+$/, '');
+  return trimmed ? `${trimmed}/CLAUDE.md` : 'CLAUDE.md';
+}
+
 function ProjectEditor({ projectId }: { projectId: string }) {
   const { data, isLoading } = useProject(projectId);
   const patch = usePatchProject(projectId);
@@ -132,16 +142,36 @@ function ProjectEditor({ projectId }: { projectId: string }) {
           />
         </div>
         <div>
-          <label className="block text-xs text-slate-400 mb-1">Project context</label>
-          {current.contextFile ? (
-            <div className="flex items-center gap-2 text-[11px]">
-              <span className="font-mono text-slate-300 break-all">{current.contextFile}</span>
+          {/* `null` is inline mode and a string — empty included — is file mode,
+              so clearing the path field does not yank the input out from under
+              the cursor. Whichever mode is showing at save time is the one that
+              is written; the other side is cleared. */}
+          <div className="flex items-baseline justify-between mb-1">
+            <label className="text-xs text-slate-400">Project context</label>
+            {/* The toggle sits on the label row rather than under the field so
+                it stays put as the control below it changes height between the
+                one-line path input and the textarea. */}
+            {current.contextFile !== null ? (
               <button
                 type="button"
                 className="px-2 py-0.5 rounded bg-slate-700 text-[10px] shrink-0"
                 onClick={() => set({ contextFile: null })}
               >Use inline text instead</button>
-            </div>
+            ) : (
+              <button
+                type="button"
+                className="px-2 py-0.5 rounded bg-slate-700 text-[10px] shrink-0"
+                onClick={() => set({ contextFile: p.contextFile ?? defaultContextFile(current.root) })}
+              >Use a context file instead</button>
+            )}
+          </div>
+          {current.contextFile !== null ? (
+            <input
+              className="w-full bg-slate-800 rounded px-2 py-1 text-xs font-mono"
+              value={current.contextFile}
+              onChange={(e) => set({ contextFile: e.target.value })}
+              placeholder={defaultContextFile(current.root)}
+            />
           ) : (
             <textarea
               className="w-full bg-slate-800 rounded px-2 py-1 text-xs font-mono h-32"
@@ -151,8 +181,8 @@ function ProjectEditor({ projectId }: { projectId: string }) {
             />
           )}
           <p className="text-[10px] text-slate-500 mt-0.5">
-            {current.contextFile
-              ? 'Read from this file at spawn time, so edits in the repository take effect without touching the project config.'
+            {current.contextFile !== null
+              ? 'Read from this file at spawn time, so edits in the repository take effect without touching the project config. Leave it blank to keep using inline text.'
               : 'Prepended to every agent preamble for this project, ahead of workflow context.'}
           </p>
         </div>
@@ -190,8 +220,8 @@ function ProjectEditor({ projectId }: { projectId: string }) {
                 color: current.color,
                 // A context file wins over inline text when it is set, so the
                 // two are never sent together: '' clears whichever is unused.
-                context: current.contextFile ? '' : current.context,
-                contextFile: current.contextFile ?? '',
+                context: current.contextFile?.trim() ? '' : current.context,
+                contextFile: current.contextFile?.trim() ?? '',
                 permissions: current.permissions,
               });
               setDraft(null);
