@@ -41,7 +41,11 @@ describe('createProject', () => {
     expect(meta.config.projects).toEqual(['projects/my-project.yaml']);
 
     const text = await readFile(path.join(root, 'projects/my-project.yaml'), 'utf8');
-    expect(yaml.load(text)).toEqual({ name: 'My Project', root: repo });
+    expect(yaml.load(text)).toEqual({
+      name: 'My Project',
+      root: repo,
+      permissions: { allowedPaths: [], allowedTools: [`Read(${repo}/**)`], deniedTools: [] },
+    });
   });
 
   it('writes a long root on one line instead of folding it', async () => {
@@ -167,7 +171,13 @@ describe('getProject', () => {
   it('returns null context and permissions when unset', async () => {
     const root = await workspace();
     const repo = await repoDir(root);
-    await createProject(root, { name: 'Bare', root: repo });
+    // Written directly rather than through createProject, which seeds the
+    // starter permission set.
+    await writeYaml(path.join(root, 'projects/bare.yaml'), `name: Bare\nroot: ${repo}\n`);
+    await writeYaml(
+      path.join(root, 'workspace.yaml'),
+      `name: WS\nprojects:\n  - projects/bare.yaml\n`,
+    );
     const detail = await getProject(root, 'bare');
     expect(detail.contextContent).toBeNull();
     expect(detail.permissions).toBeNull();

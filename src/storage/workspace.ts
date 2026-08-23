@@ -102,6 +102,24 @@ export async function readWorkspace(workspaceRoot: string): Promise<WorkspaceMet
   const config: WorkspaceConfig = { name: path.basename(workspaceRoot), workflows: [], projects: [] };
   const text = yaml.dump(config, { lineWidth: -1 });
   await writeFile(yamlPath(workspaceRoot), text, 'utf8');
+
+  // Seeding belongs to this branch alone: readWorkspace runs on nearly every
+  // request, and only the call that discovers no config file is a first
+  // contact with the workspace. The import is dynamic to keep the
+  // workspace -> workflow -> workspace module cycle out of load order; this
+  // branch runs once per workspace, so the cost is irrelevant.
+  //
+  // A failure here must not make the workspace unopenable — an empty workspace
+  // is a working one — so it is logged and swallowed rather than thrown.
+  try {
+    const { ensureWorkspaceSeeded } = await import('./seed.js');
+    if (await ensureWorkspaceSeeded(workspaceRoot)) {
+      const seeded = await readFile(yamlPath(workspaceRoot), 'utf8');
+      return { path: path.resolve(workspaceRoot), config: parseConfig(seeded, workspaceRoot) };
+    }
+  } catch (err) {
+    console.warn(`failed to seed workspace at ${workspaceRoot}:`, err);
+  }
   return { path: path.resolve(workspaceRoot), config };
 }
 

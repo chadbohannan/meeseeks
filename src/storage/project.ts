@@ -4,6 +4,7 @@ import yaml from 'js-yaml';
 import { ConflictError, InvalidInputError, NotFoundError } from './errors.js';
 import { expandHome, resolveWithin, slugifyProjectPath, buildProjectFilename } from './paths.js';
 import { readWorkspace, addProjectToWorkspace, removeProjectFromWorkspace } from './workspace.js';
+import { starterPermissions } from './templates.js';
 import type {
   ProjectConfig, ProjectSummary, ProjectDetail, PermissionsConfig,
 } from '../shared/types.js';
@@ -174,12 +175,16 @@ export async function createProject(
   const abs = resolveWithin(workspaceRoot, entry);
   if (await exists(abs)) throw new ConflictError(`project config already exists: ${entry}`);
 
+  // A project created without permissions gets the starter set rather than
+  // none. It grants only read access to the root the caller just registered —
+  // implied by the act of registering it — and a caller that supplies its own
+  // permissions (including empty ones) overrides it entirely.
   const config: ProjectConfig = {
     name: input.name.trim(),
     root,
     color: input.color,
     context: input.context,
-    permissions: input.permissions,
+    permissions: input.permissions ?? starterPermissions(root),
   };
   await mkdir(path.dirname(abs), { recursive: true });
   await writeFile(abs, serialize(config), 'utf8');

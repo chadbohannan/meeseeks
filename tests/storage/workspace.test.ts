@@ -30,7 +30,8 @@ describe('readWorkspace', () => {
     );
     const meta = await readWorkspace(tp.root);
     expect(meta.config.name).toBe(path.basename(tp.root));
-    expect(meta.config.workflows).toEqual([]);
+    // Auto-created, and therefore seeded with the starter workflow.
+    expect(meta.config.workflows).toEqual(['workflows/development']);
     // The old file is left untouched for the migration to consume later.
     const old = await readFile(path.join(tp.root, 'project.yaml'), 'utf8');
     expect(old).toContain('boards:');
@@ -41,7 +42,7 @@ describe('readWorkspace', () => {
     cleanups.push(tp.cleanup);
     const meta = await readWorkspace(tp.root);
     expect(meta.config.name).toBe(path.basename(tp.root));
-    expect(meta.config.workflows).toEqual([]);
+    expect(meta.config.workflows).toEqual(['workflows/development']);
     // file was created on disk
     const text = await readFile(path.join(tp.root, 'workspace.yaml'), 'utf8');
     expect(text).toContain(`name: ${path.basename(tp.root)}`);

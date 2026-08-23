@@ -1,15 +1,16 @@
-import type { WorkflowState } from '../shared/types.js';
+import type { PermissionsConfig, WorkflowState } from '../shared/types.js';
 
 /**
- * Onboarding defaults. These templates give a freshly created board enough
- * scaffolding to be productive — a structured CONTEXT.md, a ready-to-use
- * Development workflow, and a state-aware PROCESS.md generator for workflows the user
- * adds later. They are deliberately generic: the org-specific machinery seen on
- * mature boards (JIRA proxy headers, .claude/bin discipline, code-rag globs)
- * is left for users to add, not baked in.
+ * Onboarding defaults. These templates give a freshly created workspace enough
+ * scaffolding to be productive — a ready-to-use Development workflow with a
+ * filled-in process document, a state-aware PROCESS.md generator for workflows
+ * the user adds later, and a conservative starting permission set for a newly
+ * registered project. They are deliberately generic: the org-specific machinery
+ * seen on mature workspaces (JIRA proxy headers, .claude/bin discipline,
+ * code-rag globs) is left for users to add, not baked in.
  */
 
-/** The Development workflow seeded into every new board. */
+/** The Development workflow seeded into every new workspace. */
 export const STARTER_WORKFLOW: { name: string; states: WorkflowState[] } = {
   name: 'Development',
   states: [
@@ -19,34 +20,6 @@ export const STARTER_WORKFLOW: { name: string; states: WorkflowState[] } = {
     { dir: 'done', name: 'Done' },
   ],
 };
-
-/** Board-level CONTEXT.md written when a board is created. */
-export function boardContextTemplate(name: string): string {
-  return `# ${name}
-
-One-line description of what this board manages. If it tracks work on a
-codebase, link the repository path here so agents can find it.
-
-## How this board works
-
-Your work lives as files on disk. Each workflow under \`workflows/\` is a workflow;
-within a workflow, each state is a subfolder, and **moving a ticket file between
-subfolders is how you change its state**. Agents read this file (CONTEXT.md)
-for board-wide guidance and a workflow's PROCESS.md for that workflow's rules.
-
-## Context for agents
-
-Anything an agent should know before working any ticket on this board goes
-here — the systems involved, where the relevant code lives, conventions to
-follow, and commands or tools to prefer. This text is injected into every
-agent started on this board, so keep it current.
-
-## Workflows
-
-Describe the workflows on this board and what kind of work belongs in each.
-A starter Development workflow has been created for you.
-`;
-}
 
 /** Filled-in PROCESS.md for the seeded Development workflow. */
 export const STARTER_WORKFLOW_PROCESS = `# Development Process
@@ -83,4 +56,37 @@ export function workflowProcessTemplate(workflowName: string, states: WorkflowSt
 about to do.
 
 ${sections}`;
+}
+
+/** Placeholder in `STARTER_PERMISSIONS`, replaced with the project's root. */
+export const ROOT_PLACEHOLDER = '{root}';
+
+/**
+ * The starting permission set for a newly registered project.
+ *
+ * This is the one default the audited workspace legitimately informs, and it is
+ * curated rather than scraped: that workspace's grants were absolute to one
+ * machine and specific to one ecosystem, so only the part true of every
+ * codebase survives — read access to the root the user just pointed at.
+ * Build and test commands are ecosystem-specific and belong to detection,
+ * which can propose them from what the repository actually declares.
+ *
+ * Write and Edit are deliberately absent. Granting read access to a repository
+ * and granting write access to it are different decisions, and only the first
+ * is implied by registering it.
+ */
+export const STARTER_PERMISSIONS: PermissionsConfig = {
+  allowedPaths: [],
+  allowedTools: [`Read(${ROOT_PLACEHOLDER}/**)`],
+  deniedTools: [],
+};
+
+/** Resolve `STARTER_PERMISSIONS` against a concrete project root. */
+export function starterPermissions(root: string): PermissionsConfig {
+  const sub = (v: string): string => v.split(ROOT_PLACEHOLDER).join(root);
+  return {
+    allowedPaths: STARTER_PERMISSIONS.allowedPaths.map(sub),
+    allowedTools: STARTER_PERMISSIONS.allowedTools.map(sub),
+    deniedTools: STARTER_PERMISSIONS.deniedTools.map(sub),
+  };
 }

@@ -1,7 +1,7 @@
 # Meeseeks — Workspace / Project Decoupling Design
 
 **Date:** 2026-08-12
-**Status:** Draft — design agreed via interview, not yet implemented
+**Status:** Implemented (phases 1–4)
 
 ## Overview
 
