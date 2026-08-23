@@ -36,6 +36,8 @@ dev-tailnet: node_modules ## Run dev servers on this host's tailnet address
 	@test -n "$(TAILSCALE_IP)" || { \
 		echo "no tailscale IPv4 address on this host — is tailscaled running?" >&2; exit 1; }
 	@echo "Meeseeks dev UI: http://$(TAILSCALE_IP):5173  (tailnet only, unauthenticated)"
+	@echo "  from other tailnet devices: http://$$(hostname):5173"
+	@echo "  the bare hostname may resolve to 127.0.1.1 on this machine — use the address above here"
 	MEESEEKS_DEV_HOST=$(TAILSCALE_IP) $(DEV_BOTH)
 
 dev-server: node_modules ## Run server in watch mode

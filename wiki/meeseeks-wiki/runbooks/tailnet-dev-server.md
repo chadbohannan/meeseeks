@@ -75,6 +75,39 @@ change that would strand an IP bookmark.
 For a setup that never needs a restart, `tailscale serve` (below) is the answer —
 tailscaled owns the address and Vite never binds to it at all.
 
+## The bare hostname works from other devices, not from this one
+
+`http://quebox:5173` typed on the machine *running* the server connects to `127.0.1.1`
+and is refused. That is not Vite and not Tailscale — it is Debian's
+`/etc/hosts` convention:
+
+```
+$ grep quebox /etc/hosts
+127.0.1.1	quebox
+$ grep ^hosts: /etc/nsswitch.conf
+hosts:  files mdns4_minimal [NOTFOUND=return] dns myhostname
+```
+
+`files` precedes `dns`, so `/etc/hosts` answers first and the query never reaches
+MagicDNS. The FQDN has no such entry, goes to DNS, and resolves to the tailnet address —
+which is why one form works and the other does not, on this machine only.
+
+From any *other* tailnet device the short name resolves through MagicDNS to the tailnet
+address and works normally.
+
+Locally, use the address or the FQDN. If a short URL on this box is worth having, add an
+alias rather than repointing the hostname — plenty of software expects `quebox` to be
+`127.0.1.1`:
+
+```
+echo "$(tailscale ip -4)  meeseeks-dev" | sudo tee -a /etc/hosts
+MEESEEKS_DEV_ALLOWED_HOSTS=meeseeks-dev make dev-tailnet
+```
+
+The env var is required: the alias is not the system hostname, so `os.hostname()` does
+not cover it. Note the alias pins an address — if the tailnet address ever changes, the
+`/etc/hosts` line needs updating, which the FQDN never does.
+
 ## Understand the trust boundary before using it
 
 **Meeseeks has no authentication.** Anyone who can load the page can create tickets,
