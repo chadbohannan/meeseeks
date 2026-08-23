@@ -241,6 +241,25 @@ export function useDeleteBinFile() {
 export function useRuntimes() {
   return useQuery({ queryKey: ["runtimes"], queryFn: api.listRuntimes });
 }
+
+/**
+ * Poll the runtime list while a prompt run is being watched.
+ *
+ * Live output arrives over the WebSocket and nowhere else, and the supervisor
+ * drops a runtime from its map the moment it exits. A client that missed those
+ * events — a dropped socket, a reload mid-run — therefore has no way to learn
+ * that the run ended: its last known status is whatever it saw, forever.
+ * Noticing the runtime is gone from the list is that missing signal.
+ */
+export function useWatchedRuntime(runtimeId: string, active: boolean) {
+  return useQuery({
+    queryKey: ["runtimes"],
+    queryFn: api.listRuntimes,
+    refetchInterval: active ? 4000 : false,
+    select: (data) => data.runtimes.some(r => r.runtimeId === runtimeId),
+  });
+}
+
 export function useSpawnRuntime() {
   const qc = useQueryClient();
   return useMutation({
@@ -297,8 +316,13 @@ export function useRunPrompt() {
     },
   });
 }
-export const usePromptLogs = (name: string | undefined) => useQuery({
+/**
+ * The durable record of a prompt's runs. Also the fallback for a run whose live
+ * events a client never saw, which is why callers can gate the fetch: the run
+ * log is written after exit, so asking for it early answers nothing.
+ */
+export const usePromptLogs = (name: string | undefined, enabled = true) => useQuery({
   queryKey: ['prompt-logs', name],
   queryFn: () => api.getPromptLogs(name!),
-  enabled: !!name,
+  enabled: enabled && !!name,
 });

@@ -41,3 +41,34 @@ The `--print`-mode path was previously called out in [components/runtime.md](../
 | 2026-05-02 | `src/web/components/PromptsEditor.tsx` |
 | 2026-05-02 | `src/web/components/console/PromptRunModal.tsx` |
 | 2026-05-02 | commit `32c8f2b` "implemented one-shot agents" |
+
+## Why a running prompt can look hung
+
+A prompt run's modal has exactly one live source: WebSocket events. `runtime-message`
+carries assistant text as the stream parser extracts it, and `runtime-status` carries
+the transitions. Two properties of that arrangement combine badly, and both were found
+by a user reporting a run "hung on Starting…" that had in fact finished successfully.
+
+**An agent working a long task is silent.** No assistant text is emitted until the
+model has something to say, so a lint that spends two minutes on tool calls produces no
+`runtime-message` at all until its final report. A modal that chose its placeholder by
+asking "is there output yet" therefore said *Starting…* for the entire run. The
+placeholder now keys off the runtime's status instead: *has not started* and *is
+working, quietly* are different facts, and that line is the only place the difference
+can show.
+
+**An exited runtime is deleted from the supervisor's map.** That is correct for the
+supervisor — it tracks live processes — but it means the runtime list cannot answer
+"how did this run end". A client that missed the status event, because its socket
+dropped or it reloaded mid-run, has no way to find out and sits on its last known
+status indefinitely. Two things close that gap: while a modal is open, the runtime list
+is polled, and *disappearing from it* is read as the run having ended; and the
+`prompts/.logs/<name>/runs.jsonl` entry — written after exit, and until now only a
+history view — becomes the fallback source for a run whose live events this client
+never saw. The modal labels that case rather than passing the recovered text off as
+live.
+
+The general shape is worth remembering for any future live surface: **a stream is not a
+record.** Anything a user must be able to learn after the fact needs a durable
+counterpart, and the client needs a signal that does not depend on having been
+connected at the right moment.

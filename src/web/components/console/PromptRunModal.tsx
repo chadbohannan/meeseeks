@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useRuntimesStore } from '../../store/runtimes.js';
 import { usePromptsStore } from '../../store/prompts.js';
-import { useTerminateRuntime } from '../../hooks/queries.js';
+import { useTerminateRuntime, useWatchedRuntime, usePromptLogs } from '../../hooks/queries.js';
 import { RuntimeStatusDot } from '../RuntimeStatusDot.js';
+import { runPlaceholder, runHasEnded } from '../../lib/prompt-run.js';
+import type { RuntimeStatus } from '@shared/runtime.js';
 
 export function PromptRunModals() {
   const runtimes = useRuntimesStore((s) => s.byId);
@@ -23,12 +25,30 @@ function PromptRunModal({ runtimeId }: { runtimeId: string }) {
   const term = useTerminateRuntime();
   const preRef = useRef<HTMLPreElement | null>(null);
 
+  const status = runtime?.status;
+  const knownInactive = status === 'exited' || status === 'errored' || status === 'terminating';
+
+  // The supervisor deletes a runtime on exit, so its absence from the list is
+  // how a client that missed the WebSocket events finds out the run is over.
+  const { data: stillListed } = useWatchedRuntime(runtimeId, !!runtime && !knownInactive);
+  const ended = runHasEnded(status, stillListed);
+
+  // Fall back to the run log only when the live stream gave us nothing. The
+  // log is written after exit, so it is the only record of a run whose events
+  // this client never saw.
+  const { data: logs } = usePromptLogs(runtime?.promptRef?.name, ended && output === '');
+  const logged = logs?.logs.find(l => l.runtimeId === runtimeId);
+  const body = output || logged?.output || '';
+
   useEffect(() => {
     if (preRef.current) preRef.current.scrollTop = preRef.current.scrollHeight;
-  }, [output]);
+  }, [body]);
 
   if (!runtime || runtime.kind !== 'prompt') return null;
-  const inactive = runtime.status === 'exited' || runtime.status === 'errored' || runtime.status === 'terminating';
+  const effectiveStatus: RuntimeStatus = ended && !knownInactive
+    ? (logged?.status ?? 'exited')
+    : runtime.status;
+  const inactive = ended;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => closeModal(runtimeId)}>
@@ -36,9 +56,14 @@ function PromptRunModal({ runtimeId }: { runtimeId: string }) {
            onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between bg-slate-800 px-3 py-2 rounded-t-lg">
           <div className="flex items-center gap-2">
-            <RuntimeStatusDot status={runtime.status} />
+            <RuntimeStatusDot status={effectiveStatus} />
             <span className="font-mono text-xs">{runtime.promptRef?.name}</span>
-            {runtime.errorMessage && <span className="text-xs text-red-400">{runtime.errorMessage}</span>}
+            {(runtime.errorMessage ?? logged?.errorMessage) && (
+              <span className="text-xs text-red-400">{runtime.errorMessage ?? logged?.errorMessage}</span>
+            )}
+            {!output && logged && (
+              <span className="text-[10px] text-slate-500">recovered from the run log</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {!inactive && (
@@ -56,7 +81,7 @@ function PromptRunModal({ runtimeId }: { runtimeId: string }) {
         <pre
           ref={preRef}
           className="flex-1 min-h-0 overflow-auto whitespace-pre-wrap break-words p-4 text-xs text-slate-200 font-mono"
-        >{output || (inactive ? '(no output)' : 'Starting…')}</pre>
+        >{body || runPlaceholder(effectiveStatus)}</pre>
       </div>
     </div>
   );
