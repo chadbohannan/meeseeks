@@ -1,5 +1,6 @@
-import { readFile, writeFile, mkdir, rm, stat, access } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rm, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { exists, dumpYaml } from './io.js';
 import yaml from 'js-yaml';
 import { ConflictError, InvalidInputError, NotFoundError } from './errors.js';
 import { expandHome, resolveWithin, slugifyProjectPath, buildProjectFilename } from './paths.js';
@@ -10,10 +11,6 @@ import type {
 } from '../shared/types.js';
 
 export const PROJECTS_DIR = 'projects';
-
-async function exists(p: string): Promise<boolean> {
-  try { await access(p); return true; } catch { return false; }
-}
 
 /**
  * A project's `root` deliberately points outside the workspace — that is the
@@ -68,7 +65,7 @@ function serialize(config: ProjectConfig): string {
   if (config.permissions !== undefined) out.permissions = config.permissions;
   // lineWidth -1 disables folding. Project configs are meant to be hand-edited,
   // and a long `root` would otherwise be wrapped into a `>-` block scalar.
-  return yaml.dump(out, { lineWidth: -1 });
+  return dumpYaml(out);
 }
 
 async function isDirectory(p: string): Promise<boolean> {

@@ -1,15 +1,12 @@
-import { readFile, writeFile, rename, unlink, readdir, access, mkdir } from 'node:fs/promises';
+import { readFile, writeFile, rename, unlink, readdir, mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import { exists, dumpYaml } from './io.js';
 import matter from 'gray-matter';
 import yaml from 'js-yaml';
 import { NotFoundError, InvalidInputError, ConflictError } from './errors.js';
 import { buildTicketFilename, appendCollisionSuffix, randomSuffix } from './paths.js';
 import { resolveWorkflowPath } from './workflow.js';
 import type { TicketSummary, TicketDetail, WorkflowState } from '../shared/types.js';
-
-async function exists(p: string): Promise<boolean> {
-  try { await access(p); return true; } catch { return false; }
-}
 
 async function readStates(lp: string): Promise<WorkflowState[]> {
   const text = await readFile(path.join(lp, 'workflow.yaml'), 'utf8').catch(() => null);

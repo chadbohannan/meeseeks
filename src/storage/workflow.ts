@@ -1,5 +1,6 @@
-import { mkdir, readFile, writeFile, readdir, rename, rm, access } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, readdir, rename, rm } from 'node:fs/promises';
 import path from 'node:path';
+import { exists, dumpYaml } from './io.js';
 import yaml from 'js-yaml';
 import { ConflictError, NotFoundError, InvalidInputError, InvalidWorkflowError } from './errors.js';
 import { resolveWithin } from './paths.js';
@@ -16,10 +17,6 @@ const WORKFLOW_YAML = 'workflow.yaml';
 const PROCESS_MD = 'PROCESS.md';
 const PERMISSIONS = 'permissions.yaml';
 const WORKFLOWS_DIR = 'workflows';
-
-async function exists(p: string): Promise<boolean> {
-  try { await access(p); return true; } catch { return false; }
-}
 
 /**
  * Resolve a workflow id to its absolute path via the workspace registry. This
@@ -82,11 +79,11 @@ export async function createWorkflow(
   for (const s of states) await mkdir(path.join(lp, s.dir), { recursive: true });
   const config: Record<string, unknown> = { name: workflowName, states };
   if (opts.runtime) config.runtime = opts.runtime;
-  await writeFile(path.join(lp, WORKFLOW_YAML), yaml.dump(config, { lineWidth: -1 }), 'utf8');
+  await writeFile(path.join(lp, WORKFLOW_YAML), dumpYaml(config), 'utf8');
   await writeFile(path.join(lp, PROCESS_MD), opts.processDoc ?? workflowProcessTemplate(workflowName, states), 'utf8');
   const permissions: PermissionsConfig = opts.permissions
     ?? { allowedPaths: [], allowedTools: [], deniedTools: [] };
-  await writeFile(path.join(lp, PERMISSIONS), yaml.dump(permissions), 'utf8');
+  await writeFile(path.join(lp, PERMISSIONS), dumpYaml(permissions), 'utf8');
 
   // Registered only after the directory is fully written, so a crash midway
   // leaves an unregistered directory rather than a registry entry pointing at
@@ -302,7 +299,7 @@ export async function writeWorkflowRuntime(
   const existing = await readWorkflowYaml(lp);
   if (runtime) existing.runtime = runtime;
   else delete existing.runtime;
-  await writeFile(path.join(lp, WORKFLOW_YAML), yaml.dump(existing, { lineWidth: -1 }), 'utf8');
+  await writeFile(path.join(lp, WORKFLOW_YAML), dumpYaml(existing), 'utf8');
 }
 
 export async function updateWorkflowStates(
@@ -329,7 +326,7 @@ export async function updateWorkflowStates(
   const existing = await readWorkflowYaml(lp);
   await writeFile(
     path.join(lp, WORKFLOW_YAML),
-    yaml.dump({ ...existing, states: newStates }, { lineWidth: -1 }),
+    dumpYaml({ ...existing, states: newStates }),
     'utf8',
   );
   // Removed-state folders are NOT deleted from disk in this slice; tickets become orphaned.
@@ -377,7 +374,7 @@ export async function renameWorkflow(
 
   const existing = await readWorkflowYaml(lp);
   existing.name = newDisplayName;
-  await writeFile(path.join(lp, WORKFLOW_YAML), yaml.dump(existing, { lineWidth: -1 }), 'utf8');
+  await writeFile(path.join(lp, WORKFLOW_YAML), dumpYaml(existing), 'utf8');
   return newSlug;
 }
 

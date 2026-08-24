@@ -105,7 +105,7 @@ export function PermissionsPanel({ workflowName, filename, active }: Props) {
             No project assigned — workflow rules only, and this ticket cannot start an agent.
           </span>
         ) : data.projectResolved ? (
-          <>Effective rules for project <span className="text-slate-200">{data.projectId}</span> unioned with this workflow. Denials from either side always win.</>
+          <>Effective rules for project <span className="text-slate-200">{data.projectId}</span> unioned with this workflow. Denials from either side always win for this ticket&apos;s agent; one-shot prompt runs bypass permissions.</>
         ) : (
           <span className="text-amber-400">
             Project &quot;{data.projectId}&quot; no longer exists — showing workflow rules only.

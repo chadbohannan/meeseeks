@@ -11,7 +11,7 @@ import { registerTicketRoutes } from './routes/tickets.js';
 import { registerRuntimeRoutes } from './routes/runtimes.js';
 import { registerFileRoutes } from './routes/files.js';
 import { registerPromptRoutes } from './routes/prompts.js';
-import { readWorkspace } from '../storage/workspace.js';
+import { openWorkspace } from '../storage/open.js';
 import { startWatcher } from './watcher.js';
 import path from 'node:path';
 import os from 'node:os';
@@ -44,7 +44,7 @@ async function main(): Promise<void> {
   }
 
   const hub = new WsHub();
-  const meta = await readWorkspace(workspaceDir);
+  const meta = await openWorkspace(workspaceDir);
   const handle = startWatcher(meta, hub);
   const state = new ServerState(meta, handle.cleanup);
 

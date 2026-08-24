@@ -10,13 +10,15 @@ The system implements a local, single-process architecture that displays a Kanba
 
 The system is structured around three primary layers:
 
-- **[Storage](../components/storage.md)**: Pure filesystem operations managing a hierarchical data model of projects, boards, lanes, and tickets stored as YAML and Markdown files.
+- **[Storage](../components/storage.md)**: Pure filesystem operations managing a workspace of workflows, tickets, and registered projects, stored as YAML and Markdown files.
 - **[Server](../components/server.md)**: A Fastify-based API serving REST endpoints and WebSocket connections for real-time state synchronization.
 - **[Runtime Supervisor](../components/runtime.md)**: Manages isolated Claude Code instances per ticket, handling lifecycle events, stdio transport, and permissions translation. The [runtime concept](../concepts/runtime.md) describes the full lifecycle state machine.
 
 ## Data Model
 
-Projects are organized hierarchically: a [Project](../concepts/project-model.md) contains multiple Boards, each Board contains multiple Lanes, and each Lane contains multiple Tickets. The filesystem layout reflects this structure with `project.yaml` at the root, `board.yaml` files in board directories, and `lane.yaml` files defining lane states and their ordering.
+A [workspace](../concepts/project-model.md) registers workflows and projects; a workflow holds tickets in one directory per state. The filesystem layout reflects that with `workspace.yaml` at the root, a `workflow.yaml` in each workflow directory defining its states and their ordering, and `projects/<slug>.yaml` for each registered codebase.
+
+Projects are the notable axis: a project is a codebase whose root points outside the workspace, and a ticket names the project it targets. Workflow and project are therefore orthogonal — one workflow can carry tickets against several codebases — which is what the earlier board-owns-a-codebase model could not express.
 
 ## Concurrency Model
 

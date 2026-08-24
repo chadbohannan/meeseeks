@@ -3,6 +3,7 @@ import path from 'node:path';
 import { readFile, access, readdir } from 'node:fs/promises';
 import { ensureWorkspaceSeeded } from '../../src/storage/seed.js';
 import { readWorkspace } from '../../src/storage/workspace.js';
+import { openWorkspace } from '../../src/storage/open.js';
 import { createProject } from '../../src/storage/project.js';
 import {
   STARTER_PERMISSIONS, STARTER_WORKFLOW, starterPermissions,
@@ -58,11 +59,11 @@ describe('ensureWorkspaceSeeded', () => {
   });
 });
 
-describe('readWorkspace seeding', () => {
+describe('openWorkspace seeding', () => {
   it('seeds only on the auto-create branch, and leaves workflows: [] alone', async () => {
     const tp = await makeBareProject();
     cleanups.push(tp.cleanup);
-    const meta = await readWorkspace(tp.root);
+    const meta = await openWorkspace(tp.root);
     expect(meta.config.workflows).toEqual([]);
     expect(await exists(path.join(tp.root, 'workflows'))).toBe(false);
   });
@@ -74,7 +75,7 @@ describe('readWorkspace seeding', () => {
     // and the workspace must still open — empty rather than unopenable.
     await writeYaml(path.join(tp.root, 'workflows'), 'not a directory');
 
-    const meta = await readWorkspace(tp.root);
+    const meta = await openWorkspace(tp.root);
     expect(meta.config.name).toBe(path.basename(tp.root));
     expect(meta.config.workflows).toEqual([]);
   });

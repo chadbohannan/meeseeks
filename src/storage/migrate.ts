@@ -1,7 +1,8 @@
 import {
-  readFile, writeFile, mkdir, readdir, rename, stat, lstat, readlink, symlink, copyFile, access,
+  readFile, writeFile, mkdir, readdir, rename, stat, lstat, readlink, symlink, copyFile,
 } from 'node:fs/promises';
 import path from 'node:path';
+import { exists, dumpYaml } from './io.js';
 import yaml from 'js-yaml';
 import matter from 'gray-matter';
 import { parseRuntime } from './workspace.js';
@@ -88,10 +89,6 @@ interface Ctx {
   report: MigrationReport;
 }
 
-async function exists(p: string): Promise<boolean> {
-  try { await access(p); return true; } catch { return false; }
-}
-
 async function isDir(p: string): Promise<boolean> {
   try { return (await stat(p)).isDirectory(); } catch { return false; }
 }
@@ -101,9 +98,10 @@ function rel(ctx: Ctx, abs: string): string {
 }
 
 /**
- * Read `workspace.yaml` without going through `readWorkspace`, which creates
- * the file when it is missing. A dry run must not write anything, and that
- * side effect would fire before the first decision is made.
+ * Read `workspace.yaml` if there is one. A pre-migration root usually has none,
+ * and its absence is the normal case here rather than an error — which is why
+ * this returns null instead of calling `readWorkspace`, whose contract is that
+ * a missing workspace throws.
  */
 async function readExistingWorkspace(root: string): Promise<WorkspaceConfig | null> {
   const p = path.join(root, 'workspace.yaml');
@@ -205,7 +203,7 @@ async function copyChildren(ctx: Ctx, srcDir: string, dstDir: string): Promise<v
 function serializeWorkflow(name: string, states: WorkflowState[], runtime?: RuntimeConfig): string {
   const out: Record<string, unknown> = { name, states };
   if (runtime) out.runtime = runtime;
-  return yaml.dump(out, { lineWidth: -1 });
+  return dumpYaml(out);
 }
 
 /**
@@ -377,7 +375,7 @@ function serializeProject(config: ProjectConfig): string {
   const out: Record<string, unknown> = { name: config.name, root: config.root };
   if (config.color !== undefined) out.color = config.color;
   if (config.permissions !== undefined) out.permissions = config.permissions;
-  return yaml.dump(out, { lineWidth: -1 });
+  return dumpYaml(out);
 }
 
 // ---------------------------------------------------------------------------
@@ -534,7 +532,7 @@ export async function migrateWorkspace(
   if (!ctx.dryRun) {
     await writeFile(
       path.join(root, 'workspace.yaml'),
-      yaml.dump(config, { lineWidth: -1 }),
+      dumpYaml(config),
       'utf8',
     );
   }

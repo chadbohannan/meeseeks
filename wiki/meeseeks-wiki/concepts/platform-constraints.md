@@ -22,7 +22,7 @@ The project uses node-pty 1.2.0-beta.12 which ships updated prebuilt binaries fo
 
 ## tsx watch scope
 
-`tsx watch` monitors the entire project tree by default. Writing files to any directory — including runtime artifacts like settings files in `boards/<board>/.meeseeks/` — triggers a server restart, killing any active PTY child processes. The dev server command uses `--exclude 'boards/**' --exclude 'wiki/**'` to prevent this. This is configured in both the Makefile and `package.json`.
+`tsx watch` monitors the entire project tree by default. Writing files to any directory — including runtime artifacts like the settings files written under `.meeseeks/` — triggers a server restart, killing any active PTY child processes. The dev server command excludes every directory the running server writes into: `workflows/**`, `prompts/**`, `projects/**`, `*.pre-migrate/**`, `wiki/**`, and `**/.claude/**`. This is configured in both the Makefile and `package.json`, and the two lists have to stay in step. The board-era list named `boards/**`; the workflow collapse replaced that single directory with the first three entries, so an exclude list that was never updated silently stops covering anything.
 
 ## Environment variable leakage
 

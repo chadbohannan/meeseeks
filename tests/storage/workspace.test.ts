@@ -2,7 +2,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 import path from 'node:path';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { readWorkspace, listWorkflowEntries, addWorkflowToWorkspace, getModels, DEFAULT_MODELS } from '../../src/storage/workspace.js';
-import { ConflictError } from '../../src/storage/errors.js';
+import { ConflictError, NotFoundError } from '../../src/storage/errors.js';
+import { openWorkspace } from '../../src/storage/open.js';
 import { makeTmpProject, makeBareProject } from '../helpers/tmp-project.js';
 
 let cleanups: Array<() => Promise<void>> = [];
@@ -17,6 +18,16 @@ describe('readWorkspace', () => {
     expect(meta.config.name).toBe('YamlProj');
   });
 
+  // A missing workspace is not something to conjure on a read path: the same
+  // condition is also what a mistyped root looks like. Creation is openWorkspace's.
+  it('throws when there is no workspace.yaml', async () => {
+    const tp = await makeTmpProject();
+    cleanups.push(tp.cleanup);
+    await expect(readWorkspace(tp.root)).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe('openWorkspace', () => {
   // The pre-collapse config named `boards:`, which this code cannot interpret.
   // Reading it would present an empty workspace as a valid one; instead the old
   // file is ignored entirely and a fresh config is written beside it.
@@ -28,7 +39,7 @@ describe('readWorkspace', () => {
       'name: OldWorkspace\nboards:\n  - boards/dev\n',
       'utf8',
     );
-    const meta = await readWorkspace(tp.root);
+    const meta = await openWorkspace(tp.root);
     expect(meta.config.name).toBe(path.basename(tp.root));
     // Auto-created, and therefore seeded with the starter workflow.
     expect(meta.config.workflows).toEqual(['workflows/development']);
@@ -40,7 +51,7 @@ describe('readWorkspace', () => {
   it('auto-creates workspace.yaml from directory name when no config exists', async () => {
     const tp = await makeTmpProject();
     cleanups.push(tp.cleanup);
-    const meta = await readWorkspace(tp.root);
+    const meta = await openWorkspace(tp.root);
     expect(meta.config.name).toBe(path.basename(tp.root));
     expect(meta.config.workflows).toEqual(['workflows/development']);
     // file was created on disk

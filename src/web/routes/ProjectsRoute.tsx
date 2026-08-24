@@ -49,7 +49,8 @@ function PermissionsFields({
       {field('Auto-approved tools', 'allowedTools',
         'Skips the approval prompt. Not a guardrail — absence means "ask", not "blocked".')}
       {field('Denied tools', 'deniedTools',
-        'Hard block. Wins over any allow, from this project or any workflow.')}
+        'Hard block for ticket runs — wins over any allow, from this project or any workflow. '
+        + 'Not enforced for one-shot prompt runs, which spawn with permissions bypassed.')}
     </div>
   );
 }

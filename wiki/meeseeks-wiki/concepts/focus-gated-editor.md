@@ -1,6 +1,6 @@
 # Focus-Gated Editor
 
-Meeseeks edits the same Markdown files that supervised agents and the filesystem watcher are simultaneously reading and rewriting. Naively re-rendering an open [MarkdownEditor](../components/web.md) from server snapshots — the default React Query + WebSocket pattern used everywhere else in the [Web UI](../components/web.md) — corrupts in-progress typing: the editor refetches mid-keystroke, the user's recent characters get overwritten, and a debounced save then persists the truncated text. This page describes the focus-gated pattern the ticket body, board CONTEXT.md, and lane PROCESS.md all use to coexist with live updates.
+Meeseeks edits the same Markdown files that supervised agents and the filesystem watcher are simultaneously reading and rewriting. Naively re-rendering an open [MarkdownEditor](../components/web.md) from server snapshots — the default React Query + WebSocket pattern used everywhere else in the [Web UI](../components/web.md) — corrupts in-progress typing: the editor refetches mid-keystroke, the user's recent characters get overwritten, and a debounced save then persists the truncated text. This page describes the focus-gated pattern the ticket body, workflow PROCESS.md, and project context all use to coexist with live updates.
 
 ## Why React-focus events weren't enough
 
@@ -8,7 +8,7 @@ The editor wraps Milkdown's Crepe, which renders into a contenteditable subtree 
 
 ## The gating rule
 
-`FocusGatedMarkdownEditor` (board editor) and the body editor in `TicketRoute` both follow the same invariant: while the editor is focused or has a dirty buffer, local state is authoritative. Server snapshots that arrive during this window are not adopted. When focus is lost and the buffer is clean (last persisted body matches the editor's content), the next server snapshot is allowed through normally — which is what makes external edits visible without a remount. The pattern is therefore strictly stronger than the earlier `bodyInitializedRef` approach, which froze the editor permanently after first mount.
+`FocusGatedMarkdownEditor` (workflow editor and project context) and the body editor in `TicketRoute` both follow the same invariant: while the editor is focused or has a dirty buffer, local state is authoritative. Server snapshots that arrive during this window are not adopted. When focus is lost and the buffer is clean (last persisted body matches the editor's content), the next server snapshot is allowed through normally — which is what makes external edits visible without a remount. The pattern is therefore strictly stronger than the earlier `bodyInitializedRef` approach, which froze the editor permanently after first mount.
 
 ## Distinguishing echoes from genuine external edits
 

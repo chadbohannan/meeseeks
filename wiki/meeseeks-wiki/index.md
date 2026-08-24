@@ -74,7 +74,7 @@
 - [Multi-Agent Failure Modes](concepts/multi-agent-failure-modes.md) — the MAST taxonomy's 14 measured failure modes, agent drift over long sessions, and multi-agent-specific security risks
 
 ## Runbooks
-- [Project Setup](runbooks/project-setup.md) — installation, development commands, environment variables, and production deployment
+- [Workspace Setup](runbooks/project-setup.md) — installation, development commands, environment variables, what the server creates on first open, and the on-disk config shapes
 - [Claude Code Sandboxing](runbooks/claude-code-sandboxing.md) — permission modes, settings precedence, and OS-level sandboxing for orchestrated agents
 - [Board-to-Workflow Migration](runbooks/board-to-workflow-migration.md) — moving an existing workspace off `project.yaml` + `boards/` onto `workspace.yaml` + `workflows/`
 - [Tracing Meeseeks Sessions to LangSmith](runbooks/tracing-meeseeks-sessions-to-langsmith.md) — piping supervised sessions into LangSmith via the supervisor's settings-file seam

@@ -15,24 +15,27 @@ curated templates versioned in the repo.
 
 ## Where seeding hooks in
 
-There is no `createWorkspace`. A workspace comes into being as a side effect of being
-read: `readWorkspace` (`src/storage/workspace.ts`) writes a default `workspace.yaml`
-when it finds none. That auto-create branch is the only moment in the system that
-constitutes first contact with a workspace, so `ensureWorkspaceSeeded`
-(`src/storage/seed.ts`) is called from there and nowhere else. `readWorkspace` runs on
-nearly every request; seeding unconditionally would mean re-checking the workspace
-shape on every one of them.
+First contact with a workspace is `openWorkspace` (`src/storage/open.ts`): it writes a
+default `workspace.yaml` when the directory has none, calls `ensureWorkspaceSeeded`
+(`src/storage/seed.ts`), and then reads the workspace back. The server calls it once at
+startup, and `bootTestServer` calls it for the same reason; nothing else does.
 
-Three constraints shape that call site, and each was a decision rather than an accident:
+This used to live on the read path. `readWorkspace` created the file when it found
+none, and its auto-create branch was the seeding seam — which meant a function running
+on nearly every request had to decide, every time, whether this was the creating call.
+The only signal it had was "the config file is missing", which is also what a mistyped
+root or an unmounted volume looks like. Splitting creation out made `readWorkspace`
+pure: a missing workspace is now a `NotFoundError`, and the two situations stopped
+being the same event. It also dissolved the `workspace -> seed -> workflow ->
+workspace` module cycle that had to be broken with a dynamic import — nothing under
+`workspace.ts` imports `open.ts`, so the loop no longer exists.
 
-**The import is dynamic.** `seed.ts` imports `createWorkflow`, which imports
-`workspace.ts` — a module cycle that would otherwise have to resolve at load time.
-`await import('./seed.js')` inside the cold branch defers it to a path that runs once
-per workspace, where the cost of a dynamic import is irrelevant.
+Two constraints on the call site survive that move, and each was a decision rather than
+an accident:
 
-**Failure is swallowed, not thrown.** Seeding runs inside what every caller experiences
-as a read. A workspace that fails to seed must still open — empty is a working state,
-unopenable is not — so the branch logs and falls through to the unseeded config.
+**Failure is swallowed, not thrown.** A workspace that fails to seed must still open —
+empty is a working state, unopenable is not — so `openWorkspace` logs and falls through
+to reading the unseeded config.
 
 **Seeding goes through `createWorkflow`.** The same function the UI calls, so there is a
 single code path producing workflow structure on disk. The seeded workflow is an
@@ -41,7 +44,8 @@ distinction would have to be maintained forever to serve one first-session affor
 
 Idempotence comes from the registry rather than a flag: `ensureWorkspaceSeeded` returns
 early when `workflows:` is non-empty. A user who deletes the starter workflow does not
-get it back, and a `workspace.yaml` that already exists never reaches the branch at all.
+get it back, and `openWorkspace` on a workspace that already has a `workspace.yaml`
+skips creation and seeding entirely, so it is safe to call on an open workspace.
 
 ## Detection: proposals, never writes
 
@@ -199,7 +203,7 @@ reason.
 
 | Fact | Source |
 | --- | --- |
-| Seeding seam and swallowed failure | `src/storage/workspace.ts`, auto-create branch |
+| Seeding seam and swallowed failure | `src/storage/open.ts`, `openWorkspace` |
 | Idempotence via the registry | `src/storage/seed.ts` |
 | Starter templates and `{root}` placeholder | `src/storage/templates.ts` |
 | Starter set applied on project create | `src/storage/project.ts`, `createProject` |

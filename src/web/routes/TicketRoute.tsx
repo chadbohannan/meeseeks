@@ -22,7 +22,7 @@ function bodiesEquivalent(a: string, b: string): boolean {
   return a.trimEnd() === b.trimEnd();
 }
 
-// The persistent identity of a ticket (board + workflow + filename). Saves are
+// The persistent identity of a ticket (workflow + filename). Saves are
 // authored against an Identity captured at edit time, so an in-flight or
 // debounced save always lands at the file the user was editing — even if the
 // route has since navigated to a different ticket.
@@ -83,7 +83,7 @@ export function TicketRoute() {
   // false external-change toast. Suppress notifications while any save is open.
   const savesInFlightRef = useRef(0);
 
-  // The identity (board+workflow+filename) currently displayed. Updated by the
+  // The identity (workflow+filename) currently displayed. Updated by the
   // identity-change effect below after it flushes pending writes against the
   // outgoing identity. Read via ref so save handlers can snapshot the correct
   // target at the moment of edit, without depending on React render timing.

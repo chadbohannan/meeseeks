@@ -1,5 +1,6 @@
-import { readFile, writeFile, access, stat } from 'node:fs/promises';
+import { readFile, writeFile, stat } from 'node:fs/promises';
 import path from 'node:path';
+import { exists, dumpYaml } from './io.js';
 import yaml from 'js-yaml';
 import { ConflictError, InvalidInputError, NotFoundError } from './errors.js';
 import { resolveWithin, slugifyWorkflowPath } from './paths.js';
@@ -55,23 +56,8 @@ export function parseRuntime(raw: unknown): RuntimeConfig | undefined {
 
 const WORKSPACE_FILE = 'workspace.yaml';
 
-async function exists(p: string): Promise<boolean> {
-  try { await access(p); return true; } catch { return false; }
-}
-
 function yamlPath(workspaceRoot: string): string {
   return path.join(workspaceRoot, WORKSPACE_FILE);
-}
-
-/**
- * No fallback to the old `project.yaml`. Reading one would surface a config
- * whose `boards:` key this code no longer understands, presenting an empty
- * workspace as if it were a valid one; a missing file is the honest signal
- * until the migration in the final phase lands.
- */
-async function resolveConfigPath(workspaceRoot: string): Promise<string | null> {
-  const p = yamlPath(workspaceRoot);
-  return (await exists(p)) ? p : null;
 }
 
 function parseConfig(text: string, workspaceRoot: string): WorkspaceConfig {
@@ -92,41 +78,29 @@ function parseConfig(text: string, workspaceRoot: string): WorkspaceConfig {
   };
 }
 
+/**
+ * Read the workspace config. Pure: a workspace that does not exist yet is a
+ * `NotFoundError`, not something to conjure — creation and seeding belong to
+ * `openWorkspace` in `open.ts`, which the server calls once at startup.
+ *
+ * There is deliberately no fallback to the old `project.yaml`. Reading one
+ * would surface a config whose `boards:` key this code no longer understands,
+ * presenting an empty workspace as if it were a valid one; the migration in
+ * `migrate.ts` is what turns that file into a workspace.
+ */
 export async function readWorkspace(workspaceRoot: string): Promise<WorkspaceMeta> {
-  const configFile = await resolveConfigPath(workspaceRoot);
-  if (configFile) {
-    const text = await readFile(configFile, 'utf8');
-    return { path: path.resolve(workspaceRoot), config: parseConfig(text, workspaceRoot) };
+  const configFile = yamlPath(workspaceRoot);
+  if (!(await exists(configFile))) {
+    throw new NotFoundError(`no workspace at ${workspaceRoot}`);
   }
-  // Auto-create workspace.yaml using directory name
-  const config: WorkspaceConfig = { name: path.basename(workspaceRoot), workflows: [], projects: [] };
-  const text = yaml.dump(config, { lineWidth: -1 });
-  await writeFile(yamlPath(workspaceRoot), text, 'utf8');
-
-  // Seeding belongs to this branch alone: readWorkspace runs on nearly every
-  // request, and only the call that discovers no config file is a first
-  // contact with the workspace. The import is dynamic to keep the
-  // workspace -> workflow -> workspace module cycle out of load order; this
-  // branch runs once per workspace, so the cost is irrelevant.
-  //
-  // A failure here must not make the workspace unopenable — an empty workspace
-  // is a working one — so it is logged and swallowed rather than thrown.
-  try {
-    const { ensureWorkspaceSeeded } = await import('./seed.js');
-    if (await ensureWorkspaceSeeded(workspaceRoot)) {
-      const seeded = await readFile(yamlPath(workspaceRoot), 'utf8');
-      return { path: path.resolve(workspaceRoot), config: parseConfig(seeded, workspaceRoot) };
-    }
-  } catch (err) {
-    console.warn(`failed to seed workspace at ${workspaceRoot}:`, err);
-  }
-  return { path: path.resolve(workspaceRoot), config };
+  const text = await readFile(configFile, 'utf8');
+  return { path: path.resolve(workspaceRoot), config: parseConfig(text, workspaceRoot) };
 }
 
 export async function writeWorkspace(workspaceRoot: string, config: WorkspaceConfig): Promise<void> {
   // lineWidth: -1 disables folding. Entries here are paths, and a folded path
   // round-trips as a `>-` block scalar that is unpleasant to hand-edit.
-  const text = yaml.dump(config, { lineWidth: -1 });
+  const text = dumpYaml(config);
   await writeFile(yamlPath(workspaceRoot), text, 'utf8');
 }
 

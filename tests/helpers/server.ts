@@ -10,7 +10,7 @@ import { registerTicketRoutes } from '../../src/server/routes/tickets.js';
 import { registerRuntimeRoutes } from '../../src/server/routes/runtimes.js';
 import { registerFileRoutes } from '../../src/server/routes/files.js';
 import { registerPromptRoutes } from '../../src/server/routes/prompts.js';
-import { readWorkspace } from '../../src/storage/workspace.js';
+import { openWorkspace } from '../../src/storage/open.js';
 import { startWatcher } from '../../src/server/watcher.js';
 
 export interface TestServer {
@@ -23,7 +23,7 @@ export interface TestServer {
 }
 
 export async function bootTestServer(projectRoot: string): Promise<TestServer> {
-  const meta = await readWorkspace(projectRoot);
+  const meta = await openWorkspace(projectRoot);
   const hub = new WsHub();
   const handle = startWatcher(meta, hub);
   const state = new ServerState(meta, handle.cleanup);

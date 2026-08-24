@@ -259,6 +259,7 @@ function PromptEditor({ name, onDeleted }: { name: string; onDeleted: () => void
               className="px-3 py-1 bg-emerald-700 hover:bg-emerald-600 disabled:bg-slate-600 disabled:cursor-not-allowed text-white text-xs rounded"
             >Start</button>
           )}
+          <BypassBadge />
           <button
             onClick={handleDelete}
             className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded"
@@ -328,5 +329,22 @@ function RunLogEntry({ log, open, onToggle }: { log: PromptRunLog; open: boolean
         </pre>
       )}
     </div>
+  );
+}
+
+/**
+ * A prompt run spawns with `--permission-mode bypassPermissions`, because a
+ * --print-mode run has no surface on which to answer an approval prompt and
+ * would sit there until killed. The consequence is that the deniedTools a
+ * project or workflow configures are not enforced for this run, so the launch
+ * control says so rather than leaving the permissions UI to imply a floor that
+ * is not there. See wiki concepts/one-shot-prompts.md.
+ */
+function BypassBadge() {
+  return (
+    <span
+      className="rounded border border-amber-800 bg-amber-950 px-1.5 py-0.5 text-[10px] text-amber-400"
+      title="One-shot prompts run with --permission-mode bypassPermissions: nobody is at the keyboard to answer an approval prompt. Denied-tool rules are not enforced for these runs."
+    >permissions bypassed</span>
   );
 }

@@ -23,7 +23,7 @@ All flags are assembled in `src/runtime/claude-code.ts:buildSpawnSpec`.
 | `--verbose` | Verbose logging | Always set |
 | `--model <model>` | Override model | Set from `board.yaml runtime.model`, or from spawn-time request body `model` field (takes precedence). Accepts short aliases (`sonnet`, `opus`, `haiku`) or full model IDs. |
 | `--add-dir <path>` | Grant filesystem access | Repeated once per `permissions.yaml allowedPaths` entry; paths resolve relative to lane directory, `~` expands |
-| `--settings <file>` | Merge additional settings | Always a per-session JSON file at `<board>/.meeseeks/session-<runtimeId>.json`; removed on exit |
+| `--settings <file>` | Merge additional settings | Always a per-session JSON file at `<workspace>/.meeseeks/session-<runtimeId>.json`; removed on exit |
 | `--append-system-prompt <text>` | Append to system prompt | Used to inject ticket context (filename, lane, board, process doc) at spawn time; does not trigger a turn |
 | Extra args from `board.yaml` | Arbitrary additional flags | Appended last via `runtime.args` |
 
