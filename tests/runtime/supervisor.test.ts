@@ -34,6 +34,7 @@ const stubSpawn: SpawnFn = (_file, args, opts) => {
 let tmp: string;
 beforeEach(async () => {
   tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'meeseeks-rt-'));
+  await fs.mkdir(path.join(tmp, 'workflow'), { recursive: true });
 });
 afterEach(async () => {
   await fs.rm(tmp, { recursive: true, force: true });

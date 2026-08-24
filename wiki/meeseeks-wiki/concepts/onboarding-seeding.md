@@ -62,11 +62,23 @@ This is the same provenance discipline the codebase already applies to
 `WorkflowDetail.runtimeInherited` and to `ResolvedPermissionEntry.origins` — a seeded
 value is simply a third kind of value the user did not type.
 
-**Write and Edit come back unselected.** Read access to a repository and write access
+**Edit proposals come back unselected.** Read access to a repository and write access
 to it are different decisions, and only the first is implied by registering it.
 The test asserting `preselected: false` on those proposals is the one most worth
 mutation-testing: if flipping that default to `true` does not fail a test, the review
 step is decorative.
+
+**Write-access proposals are spelled `Edit(path)`, never `Write(path)`.** Claude Code
+matches every file-editing tool — `Write` included — against `Edit(path)` rules only;
+a `Write(path)` rule matches nothing, and the agent prints a startup warning for each
+one telling the user to use `Edit` instead. Detection originally proposed both spellings
+for every source directory, which meant every accepted grant produced one working rule
+and one warning, visible in the console window Meeseeks renders. `detectSourceDirs`
+now emits a single `Edit(...)` proposal per directory, and a test asserts no proposal
+ever starts with `Write(`. Project configs written before that change still carry the
+inert twins; deleting the `Write(...)` line beside each `Edit(...)` line in
+`~/.local/share/meeseeks/projects/*.yaml` silences the warnings without changing what
+the agent may do.
 
 Detectors propose from what a file **declares**, not from names Meeseeks expects to
 find. `npm run typecheck` is a convention, not a standard, so the npm detector walks
@@ -150,10 +162,10 @@ ecosystem-specific grants that workspace carried — `npm test`, `npm run typech
 are deliberately absent, because detection can propose those from what a repository
 actually *declares* rather than from names Meeseeks expects to find.
 
-Write and Edit are absent for a different reason. Granting read access to a repository
+Write access is absent for a different reason. Granting read access to a repository
 and granting write access to it are different decisions, and only the first is implied
-by the act of registering it. The same asymmetry governs detection, where Write and
-Edit proposals arrive unselected.
+by the act of registering it. The same asymmetry governs detection, where `Edit`
+proposals arrive unselected.
 
 `createProject` applies the starter set only when the caller supplies no `permissions`
 at all; a caller that supplies its own — including an empty block — overrides it

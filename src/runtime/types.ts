@@ -11,9 +11,9 @@ export interface SpawnProject {
 
 export interface SpawnContext {
   runtimeId: string;
-  /** cwd. `.claude/`, skills, bin, and CLAUDE.md all resolve from here. */
+  /** `.claude/`, skills, bin, and CLAUDE.md all resolve from here. */
   workspaceRoot: string;
-  /** A directory inside the workspace; named to the agent, not its cwd. */
+  /** cwd for the spawned process. */
   workflowPath: string;
   ticketAbsPath: string;
   processDocContent?: string | null;

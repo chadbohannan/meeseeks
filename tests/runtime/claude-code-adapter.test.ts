@@ -37,7 +37,7 @@ describe('buildSpawnSpec', () => {
     expect(spec.env.MEESEEKS_TICKET_PATH).toBe('/tmp/ws/workflows/l/todo/2026-04-26T1430-x.md');
     expect(spec.env.MEESEEKS_WORKSPACE_PATH).toBe('/tmp/ws');
     expect(spec.env.MEESEEKS_WORKFLOW_PATH).toBe('/tmp/ws/workflows/l');
-    expect(spec.cwd).toBe('/tmp/ws');
+    expect(spec.cwd).toBe('/tmp/ws/workflows/l');
   });
 
   // Path resolution itself now lives in resolvePermissions (which knows each
@@ -63,7 +63,7 @@ describe('buildSpawnSpec', () => {
     expect(addDirsOf(spec.argv)).toEqual(['/tmp/p/my-repo', path.join(os.homedir(), 'notes')]);
   });
 
-  it('adds the project root as --add-dir and keeps cwd on the workspace', () => {
+  it('adds the project root as --add-dir and sets cwd to the workflow directory', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-p',
       workspaceRoot: '/tmp/ws',
@@ -75,9 +75,7 @@ describe('buildSpawnSpec', () => {
       project: { projectId: 'meeseeks', name: 'Meeseeks', root: '/home/u/code/meeseeks', contextContent: null },
     });
     expect(addDirsOf(spec.argv)).toEqual(['/home/u/code/meeseeks']);
-    // cwd is the workspace root so its single .claude/, skills, bin and
-    // symlinks resolve for every workflow.
-    expect(spec.cwd).toBe('/tmp/ws');
+    expect(spec.cwd).toBe('/tmp/ws/workflows/l');
     expect(spec.env.MEESEEKS_PROJECT_ROOT).toBe('/home/u/code/meeseeks');
     expect(spec.env.MEESEEKS_PROJECT_NAME).toBe('Meeseeks');
   });
@@ -182,9 +180,7 @@ describe('buildSpawnSpec', () => {
     expect(ticketIdx).toBeGreaterThan(processIdx);
   });
 
-  // The workflow directory has to be stated because it is no longer cwd; an
-  // agent that assumed otherwise would write process files to the workspace root.
-  it('names the workflow directory in the ticket context', () => {
+  it('sets cwd to the workflow directory', () => {
     const spec = buildSpawnSpec({
       runtimeId: 'rt-2b',
       workspaceRoot: '/tmp/ws',
@@ -195,8 +191,7 @@ describe('buildSpawnSpec', () => {
       runtime: null,
       permissions: null,
     });
-    expect(spec.preamble).toContain('/tmp/ws/workflows/dev');
-    expect(spec.cwd).toBe('/tmp/ws');
+    expect(spec.cwd).toBe('/tmp/ws/workflows/dev');
   });
 
   it('orders preamble: project context, process doc, project location, ticket', () => {

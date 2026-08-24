@@ -203,9 +203,14 @@ function detectRootRead(ctx: Ctx): void {
 }
 
 /**
- * Write and Edit come back **unselected**. Read access to a repository and
+ * Edit proposals come back **unselected**. Read access to a repository and
  * write access to it are different decisions, and defaulting the second one on
  * would make the review step decorative.
+ *
+ * Only `Edit(path)` is proposed, never `Write(path)`. Claude Code matches every
+ * file-editing tool — Write included — against `Edit(path)` rules; a
+ * `Write(path)` rule matches nothing and makes the agent log a warning on every
+ * startup telling the user to use `Edit` instead.
  */
 async function detectSourceDirs(ctx: Ctx): Promise<void> {
   let entries;
@@ -217,15 +222,13 @@ async function detectSourceDirs(ctx: Ctx): Promise<void> {
   for (const e of entries) {
     if (!e.isDirectory()) continue;
     if (e.name.startsWith('.') || NON_SOURCE_DIRS.has(e.name)) continue;
-    for (const tool of ['Write', 'Edit']) {
-      ctx.add({
-        kind: 'permission',
-        value: `${tool}(${path.join(ctx.root, e.name)}/**)`,
-        reason: `"${e.name}" is a top-level directory in this repository`,
-        evidence: `${e.name}/`,
-        preselected: false,
-      });
-    }
+    ctx.add({
+      kind: 'permission',
+      value: `Edit(${path.join(ctx.root, e.name)}/**)`,
+      reason: `"${e.name}" is a top-level directory in this repository`,
+      evidence: `${e.name}/`,
+      preselected: false,
+    });
   }
 }
 

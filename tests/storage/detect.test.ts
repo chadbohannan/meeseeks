@@ -109,14 +109,22 @@ describe('detectProjectDefaults — per-ecosystem detectors', () => {
 describe('detectProjectDefaults — the review step is real', () => {
   // The assertion most worth mutation-testing: flipping this default to true
   // must fail, or the checklist is decorative.
-  it('returns Write and Edit proposals unselected', async () => {
+  it('returns Edit proposals unselected', async () => {
     const root = await fixture({ 'src/index.ts': '', 'tests/a.test.ts': '' });
     const ds = await detectProjectDefaults(root);
     const writes = ds.filter(d => /^(Write|Edit)\(/.test(d.value));
     expect(writes.length).toBeGreaterThan(0);
     for (const d of writes) expect(d.preselected).toBe(false);
-    expect(values(ds)).toContain(`Write(${path.join(root, 'src')}/**)`);
+    expect(values(ds)).toContain(`Edit(${path.join(root, 'src')}/**)`);
     expect(values(ds)).toContain(`Edit(${path.join(root, 'tests')}/**)`);
+  });
+
+  // Claude Code checks file-editing tools against Edit(path) rules only; a
+  // Write(path) rule matches nothing and gets warned about at every startup.
+  it('never proposes a Write(path) rule', async () => {
+    const root = await fixture({ 'src/index.ts': '', 'tests/a.test.ts': '' });
+    const ds = await detectProjectDefaults(root);
+    expect(values(ds).filter(v => v.startsWith('Write('))).toEqual([]);
   });
 
   it('skips build output and dependency directories', async () => {

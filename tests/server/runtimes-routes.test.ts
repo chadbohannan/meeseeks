@@ -153,9 +153,7 @@ describe('runtime routes', () => {
     expect(lastSpawn!.args).toContain('test-model-x');
     expect(lastSpawn!.args).toContain('--flag-from-workflow');
     expect(lastSpawn!.env!.FROM_WORKFLOW).toBe('1');
-    // cwd is the workspace root, not the workflow directory — one .claude/
-    // serves every workflow.
-    expect(lastSpawn!.cwd).toBe(root);
+    expect(lastSpawn!.cwd).toBe(path.join(root, 'workflows', 'work'));
     expect(lastSpawn!.env!.MEESEEKS_WORKSPACE_PATH).toBe(root);
     expect(lastSpawn!.env!.MEESEEKS_WORKFLOW_PATH).toBe(path.join(root, 'workflows', 'work'));
   });

@@ -13,15 +13,9 @@ function resolveHarnessBin(): string {
 
 const HARNESS_BIN = resolveHarnessBin();
 
-/**
- * The sentence that tells the agent where to work. cwd is the workspace root so
- * that one .claude/ directory, its skills, and its bin serve every workflow —
- * which means neither the project root nor the workflow directory is implied by
- * the process, and both have to be stated.
- */
 function projectLocationSentence(project: SpawnProject): string {
   return `Project \`${project.name}\` is rooted at \`${project.root}\`. ` +
-    `Your working directory is the Meeseeks workspace; perform code work in the project root.`;
+    `Perform code work in the project root.`;
 }
 
 export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
@@ -74,12 +68,9 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
 
   for (const a of ctx.runtime?.args ?? []) argv.push(a);
 
-  // The workflow directory is stated explicitly because it is no longer the
-  // working directory — an agent that assumed cwd was its workflow would write
-  // process files into the workspace root.
   const ticketContext =
     `You are working on ticket \`${ctx.ticketRef.filename}\` in workflow ` +
-    `\`${ctx.ticketRef.workflowName}\`, whose directory is \`${ctx.workflowPath}\`. ` +
+    `\`${ctx.ticketRef.workflowName}\`. ` +
     `Ticket file: \`${ctx.ticketAbsPath}\`.`;
   // Most stable segment first (project context is the most cacheable), most
   // specific last. The two generated sentences sit adjacent at the end so the
@@ -109,7 +100,7 @@ export function buildSpawnSpec(ctx: SpawnContext): SpawnSpec {
   };
   if (ctx.runtime?.provider) env.CLAUDE_CODE_PROVIDER = ctx.runtime.provider;
 
-  return { argv, env, cwd: ctx.workspaceRoot, preamble, settingsFile };
+  return { argv, env, cwd: ctx.workflowPath, preamble, settingsFile };
 }
 
 export function buildPromptSpawnSpec(ctx: PromptSpawnContext): SpawnSpec {
