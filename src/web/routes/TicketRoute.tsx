@@ -50,6 +50,14 @@ export function TicketRoute() {
       ? runtime
       : null;
 
+  // The agent rewrites the ticket file's body and frontmatter directly while
+  // it runs (it has no scoped "patch ticket" tool — see storage.md). Locking
+  // the editor to read-only during 'running' means it never enters the
+  // focused-or-dirty state that makes local state authoritative, so the
+  // load effect below keeps adopting fresh server snapshots instead of
+  // clobbering the agent's output on the next debounced save.
+  const locked = runtime?.status === 'running';
+
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [state, setState] = useState('');
@@ -227,6 +235,16 @@ export function TicketRoute() {
     await performSave(id, { title, body, state, color });
   }, [dirty, flushPendingSave, performSave, title, body, state, color]);
 
+  // The instant the agent starts running, push out whatever the user was
+  // mid-typing so it isn't silently discarded, then drop local authority —
+  // bodyFocusedRef is cleared defensively rather than waiting on a DOM blur
+  // event, since a Crepe readonly toggle isn't guaranteed to fire one.
+  useEffect(() => {
+    if (!locked) return;
+    bodyFocusedRef.current = false;
+    void saveIfDirty();
+  }, [locked, saveIfDirty]);
+
   if (!workflowName || !filename) return null;
   if (ticket.isLoading) return <div className="p-8 text-slate-500">Loading ticket…</div>;
   if (!ticket.data) return <div className="p-8 text-red-400">Ticket not found.</div>;
@@ -259,6 +277,14 @@ export function TicketRoute() {
           <button className="hover:text-white" onClick={() => navigate(stateUrl)}>{stateName}</button>
         </span>
         <div className="flex items-center gap-2">
+          {locked && (
+            <span
+              className="text-amber-400 text-xs flex items-center gap-1"
+              title="An agent is actively running and may be rewriting this file — the editor is locked until it pauses or finishes, so the console output isn't overwritten by a stale save."
+            >
+              🔒 Locked while agent is running
+            </span>
+          )}
           <label className="text-slate-400">Project</label>
           <ProjectSelect
             value={project}
@@ -304,8 +330,9 @@ export function TicketRoute() {
         </div>
       </nav>
       <input
-        className="w-full bg-slate-800 rounded px-3 py-2 text-lg font-medium mb-3 shrink-0"
+        className="w-full bg-slate-800 rounded px-3 py-2 text-lg font-medium mb-3 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed"
         value={title}
+        disabled={locked}
         onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
         onBlur={saveIfDirty}
         onKeyDown={(e) => { if (e.key === 'Escape' || (e.key === 's' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); e.currentTarget.blur(); } }}
@@ -315,6 +342,7 @@ export function TicketRoute() {
         onChange={debouncedSaveBody}
         onFocus={() => { bodyFocusedRef.current = true; }}
         onBlur={() => { bodyFocusedRef.current = false; void flushPendingSave(); }}
+        readOnly={locked}
         className="flex-1 min-h-0 w-full bg-slate-800 rounded overflow-y-auto"
         placeholder="Write ticket description…"
       />
@@ -332,6 +360,7 @@ export function TicketRoute() {
           <input
             type="color"
             value={color ?? '#6b7280'}
+            disabled={locked}
             onChange={(e) => {
               const newColor = e.target.value;
               const id = identityRef.current;
@@ -339,8 +368,8 @@ export function TicketRoute() {
               setColor(newColor);
               void performSave(id, { title, body, state, color: newColor });
             }}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            title="Ticket accent color"
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-not-allowed"
+            title={locked ? 'Release the agent before changing color' : 'Ticket accent color'}
           />
           <div
             className="absolute inset-0 rounded-full border border-slate-600 pointer-events-none"

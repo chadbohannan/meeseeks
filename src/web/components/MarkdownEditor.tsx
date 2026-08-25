@@ -9,11 +9,12 @@ interface MarkdownEditorProps {
   onChange: (markdown: string) => void;
   onFocus?: () => void;
   onBlur?: () => void;
+  readOnly?: boolean;
   className?: string;
   placeholder?: string;
 }
 
-export function MarkdownEditor({ value, onChange, onFocus, onBlur, className = '', placeholder }: MarkdownEditorProps) {
+export function MarkdownEditor({ value, onChange, onFocus, onBlur, readOnly = false, className = '', placeholder }: MarkdownEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const crepeRef = useRef<Crepe | null>(null);
   const readyRef = useRef(false);
@@ -21,6 +22,7 @@ export function MarkdownEditor({ value, onChange, onFocus, onBlur, className = '
   const onFocusRef = useRef(onFocus);
   const onBlurRef = useRef(onBlur);
   const valueRef = useRef(value);
+  const readOnlyRef = useRef(readOnly);
   const suppressRef = useRef(false);
   const lastEmittedRef = useRef(value);
 
@@ -28,6 +30,7 @@ export function MarkdownEditor({ value, onChange, onFocus, onBlur, className = '
   onFocusRef.current = onFocus;
   onBlurRef.current = onBlur;
   valueRef.current = value;
+  readOnlyRef.current = readOnly;
 
   const initEditor = useCallback(async () => {
     const el = containerRef.current;
@@ -51,7 +54,7 @@ export function MarkdownEditor({ value, onChange, onFocus, onBlur, className = '
 
     crepe.on((listener) => {
       listener.markdownUpdated((_ctx, markdown, prevMarkdown) => {
-        if (markdown !== prevMarkdown && !suppressRef.current) {
+        if (markdown !== prevMarkdown && !suppressRef.current && !readOnlyRef.current) {
           lastEmittedRef.current = markdown;
           onChangeRef.current(markdown);
         }
@@ -60,6 +63,7 @@ export function MarkdownEditor({ value, onChange, onFocus, onBlur, className = '
 
     crepeRef.current = crepe;
     await crepe.create();
+    crepe.setReadonly(readOnlyRef.current);
     readyRef.current = true;
   }, [placeholder]);
 
@@ -73,9 +77,18 @@ export function MarkdownEditor({ value, onChange, onFocus, onBlur, className = '
   }, [initEditor]);
 
   useEffect(() => {
+    const crepe = crepeRef.current;
+    if (!crepe || !readyRef.current) return;
+    crepe.setReadonly(readOnly);
+  }, [readOnly]);
+
+  useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const handleFocusIn = () => { onFocusRef.current?.(); };
+    // A readonly editor never had editing focus in the first place, from the
+    // consumer's perspective — don't let a stray focusin (e.g. clicking to
+    // select text) flip a caller's focus-gating ref on.
+    const handleFocusIn = () => { if (!readOnlyRef.current) onFocusRef.current?.(); };
     const handleFocusOut = (e: FocusEvent) => {
       // Focus moving inside the editor's subtree is not a blur.
       const next = e.relatedTarget as Node | null;
