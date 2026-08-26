@@ -97,6 +97,24 @@ export function TicketRoute() {
   // target at the moment of edit, without depending on React render timing.
   const identityRef = useRef<Identity | null>(null);
 
+  // The identity whose server snapshot actually populated title/body/state/color.
+  // It lags identityRef across a ticket switch: on the render where the route
+  // params flip, identityRef already points at the incoming ticket while the
+  // state variables still hold the outgoing one's values, because the resets are
+  // queued inside the identity-change effect rather than applied during render.
+  // Any save built from the render closure must therefore check that the two
+  // agree, or it writes the old ticket's content into the new ticket's file.
+  const loadedIdentityRef = useRef<Identity | null>(null);
+
+  // The identity the current state variables can legitimately be saved to —
+  // null during the transition window described above.
+  const settledIdentity = useCallback((): Identity | null => {
+    const current = identityRef.current;
+    const loaded = loadedIdentityRef.current;
+    if (!current || !loaded || !sameIdentity(current, loaded)) return null;
+    return current;
+  }, []);
+
   // Pending debounced save: a snapshot of {identity, fields}. The identity is
   // baked in at edit time so the eventual PATCH always lands at the file the
   // user was editing, even if the route has since shifted to another ticket.
@@ -134,7 +152,10 @@ export function TicketRoute() {
   }, [performSave]);
 
   const debouncedSaveBody = useCallback((newBody: string) => {
-    const id = identityRef.current;
+    // settledIdentity, not identityRef: the accompanying title/state/color come
+    // from the render closure, so this write is only valid for the ticket those
+    // fields were loaded from.
+    const id = settledIdentity();
     if (!id) return;
     setBody(newBody);
     setDirty(true);
@@ -149,13 +170,32 @@ export function TicketRoute() {
       pendingSaveRef.current = null;
       if (pending) void performSave(pending.identity, pending.fields);
     }, 3000);
-  }, [performSave, title, state, color]);
+  }, [performSave, settledIdentity, title, state, color]);
+
+  // Flush every unsaved edit against the identity it was authored for, in one
+  // PATCH. Used on the two exits where the state variables are about to stop
+  // describing the file they came from: a ticket switch and unmount. The
+  // debounced snapshot carries the freshest body; the render closure carries
+  // the freshest title/state/color (the title input has no debounce of its own
+  // and relies on a blur that in-route navigation can skip), so the two are
+  // merged rather than one being picked over the other.
+  const flushOutgoing = useCallback((identity: Identity) => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+    }
+    const pending = pendingSaveRef.current;
+    pendingSaveRef.current = null;
+    if (!pending && !dirty) return;
+    const outgoingBody = pending ? pending.fields.body : body;
+    void performSave(identity, { title, body: outgoingBody, state, color });
+  }, [performSave, dirty, title, body, state, color]);
 
   // Identity-change handler. When the route's (workflowName, filename)
-  // tuple shifts — e.g. user clicks a different ticket — flush any pending
-  // save against the outgoing identity, then reset local state so the load
-  // effect below can populate the new ticket fresh. This replaces both the
-  // unmount-only flush (which never fired on in-route navigation) and the
+  // tuple shifts — e.g. user clicks a different ticket — flush the outgoing
+  // ticket's unsaved edits against its own identity, then reset local state so
+  // the load effect below can populate the new ticket fresh. This replaces both
+  // the unmount-only flush (which never fired on in-route navigation) and the
   // dirty-bail in the load effect (which used to strand the old body under
   // the new ticket's header).
   useEffect(() => {
@@ -163,9 +203,13 @@ export function TicketRoute() {
     const next: Identity = { workflowName, filename };
     const prev = identityRef.current;
     if (prev && !sameIdentity(prev, next)) {
-      // Don't await: the pending snapshot already carries the old identity, so
-      // the flush lands correctly while the new ticket mounts immediately.
-      void flushPendingSave();
+      // Don't await: flushOutgoing writes against `prev` explicitly, so it lands
+      // correctly while the new ticket mounts immediately. On this render the
+      // state variables still hold the outgoing ticket's values, which is
+      // exactly what needs saving — and exactly why loadedIdentityRef is
+      // cleared below, so nothing else can save them to the incoming file.
+      flushOutgoing(prev);
+      loadedIdentityRef.current = null;
       setTitle('');
       setBody('');
       setState('');
@@ -177,16 +221,20 @@ export function TicketRoute() {
       conflictNotifiedRef.current = false;
     }
     identityRef.current = next;
-  }, [workflowName, filename, flushPendingSave]);
+  }, [workflowName, filename, flushOutgoing]);
 
   // Final-chance flush on real unmount (route exit, not in-route navigation).
-  const flushRef = useRef(flushPendingSave);
-  flushRef.current = flushPendingSave;
+  const flushRef = useRef(flushOutgoing);
+  flushRef.current = flushOutgoing;
   useEffect(() => {
-    return () => { void flushRef.current(); };
+    return () => {
+      const id = identityRef.current;
+      if (id) flushRef.current(id);
+    };
   }, []);
 
   useEffect(() => {
+    if (!workflowName || !filename) return;
     if (!ticket.data) return;
     const serverBody = ticket.data.ticket.body;
     const serverUpdated = ticket.data.ticket.updated;
@@ -217,11 +265,15 @@ export function TicketRoute() {
     setColor(ticket.data.ticket.color);
     setProject(ticket.data.ticket.project);
     setBody(serverBody);
+    // The state variables now describe this snapshot's ticket. `ticket.data` is
+    // keyed on the same (workflowName, filename) the render used, so these are
+    // the right coordinates even before identityRef is consulted again.
+    loadedIdentityRef.current = { workflowName, filename };
     lastPersistedBodyRef.current = serverBody;
     lastPersistedUpdatedRef.current = serverUpdated;
     conflictNotifiedRef.current = false;
     setDirty(false);
-  }, [ticket.data, dirty]);
+  }, [ticket.data, dirty, workflowName, filename]);
 
   useEffect(() => {
     setTab('console');
@@ -229,16 +281,28 @@ export function TicketRoute() {
 
   const saveIfDirty = useCallback(async () => {
     if (!dirty) return;
-    const id = identityRef.current;
+    // Not identityRef: this save is built from the render closure's fields, so
+    // it may only go to the ticket those fields were loaded from. During a
+    // ticket switch the two disagree for one render, and the outgoing edit has
+    // already been flushed to its own file by the identity-change effect.
+    const id = settledIdentity();
     if (!id) return;
     await flushPendingSave();
     await performSave(id, { title, body, state, color });
-  }, [dirty, flushPendingSave, performSave, title, body, state, color]);
+  }, [dirty, settledIdentity, flushPendingSave, performSave, title, body, state, color]);
 
   // The instant the agent starts running, push out whatever the user was
   // mid-typing so it isn't silently discarded, then drop local authority —
   // bodyFocusedRef is cleared defensively rather than waiting on a DOM blur
   // event, since a Crepe readonly toggle isn't guaranteed to fire one.
+  //
+  // This is the only save path that isn't driven by a user gesture, which makes
+  // it the one place where the render closure can be a whole ticket behind the
+  // route. Switching from a ticket with unsaved edits to one whose agent is
+  // already running re-fires this effect on the transition render, with `dirty`
+  // and the field values still those of the outgoing ticket. saveIfDirty's
+  // settledIdentity check is what stops that from writing the old ticket's
+  // title, body, state, and color into the new ticket's file.
   useEffect(() => {
     if (!locked) return;
     bodyFocusedRef.current = false;
@@ -298,7 +362,7 @@ export function TicketRoute() {
               ? 'Release the agent before reassigning — a running session is bound to the project it started with'
               : undefined}
             onChange={async (next) => {
-              const id = identityRef.current;
+              const id = settledIdentity();
               if (!id) return;
               setProject(next);
               if (next) setLastProject(next);
@@ -315,7 +379,7 @@ export function TicketRoute() {
             value={state}
             onChange={async (e) => {
               const newState = e.target.value;
-              const id = identityRef.current;
+              const id = settledIdentity();
               if (!id) return;
               setState(newState);
               // Flush any pending body save first so the two writes don't race
@@ -363,7 +427,7 @@ export function TicketRoute() {
             disabled={locked}
             onChange={(e) => {
               const newColor = e.target.value;
-              const id = identityRef.current;
+              const id = settledIdentity();
               if (!id) return;
               setColor(newColor);
               void performSave(id, { title, body, state, color: newColor });
