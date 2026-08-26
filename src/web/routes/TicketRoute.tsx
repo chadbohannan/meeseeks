@@ -10,6 +10,7 @@ import { useRuntimesStore } from '../store/runtimes.js';
 import { RuntimeStatusDot } from '../components/RuntimeStatusDot.js';
 import { ResizableSplit } from '../components/ResizableSplit.js';
 import { XtermHost } from '../components/console/xterm-host.js';
+import { useMediaQuery } from '../hooks/use-media-query.js';
 import { toast } from 'sonner';
 import { MarkdownEditor } from '../components/MarkdownEditor.js';
 import { api } from '../lib/api.js';
@@ -65,6 +66,11 @@ export function TicketRoute() {
   const [project, setProject] = useState<string | undefined>(undefined);
   const [dirty, setDirty] = useState(false);
   const [tab, setTab] = useState<'console' | 'context' | 'permissions'>('console');
+  // Below this width the side-by-side split is too cramped to be usable, so
+  // 'split' is dropped from the view selector and the two panes stack
+  // full-screen instead.
+  const isNarrow = !useMediaQuery('(min-width: 1024px)');
+  const [viewMode, setViewMode] = useState<'ticket' | 'console' | 'split'>('split');
   const { data: projectsData } = useProjects();
   const setLastProject = useUi(s => s.setLastProject);
   // Seeded from this workflow's resolved runtime, so its `runtime.model` is
@@ -279,6 +285,21 @@ export function TicketRoute() {
     setTab('console');
   }, [runtime?.runtimeId]);
 
+  // Split is too cramped to be usable below the breakpoint — fall back to
+  // whichever single pane the user was on last.
+  useEffect(() => {
+    if (isNarrow && viewMode === 'split') setViewMode('ticket');
+  }, [isNarrow, viewMode]);
+
+  // Console panes only fill their real width once a view switch settles —
+  // e.g. leaving split hands the console the whole viewport. XtermHost's fit
+  // addon already listens for window 'resize', so nudge it once the new
+  // layout has painted rather than teaching it about viewMode directly.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+    return () => cancelAnimationFrame(id);
+  }, [viewMode]);
+
   const saveIfDirty = useCallback(async () => {
     if (!dirty) return;
     // Not identityRef: this save is built from the render closure's fields, so
@@ -334,13 +355,13 @@ export function TicketRoute() {
 
   const ticketEditor = (
     <div className="p-6 h-full flex flex-col" style={{ border: `2px solid ${accent}` }}>
-      <nav className="text-sm text-slate-400 mb-3 shrink-0 flex items-center justify-between">
+      <nav className="text-sm text-slate-400 mb-3 shrink-0 flex flex-wrap items-center gap-y-2 justify-between">
         <span className="flex items-center gap-1">
           <button className="hover:text-white" onClick={() => navigate(`/workflows/${encodeURIComponent(workflowName)}`)}>{workflow.data?.workflow.displayName ?? workflowName}</button>
           <span className="text-slate-600">/</span>
           <button className="hover:text-white" onClick={() => navigate(stateUrl)}>{stateName}</button>
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {locked && (
             <span
               className="text-amber-400 text-xs flex items-center gap-1"
@@ -552,16 +573,49 @@ export function TicketRoute() {
     </div>
   );
 
+  const viewSelector = (
+    <div className="absolute bottom-3 right-6 flex rounded-full overflow-hidden shadow-lg border border-slate-600 bg-slate-800/95 backdrop-blur z-10">
+      <button
+        className={`px-3 py-1.5 text-xs font-medium ${viewMode === 'ticket' ? 'bg-slate-600 text-white' : 'text-slate-300 hover:text-white'}`}
+        onClick={() => setViewMode('ticket')}
+      >Editor</button>
+      <button
+        className={`px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1 ${viewMode === 'console' ? 'bg-slate-600 text-white' : 'text-slate-300 hover:text-white'}`}
+        onClick={() => setViewMode('console')}
+      >
+        {runtime && <RuntimeStatusDot status={runtime.status} />}
+        Console
+      </button>
+      {!isNarrow && (
+        <button
+          className={`px-3 py-1.5 text-xs font-medium ${viewMode === 'split' ? 'bg-slate-600 text-white' : 'text-slate-300 hover:text-white'}`}
+          onClick={() => setViewMode('split')}
+        >Split</button>
+      )}
+    </div>
+  );
+
+  if (viewMode === 'split' && !isNarrow) {
+    return (
+      <div className="h-full relative">
+        <ResizableSplit
+          left={ticketEditor}
+          right={consolePane}
+          defaultSplit={0.5}
+          minLeft={300}
+          storageKey={`ticket-split:${filename}`}
+          minRight={300}
+        />
+        {viewSelector}
+      </div>
+    );
+  }
+
   return (
-    <div className="h-full">
-      <ResizableSplit
-        left={ticketEditor}
-        right={consolePane}
-        defaultSplit={0.5}
-        minLeft={300}
-        storageKey={`ticket-split:${filename}`}
-        minRight={300}
-      />
+    <div className="h-full relative">
+      <div className={`h-full ${viewMode === 'ticket' ? 'block' : 'hidden'}`}>{ticketEditor}</div>
+      <div className={`h-full ${viewMode === 'console' ? 'block' : 'hidden'}`}>{consolePane}</div>
+      {viewSelector}
     </div>
   );
 }

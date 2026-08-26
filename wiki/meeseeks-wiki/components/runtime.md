@@ -46,6 +46,10 @@ The `/internal/runtime/:id/notify` route delegates to `supervisor.notifyState()`
 
 PTY resize and input calls are guarded against invalid lifecycle states. `resize()` rejects calls when the runtime is `exited`, `errored`, or `terminating`, but applies during `starting` (see [Resize during startup](#state-transitions-in-interactive-mode) above — deferring it there is what broke width sync for interactive TUIs). `writeInput()` similarly rejects `exited`, `errored`, and `terminating`. Both methods wrap the underlying PTY call in a try/catch so that a dying process — or a not-yet-ready fd — cannot crash the supervisor. See [Platform Constraints](../concepts/platform-constraints.md) for the macOS-specific conditions that made these guards necessary.
 
+## Concurrent viewers race for one PTY size
+
+`resize(runtimeId, cols, rows)` has no concept of *which* viewer asked — the PTY is a single shared object per runtime, so the last `runtime-resize` frame to arrive wins for every connected client, not just its sender. This surfaced as a real UX bug: opening the same ticket's [console panel](console.md) in two browser tabs at different widths produces visibly garbled, interleaved terminal output, because each tab's `XtermHost` independently measures its own container and calls `sendRuntimeResize` — so the PTY ends up sized to whichever tab's `ResizeObserver` fired most recently, while an interactive TUI like Claude Code's redraws itself assuming that size, and every *other* tab keeps rendering that same byte stream into a locally-sized xterm buffer that disagrees with it. The symptom reads as "the console sizes correctly for a moment, then acts like it's been sized smaller," which is easy to misdiagnose as a client-side measurement race (an initial `fit()` racing layout, e.g.) rather than what it is: two writers with no arbitration over one piece of shared state. Fixing this for real means picking a policy — e.g. only the visible/focused tab resizes (Page Visibility API), or the server clamps to the smallest connected viewer per runtime (the way `tmux` does for attached clients) — neither of which exists yet.
+
 ## Termination
 
 `terminate(id)` sends SIGTERM, waits 5 seconds (configurable via `termKillMs`), then SIGKILL. The `terminate` method registers an `onExit` handler to resolve immediately if the process exits before the timeout, avoiding unnecessary SIGKILL. `terminateAll()` is invoked from `ServerState.close()`, so closing a project (or switching projects) reaps every active runtime.
@@ -57,5 +61,6 @@ PTY resize and input calls are guarded against invalid lifecycle states. `resize
 | 2026-04-28 | Debugging session: chokidar/node-pty fix, resize guards, stream-json flag correction |
 | 2026-05-03 | `src/runtime/supervisor.ts` (`spawnPrompt`), `src/runtime/claude-code.ts` (`buildPromptSpawnSpec`) |
 | 2026-06-09 | Debugging session: interactive resize deferral broke console width sync on start (`supervisor.ts` `resize()`) |
+| 2026-08-26 | Debugging session: two browser tabs open on one ticket produced garbled console output — traced to unarbitrated `resize()` calls racing on the shared PTY |
 | 2026-07-11 | `src/runtime/types.ts` (`harness` field, `SpawnSpec`), `src/runtime/supervisor.ts` (direct claude-code imports) — harness coupling |
 | 2026-08-23 | `src/runtime/claude-code.ts`, `src/runtime/permissions.ts` — workspace-root cwd, permission union, preamble order |

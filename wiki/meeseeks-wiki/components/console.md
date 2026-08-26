@@ -10,11 +10,11 @@ The `Dock.tsx` component is rendered in `AppShell` and surfaces every active one
 
 ## Stdio path
 
-`hooks/use-runtime-ws.ts` subscribes to the WS singleton, decodes base64 `runtime-stdio` frames into `Uint8Array`, and fans them out to whichever `XtermHost` is currently mounted. Keystrokes flow back via `runtime-input` frames; `xterm-addon-fit` triggers `runtime-resize` on viewport changes.
+`hooks/use-runtime-ws.ts` subscribes to the WS singleton, decodes base64 `runtime-stdio` frames into `Uint8Array`, and fans them out to whichever `XtermHost` is currently mounted. Keystrokes flow back via `runtime-input` frames; `xterm-addon-fit` triggers `runtime-resize` on viewport changes. Because every viewer of a runtime writes to the same underlying PTY with no arbitration, two browser tabs open on the same ticket race each other's resize calls and corrupt each other's rendering — the mechanism and the fix options are covered in [Runtime Supervisor: concurrent viewers race for one PTY size](runtime.md#concurrent-viewers-race-for-one-pty-size).
 
 ## Scope
 
-This slice has no resize handle on the panels (only drag); only one panel per runtime; no persistence across page reload. Listed as future work.
+This slice has no resize handle on the panels (only drag); only one panel per runtime; no persistence across page reload; and no arbitration when a runtime is viewed from more than one client at once (see the resize-race link above). Listed as future work.
 
 | Ingest Date | Source |
 | ----------- | ------ |

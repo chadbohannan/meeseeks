@@ -45,10 +45,20 @@ export function XtermHost({ runtimeId }: { runtimeId: string }) {
       fit = new FitAddon();
       term.loadAddon(fit);
       term.open(host);
-      try { fit.fit(); } catch { /* ok */ }
-      lastCols = term.cols;
-      lastRows = term.rows;
-      sendRuntimeResize(runtimeId, term.cols, term.rows);
+      // Measuring character size synchronously right after open() can race the
+      // browser's first layout/paint pass (especially right after the host
+      // goes from display:none to visible) and undershoot the real cell size.
+      // xterm then quietly re-measures on its next render and settles on a
+      // larger cell size, i.e. fewer columns/rows fit — the terminal looks
+      // like it "shrank" a moment after mounting. Deferring the first fit to
+      // the next frame lets it measure against the real, laid-out size.
+      requestAnimationFrame(() => {
+        if (disposed || !term || !fit) return;
+        try { fit.fit(); } catch { return; }
+        lastCols = term.cols;
+        lastRows = term.rows;
+        sendRuntimeResize(runtimeId, term.cols, term.rows);
+      });
       term.focus();
 
       unsub = onRuntimeStdio((id, bytes) => {

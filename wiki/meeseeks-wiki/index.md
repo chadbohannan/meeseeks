@@ -14,7 +14,7 @@
 - [Storage](components/storage.md) — filesystem storage layer with YAML persistence
 - [Server](components/server.md) — Fastify server with REST API and WebSocket hub
 - [Web UI](components/web.md) — Vite + React SPA: Kanban board, ticket editor, console byte pipeline, and the LangChain-frontend refactor surface
-- [Runtime Supervisor](components/runtime.md) — per-ticket Claude Code process supervisor with ring buffer, stream parser, resize guards
+- [Runtime Supervisor](components/runtime.md) — per-ticket Claude Code process supervisor with ring buffer, stream parser, resize guards, and the unarbitrated multi-viewer resize race
 - [Console (MDI panels)](components/console.md) — xterm.js panels with dismiss-without-kill gesture
 - [LangGraph Agent Server](components/langgraph-agent-server.md) — HTTP harness surface: assistants, threads, runs, cron, double-texting, task queue
 - [LangChain `create_agent`](components/langchain-create-agent.md) — the agent harness: model + tools + prompt + middleware, compiled to a LangGraph graph

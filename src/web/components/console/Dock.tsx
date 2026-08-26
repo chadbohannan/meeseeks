@@ -11,7 +11,7 @@ export function Dock() {
   if (visible.length === 0) return null;
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto text-xs">
+    <div className="flex items-center flex-wrap gap-2 text-xs">
       {visible.map((r) => {
         const id = r.runtimeId;
         const inactive = r.status === 'exited' || r.status === 'errored' || r.status === 'terminating';
